@@ -56,6 +56,18 @@ export const adminApi = {
     adminFetch<{ id: string; status: string }>(`/admin/transactions/${id}/reject`, {
       method: 'PATCH',
     }),
+
+  kycList: (page = 1) =>
+    adminFetch<PaginatedResponse<AdminKycUser>>(`/admin/kyc?page=${page}`),
+
+  kycDocs: (userId: string) =>
+    adminFetch<AdminKycDoc[]>(`/admin/kyc/${userId}/docs`),
+
+  kycApprove: (userId: string) =>
+    adminFetch<void>(`/admin/kyc/${userId}/approve`, { method: 'PATCH' }),
+
+  kycReject: (userId: string) =>
+    adminFetch<void>(`/admin/kyc/${userId}/reject`, { method: 'PATCH' }),
 }
 
 export interface AdminStats {
@@ -109,4 +121,22 @@ export interface PaginatedResponse<T> {
   total: number
   page: number
   totalPages: number
+}
+
+export interface AdminKycUser {
+  id: string
+  phone: string
+  name: string
+  kycStatus: 'none' | 'pending' | 'verified'
+  kycTier: number
+  createdAt: string
+  docs: Array<{ id: string; type: string; verified: boolean; uploadedAt: string }>
+}
+
+export interface AdminKycDoc {
+  id: string
+  type: 'id_card' | 'selfie' | 'proof_address'
+  fileUrl: string
+  verified: boolean
+  uploadedAt: string
 }

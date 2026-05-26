@@ -69,6 +69,30 @@ export const clientApi = {
       body: JSON.stringify(data),
     }),
 
+  updateProfileFull: (data: ProfileUpdateData) =>
+    clientFetch<void>('/user/profile', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  kycDocs: () =>
+    clientFetch<KycDoc[]>('/user/kyc'),
+
+  submitKycDoc: (type: KycDocType, fileData: string) =>
+    clientFetch<void>('/user/kyc', {
+      method: 'POST',
+      body: JSON.stringify({ type, fileData }),
+    }),
+
+  changePIN: (pinHash: string) =>
+    clientFetch<void>('/user/change-pin', {
+      method: 'PATCH',
+      body: JSON.stringify({ pinHash }),
+    }),
+
+  aiAdvice: (projectId: string) =>
+    clientFetch<AiAdvice>(`/user/ai-advice?projectId=${projectId}`),
+
   projects: () =>
     clientFetch<Project[]>('/projects'),
 
@@ -94,6 +118,59 @@ export interface UserProfile {
   kycTier: number
   referralCode: string
   memberSince: string
+  birthDate: string | null
+  city: string
+  profession: string
+  monthlyIncome: number | null
+}
+
+export interface ProfileUpdateData {
+  name?: string
+  birthDate?: string | null
+  city?: string
+  profession?: string
+  monthlyIncome?: number | null
+}
+
+export type KycDocType = 'id_card' | 'selfie' | 'proof_address'
+
+export interface KycDoc {
+  id: string
+  type: KycDocType
+  verified: boolean
+  uploadedAt: string
+}
+
+export interface AiAdviceScenario {
+  months: number
+  monthlyDeposit: number
+  weeklyDeposit: number
+  affordabilityPct: number | null
+  feasibilityLabel: string | null
+  feasibilityColor: string
+}
+
+export interface AiAdvice {
+  completed: boolean
+  hasDeadline?: boolean
+  projectName: string
+  remaining?: number
+  goalAmount?: number
+  currentAmount?: number
+  // with deadline
+  daysLeft?: number
+  monthsLeft?: number
+  monthlyDeposit?: number
+  weeklyDeposit?: number
+  dailyDeposit?: number
+  deadline?: string
+  affordabilityPct?: number | null
+  feasibilityLabel?: string | null
+  feasibilityColor?: string
+  isOnTrack?: boolean
+  // no deadline
+  scenarios?: AiAdviceScenario[]
+  needsIncome?: boolean
 }
 
 export interface Transaction {
@@ -117,6 +194,7 @@ export interface Project {
   currentAmount: number
   goalAmount: number
   status: 'ACTIVE' | 'COMPLETED' | 'PAUSED'
+  deadline: string | null
   createdAt: string
 }
 
@@ -156,4 +234,5 @@ export interface CreateProjectData {
   name: string
   goalAmount: number
   icon?: string
+  deadline?: string | null
 }

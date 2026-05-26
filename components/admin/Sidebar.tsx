@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
-  LayoutDashboard, Users, ArrowLeftRight, Target, LogOut, Menu, X, Bell
+  LayoutDashboard, Users, ArrowLeftRight, Target, LogOut, Menu, X, Bell, ShieldCheck
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -12,6 +12,7 @@ const navItems = [
   { href: '/admin/transactions',   label: 'Transactions',   icon: ArrowLeftRight },
   { href: '/admin/projects',       label: 'Projets',        icon: Target },
   { href: '/admin/notifications',  label: 'Notifications',  icon: Bell },
+  { href: '/admin/kyc',            label: 'KYC',            icon: ShieldCheck },
 ]
 
 export default function Sidebar() {
