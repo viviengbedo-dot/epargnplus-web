@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
-import { Filter, Download } from 'lucide-react'
+import { Filter, Download, Check, X } from 'lucide-react'
 import { adminApi, AdminTransaction } from '@/lib/api'
 
 function exportCSV(type: string, status: string) {
@@ -29,6 +29,32 @@ export default function TransactionsPage() {
   const [type, setType] = useState('')
   const [status, setStatus] = useState('')
   const [loading, setLoading] = useState(true)
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
+
+  async function handleConfirm(id: string) {
+    setActionLoading(id + '-confirm')
+    try {
+      await adminApi.confirmTransaction(id)
+      await load()
+    } catch (e) {
+      alert((e as Error).message)
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  async function handleReject(id: string) {
+    if (!confirm('Rejeter cette transaction ?')) return
+    setActionLoading(id + '-reject')
+    try {
+      await adminApi.rejectTransaction(id)
+      await load()
+    } catch (e) {
+      alert((e as Error).message)
+    } finally {
+      setActionLoading(null)
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -87,13 +113,14 @@ export default function TransactionsPage() {
                 <th className="text-right px-5 py-3 text-gray-400 font-medium text-xs">Montant</th>
                 <th className="text-left px-5 py-3 text-gray-400 font-medium text-xs">Statut</th>
                 <th className="text-left px-5 py-3 text-gray-400 font-medium text-xs">Date</th>
+                <th className="text-left px-5 py-3 text-gray-400 font-medium text-xs">Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 Array.from({ length: 10 }).map((_, i) => (
                   <tr key={i} className="border-b border-gray-50">
-                    {Array.from({ length: 7 }).map((_, j) => (
+                    {Array.from({ length: 8 }).map((_, j) => (
                       <td key={j} className="px-5 py-3">
                         <div className="h-4 bg-gray-100 rounded animate-pulse" style={{ width: `${50 + j * 8}%` }} />
                       </td>
@@ -102,10 +129,10 @@ export default function TransactionsPage() {
                 ))
               ) : txs.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-5 py-12 text-center text-gray-400 text-sm">Aucune transaction</td>
+                  <td colSpan={8} className="px-5 py-12 text-center text-gray-400 text-sm">Aucune transaction</td>
                 </tr>
               ) : txs.map((tx) => (
-                <tr key={tx.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                <tr key={tx.id} className={`border-b border-gray-50 hover:bg-gray-50 transition-colors ${tx.status === 'pending' ? 'bg-yellow-50/30' : ''}`}>
                   <td className="px-5 py-3 font-mono text-xs text-gray-500">{tx.reference}</td>
                   <td className="px-5 py-3 text-navy font-medium">{tx.userPhone}</td>
                   <td className="px-5 py-3">
@@ -134,6 +161,28 @@ export default function TransactionsPage() {
                     </span>
                   </td>
                   <td className="px-5 py-3 text-xs text-gray-400">{tx.createdAt}</td>
+                  <td className="px-5 py-3">
+                    {tx.status === 'pending' && (
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => handleConfirm(tx.id)}
+                          disabled={actionLoading === tx.id + '-confirm'}
+                          className="flex items-center gap-1 px-2.5 py-1 bg-green-500 text-white text-xs font-semibold rounded-lg hover:bg-green-600 disabled:opacity-50 transition-colors"
+                        >
+                          <Check size={11} />
+                          {actionLoading === tx.id + '-confirm' ? '...' : 'Confirmer'}
+                        </button>
+                        <button
+                          onClick={() => handleReject(tx.id)}
+                          disabled={actionLoading === tx.id + '-reject'}
+                          className="flex items-center gap-1 px-2.5 py-1 bg-red-500 text-white text-xs font-semibold rounded-lg hover:bg-red-600 disabled:opacity-50 transition-colors"
+                        >
+                          <X size={11} />
+                          {actionLoading === tx.id + '-reject' ? '...' : 'Rejeter'}
+                        </button>
+                      </div>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

@@ -3,13 +3,13 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ArrowDownLeft, ArrowUpRight, Target, ChevronRight,
-  TrendingUp, Plus, X, Check,
+  TrendingUp, Plus, X, Check, Clock, Smartphone,
 } from 'lucide-react'
-import { clientApi, UserProfile, Transaction, Project } from '@/lib/client-api'
+import { clientApi, UserProfile, Transaction, Project, DepositResult, WithdrawResult } from '@/lib/client-api'
 
 const OPERATORS = [
-  { id: 'orange', label: 'Orange Money' },
-  { id: 'mtn', label: 'MTN MoMo' },
+  { id: 'orange-money', label: 'Orange Money' },
+  { id: 'mtn-momo', label: 'MTN MoMo' },
 ]
 
 function fmtGNF(v: number) {
@@ -43,6 +43,8 @@ export default function DashboardHome() {
   const [fLoading, setFLoading] = useState(false)
   const [fError, setFError] = useState('')
   const [fSuccess, setFSuccess] = useState('')
+  const [fDepositResult, setFDepositResult] = useState<DepositResult | null>(null)
+  const [fWithdrawResult, setFWithdrawResult] = useState<WithdrawResult | null>(null)
 
   useEffect(() => {
     Promise.all([clientApi.profile(), clientApi.transactions(), clientApi.projects()])
@@ -58,9 +60,11 @@ export default function DashboardHome() {
   function openModal(type: Modal) {
     setFAmount('')
     setFPhone(profile?.phone ?? '')
-    setFOperator('orange')
+    setFOperator('orange-money')
     setFError('')
     setFSuccess('')
+    setFDepositResult(null)
+    setFWithdrawResult(null)
     setModal(type)
   }
 
@@ -71,16 +75,17 @@ export default function DashboardHome() {
     try {
       const amount = parseInt(fAmount, 10)
       if (modal === 'deposit') {
-        await clientApi.deposit({ amount, mobileOperator: fOperator, phone: fPhone })
+        const result = await clientApi.deposit({ amount, mobileOperator: fOperator, phone: fPhone })
+        setFDepositResult(result)
       } else {
-        await clientApi.withdraw({ amount, mobileOperator: fOperator, phone: fPhone })
+        const result = await clientApi.withdraw({ amount, mobileOperator: fOperator, phone: fPhone })
+        setFWithdrawResult(result)
+        // Balance already reserved — refresh
+        const updated = await clientApi.profile()
+        setProfile(updated)
+        const tx = await clientApi.transactions()
+        setTransactions(tx.slice(0, 5))
       }
-      setFSuccess(modal === 'deposit' ? 'Dépôt effectué avec succès !' : 'Retrait effectué avec succès !')
-      // Refresh balance
-      const updated = await clientApi.profile()
-      setProfile(updated)
-      const tx = await clientApi.transactions()
-      setTransactions(tx.slice(0, 5))
     } catch (err) {
       setFError((err as Error).message)
     } finally {
@@ -243,15 +248,65 @@ export default function DashboardHome() {
               </button>
             </div>
 
-            {fSuccess ? (
-              <div className="text-center py-4">
-                <div className="w-14 h-14 bg-green-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
-                  <Check size={24} className="text-green-600" />
+            {/* Deposit instructions screen */}
+            {fDepositResult ? (
+              <div className="py-2">
+                <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4 mb-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-9 h-9 bg-orange-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                      <Smartphone size={18} className="text-white" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-orange-600 font-medium">Envoyez via {fDepositResult.operatorLabel}</p>
+                      <p className="text-xl font-black text-navy">{fDepositResult.merchantNumber}</p>
+                    </div>
+                  </div>
+                  <div className="border-t border-orange-200 pt-3">
+                    <p className="text-xs text-gray-500 mb-1">Montant à envoyer</p>
+                    <p className="font-bold text-navy">{fDepositResult.amount.toLocaleString('fr-FR')} GNF</p>
+                  </div>
                 </div>
-                <p className="font-bold text-navy">{fSuccess}</p>
+                <div className="bg-navy/5 rounded-xl p-3 mb-4">
+                  <p className="text-xs text-gray-500 mb-1">Référence (motif du paiement)</p>
+                  <p className="font-mono font-bold text-navy text-lg tracking-wider">{fDepositResult.reference}</p>
+                  <p className="text-xs text-gray-400 mt-1">Obligatoire — permet de valider votre dépôt</p>
+                </div>
+                <div className="flex items-start gap-2 mb-4">
+                  <Clock size={14} className="text-yellow-500 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-gray-500">Votre solde sera crédité dans <strong>15–30 minutes</strong> après réception du paiement.</p>
+                </div>
                 <button
                   onClick={() => setModal(null)}
-                  className="mt-4 w-full bg-navy text-white font-bold py-3 rounded-xl"
+                  className="w-full bg-navy text-white font-bold py-3 rounded-xl"
+                >
+                  J&apos;ai envoyé le paiement
+                </button>
+              </div>
+            ) : fWithdrawResult ? (
+              /* Withdraw pending screen */
+              <div className="py-2 text-center">
+                <div className="w-16 h-16 bg-yellow-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                  <Clock size={28} className="text-yellow-500" />
+                </div>
+                <p className="font-black text-navy text-lg mb-1">Retrait en cours</p>
+                <p className="text-gray-400 text-sm mb-4">Votre demande est enregistrée et sera traitée sous 15–30 minutes.</p>
+                <div className="bg-gray-50 rounded-xl p-4 text-left mb-4 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Référence</span>
+                    <span className="font-mono font-bold text-navy">{fWithdrawResult.reference}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Montant</span>
+                    <span className="font-bold text-navy">{fWithdrawResult.amount.toLocaleString('fr-FR')} GNF</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Frais (1%)</span>
+                    <span className="text-gray-500">−{fWithdrawResult.fee.toLocaleString('fr-FR')} GNF</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setModal(null)}
+                  className="w-full bg-navy text-white font-bold py-3 rounded-xl"
                 >
                   Fermer
                 </button>

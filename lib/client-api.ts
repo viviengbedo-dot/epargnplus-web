@@ -58,13 +58,13 @@ export const clientApi = {
     clientFetch<Transaction[]>(`/transactions${type ? `?type=${type}` : ''}`),
 
   deposit: (data: DepositData) =>
-    clientFetch<{ reference: string }>('/transactions/deposit', {
+    clientFetch<DepositResult>('/transactions/deposit', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
 
   withdraw: (data: WithdrawData) =>
-    clientFetch<{ reference: string }>('/transactions/withdraw', {
+    clientFetch<WithdrawResult>('/transactions/withdraw', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
@@ -131,6 +131,25 @@ export interface WithdrawData {
   amount: number
   mobileOperator: string
   phone: string
+}
+
+export interface DepositResult {
+  reference: string
+  status: string
+  merchantNumber: string
+  operatorLabel: string
+  amount: number
+  instructions: string
+  message: string
+}
+
+export interface WithdrawResult {
+  reference: string
+  status: string
+  amount: number
+  fee: number
+  total: number
+  message: string
 }
 
 export interface CreateProjectData {

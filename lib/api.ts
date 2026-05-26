@@ -46,6 +46,16 @@ export const adminApi = {
 
   projects: (page = 1) =>
     adminFetch<PaginatedResponse<AdminProject>>(`/admin/projects?page=${page}`),
+
+  confirmTransaction: (id: string) =>
+    adminFetch<{ id: string; status: string }>(`/admin/transactions/${id}/confirm`, {
+      method: 'PATCH',
+    }),
+
+  rejectTransaction: (id: string) =>
+    adminFetch<{ id: string; status: string }>(`/admin/transactions/${id}/reject`, {
+      method: 'PATCH',
+    }),
 }
 
 export interface AdminStats {
