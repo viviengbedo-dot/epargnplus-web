@@ -93,6 +93,21 @@ export const clientApi = {
   aiAdvice: (projectId: string) =>
     clientFetch<AiAdvice>(`/user/ai-advice?projectId=${projectId}`),
 
+  notifications: () =>
+    clientFetch<NotificationItem[]>('/notifications'),
+
+  unreadCount: () =>
+    clientFetch<{ count: number }>('/notifications/unread-count'),
+
+  markNotificationRead: (id: string) =>
+    clientFetch<void>(`/notifications/${id}/read`, { method: 'PATCH' }),
+
+  markAllRead: () =>
+    clientFetch<void>('/notifications/read-all', { method: 'PATCH' }),
+
+  referral: () =>
+    clientFetch<ReferralData>('/referral'),
+
   projects: () =>
     clientFetch<Project[]>('/projects'),
 
@@ -148,6 +163,21 @@ export interface AiAdviceScenario {
   affordabilityPct: number | null
   feasibilityLabel: string | null
   feasibilityColor: string
+}
+
+export interface NotificationItem {
+  id: string
+  title: string
+  body: string
+  read: boolean
+  date: string
+}
+
+export interface ReferralData {
+  code: string
+  referralLink: string
+  referralCount: number
+  totalEarnings: number
 }
 
 export interface AiAdvice {

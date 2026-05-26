@@ -235,6 +235,28 @@ export default function DashboardHome() {
         <span className="text-sm font-medium">Créer un projet d&apos;épargne</span>
       </button>
 
+      {/* Tontine CTA — Figma "Prêt pour une tontine?" */}
+      <div onClick={() => router.push('/dashboard/tontine')}
+        className="mt-4 bg-navy rounded-2xl p-5 cursor-pointer hover:opacity-95 transition-opacity relative overflow-hidden">
+        <div className="absolute -top-3 -right-3 w-20 h-20 bg-lime/10 rounded-full" />
+        <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full" />
+        <div className="relative flex items-center justify-between gap-3">
+          <div className="flex-1">
+            <p className="text-white/60 text-xs mb-1">Epargne collective</p>
+            <p className="text-white font-black text-lg">Prêt pour une tontine ?</p>
+            <p className="text-white/50 text-xs mt-1">Epargne collaborative avec bonus de fidélité</p>
+            <div className="mt-3">
+              <span className="bg-lime text-navy text-xs font-black px-3 py-1.5 rounded-xl inline-flex items-center gap-1">
+                Lancer une Tontine <ChevronRight size={12} />
+              </span>
+            </div>
+          </div>
+          <div className="flex-shrink-0 w-12 h-12 bg-lime/20 rounded-2xl flex items-center justify-center">
+            <Smartphone size={20} className="text-lime" />
+          </div>
+        </div>
+      </div>
+
       {/* Modal */}
       {modal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">

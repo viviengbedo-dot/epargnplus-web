@@ -72,9 +72,9 @@ export default function ClientLoginPage() {
     setError('')
     setLoading(true)
     try {
-      const { token } = await clientApi.verifyOtp(phone, otp)
+      const { token, isNewUser } = await clientApi.verifyOtp(phone, otp)
       setClientToken(token)
-      router.push('/dashboard')
+      router.push(isNewUser ? '/dashboard/welcome' : '/dashboard')
     } catch (err) {
       setError((err as Error).message)
     } finally {
