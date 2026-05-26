@@ -1,7 +1,12 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
-import { Filter } from 'lucide-react'
+import { Filter, Download } from 'lucide-react'
 import { adminApi, AdminTransaction } from '@/lib/api'
+
+function exportCSV(type: string, status: string) {
+  const token = document.cookie.match(/admin_token=([^;]+)/)?.[1] || ''
+  window.open(`${process.env.NEXT_PUBLIC_API_URL}/admin/export/transactions.csv?token=${token}&type=${type}&status=${status}`, '_blank')
+}
 
 const TYPE_OPTIONS = [
   { value: '', label: 'Tous types' },
@@ -48,6 +53,10 @@ export default function TransactionsPage() {
           <p className="text-gray-500 text-sm mt-0.5">{total.toLocaleString()} transactions au total</p>
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={() => exportCSV(type, status)}
+            className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+            <Download size={15} /> CSV
+          </button>
           <Filter size={16} className="text-gray-400" />
           <select
             value={type}

@@ -1,7 +1,13 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
-import { Search, CheckCircle, Clock, XCircle, Shield, ShieldOff } from 'lucide-react'
+import { Search, CheckCircle, XCircle, Shield, ShieldOff, Download, ExternalLink } from 'lucide-react'
 import { adminApi, AdminUser } from '@/lib/api'
+import Link from 'next/link'
+
+function exportCSV() {
+  const token = document.cookie.match(/admin_token=([^;]+)/)?.[1] || ''
+  window.open(`${process.env.NEXT_PUBLIC_API_URL}/admin/export/users.csv?token=${token}`, '_blank')
+}
 
 const KYC_BADGE: Record<string, { label: string; cls: string }> = {
   verified: { label: 'Vérifié',    cls: 'bg-green-50 text-green-600' },
@@ -66,15 +72,21 @@ export default function UsersPage() {
           <h1 className="text-2xl font-black text-navy">Utilisateurs</h1>
           <p className="text-gray-500 text-sm mt-0.5">{total.toLocaleString()} comptes enregistrés</p>
         </div>
-        <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-            placeholder="Rechercher par téléphone..."
-            className="pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy w-64"
-          />
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+              placeholder="Rechercher par téléphone..."
+              className="pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy w-56"
+            />
+          </div>
+          <button onClick={exportCSV}
+            className="flex items-center gap-1.5 px-3 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+            <Download size={15} /> CSV
+          </button>
         </div>
       </div>
 
@@ -111,7 +123,10 @@ export default function UsersPage() {
                 return (
                   <tr key={user.id} className={`border-b border-gray-50 hover:bg-gray-50 transition-colors ${user.isBlocked ? 'opacity-50' : ''}`}>
                     <td className="px-5 py-3">
-                      <p className="font-medium text-navy">{user.phone}</p>
+                      <Link href={`/admin/users/${user.id}`} className="group flex items-center gap-1">
+                        <p className="font-medium text-navy group-hover:underline">{user.phone}</p>
+                        <ExternalLink size={12} className="text-gray-300 group-hover:text-navy" />
+                      </Link>
                       {user.name && <p className="text-xs text-gray-400">{user.name}</p>}
                     </td>
                     <td className="px-5 py-3 font-bold text-navy">

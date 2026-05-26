@@ -1,7 +1,10 @@
 import Navbar from '@/components/landing/Navbar'
 import Hero from '@/components/landing/Hero'
 import Features from '@/components/landing/Features'
+import Screenshots from '@/components/landing/Screenshots'
 import HowItWorks from '@/components/landing/HowItWorks'
+import FAQ from '@/components/landing/FAQ'
+import Contact from '@/components/landing/Contact'
 import Footer from '@/components/landing/Footer'
 import { Apple } from 'lucide-react'
 
@@ -11,6 +14,7 @@ export default function LandingPage() {
       <Navbar />
       <Hero />
       <Features />
+      <Screenshots />
       <HowItWorks />
 
       {/* Stats strip */}
@@ -64,6 +68,8 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <FAQ />
+      <Contact />
       <Footer />
     </main>
   )

@@ -21,6 +21,7 @@ export default function Navbar() {
             <a href="#fonctionnalites" className="text-white/70 hover:text-white text-sm font-medium transition-colors">Fonctionnalités</a>
             <a href="#comment" className="text-white/70 hover:text-white text-sm font-medium transition-colors">Comment ça marche</a>
             <a href="#telecharger" className="text-white/70 hover:text-white text-sm font-medium transition-colors">Télécharger</a>
+            <a href="#contact" className="text-white/70 hover:text-white text-sm font-medium transition-colors">Contact</a>
             <Link
               href="/admin/login"
               className="text-sm font-medium text-navy bg-lime hover:bg-lime-300 px-4 py-2 rounded-lg transition-colors"

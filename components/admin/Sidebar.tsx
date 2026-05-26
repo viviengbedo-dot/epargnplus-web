@@ -2,15 +2,16 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
-  LayoutDashboard, Users, ArrowLeftRight, Target, LogOut, Menu, X
+  LayoutDashboard, Users, ArrowLeftRight, Target, LogOut, Menu, X, Bell
 } from 'lucide-react'
 import { useState } from 'react'
 
 const navItems = [
-  { href: '/admin/dashboard',     label: 'Dashboard',      icon: LayoutDashboard },
-  { href: '/admin/users',         label: 'Utilisateurs',   icon: Users },
-  { href: '/admin/transactions',  label: 'Transactions',   icon: ArrowLeftRight },
-  { href: '/admin/projects',      label: 'Projets',        icon: Target },
+  { href: '/admin/dashboard',      label: 'Dashboard',      icon: LayoutDashboard },
+  { href: '/admin/users',          label: 'Utilisateurs',   icon: Users },
+  { href: '/admin/transactions',   label: 'Transactions',   icon: ArrowLeftRight },
+  { href: '/admin/projects',       label: 'Projets',        icon: Target },
+  { href: '/admin/notifications',  label: 'Notifications',  icon: Bell },
 ]
 
 export default function Sidebar() {
@@ -37,7 +38,7 @@ export default function Sidebar() {
 
       <nav className="flex-1 px-3 py-4 space-y-1">
         {navItems.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href
+          const active = pathname === href || pathname.startsWith(href + '/')
           return (
             <Link
               key={href}
