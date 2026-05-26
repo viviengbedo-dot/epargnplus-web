@@ -25,12 +25,37 @@ export default function ClientLoginPage() {
     }, 1000)
   }
 
+  function normalizePhone(raw: string): string {
+    // Strip spaces, dashes, parentheses
+    let n = raw.replace(/[\s\-().]/g, '')
+    // 00224... → +224...
+    if (n.startsWith('00')) n = '+' + n.slice(2)
+    // 224XXXXXXXXX (no +) → +224XXXXXXXXX
+    if (/^224\d{9}$/.test(n)) n = '+' + n
+    // 6XXXXXXXX or 6XXXXXXX (local Guinea without country code) → +2246XXXXXXXX
+    if (/^[0-9]{9}$/.test(n)) n = '+224' + n
+    return n
+  }
+
+  function validatePhone(n: string): string | null {
+    // Must be +224 followed by 9 digits
+    if (!/^\+224\d{9}$/.test(n)) {
+      return 'Format invalide. Utilisez +224 suivi de 9 chiffres (ex: +224 620 000 000)'
+    }
+    return null
+  }
+
   async function handleSendOtp(e: React.FormEvent) {
     e.preventDefault()
     setError('')
+    const normalized = normalizePhone(phone)
+    const validationError = validatePhone(normalized)
+    if (validationError) {
+      setError(validationError)
+      return
+    }
     setLoading(true)
     try {
-      const normalized = phone.replace(/\s/g, '').replace(/^00/, '+')
       await clientApi.sendOtp(normalized)
       setPhone(normalized)
       setStep('otp')
@@ -109,7 +134,7 @@ export default function ClientLoginPage() {
                   autoComplete="tel"
                 />
               </div>
-              <p className="text-xs text-gray-400 mt-1">Format : +224XXXXXXXXX ou 00224XXXXXXXXX</p>
+              <p className="text-xs text-gray-400 mt-1">Ex : +224 620 00 00 00 ou 620 00 00 00</p>
             </div>
 
             <button
