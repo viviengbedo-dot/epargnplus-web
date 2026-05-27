@@ -36,7 +36,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     clientApi.unreadCount().then((d) => setUnread(d.count)).catch(() => {})
-    clientApi.profile().then((p) => setUserName(p.firstName ?? '')).catch(() => {})
+    clientApi.profile().then((p) => setUserName(p.name?.split(' ')[0] ?? '')).catch(() => {})
   }, [pathname])
 
   function handleLogout() {
