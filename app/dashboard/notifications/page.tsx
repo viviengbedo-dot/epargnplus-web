@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Bell, BellOff, Check, CheckCheck } from 'lucide-react'
+import { Bell, BellOff, Check, CheckCheck, Settings2 } from 'lucide-react'
 import { clientApi } from '@/lib/client-api'
 
 interface Notification {
@@ -64,12 +64,18 @@ export default function NotificationsPage() {
           <h1 className="text-xl font-black text-navy">Notifications</h1>
           {unread > 0 && <p className="text-gray-400 text-xs mt-0.5">{unread} non lue{unread > 1 ? 's' : ''}</p>}
         </div>
-        {unread > 0 && (
-          <button onClick={markAllRead}
-            className="flex items-center gap-1.5 text-xs text-navy font-medium bg-navy/5 hover:bg-navy/10 px-3 py-1.5 rounded-xl transition-colors">
-            <CheckCheck size={13} /> Tout lire
+        <div className="flex items-center gap-2">
+          {unread > 0 && (
+            <button onClick={markAllRead}
+              className="flex items-center gap-1.5 text-xs text-navy font-medium bg-navy/5 hover:bg-navy/10 px-3 py-1.5 rounded-xl transition-colors">
+              <CheckCheck size={13} /> Tout lire
+            </button>
+          )}
+          <button onClick={() => router.push('/dashboard/notifications/settings')}
+            className="w-8 h-8 bg-white border border-gray-100 rounded-xl flex items-center justify-center hover:bg-gray-50 transition-colors shadow-sm">
+            <Settings2 size={15} className="text-navy" />
           </button>
-        )}
+        </div>
       </div>
 
       {notifs.length === 0 ? (
