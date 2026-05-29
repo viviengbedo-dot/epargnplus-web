@@ -1,13 +1,14 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Users, ArrowLeftRight, Wallet, TrendingUp, Clock, AlertCircle, UserCheck, Flag } from 'lucide-react'
+import { Users, Wallet, TrendingUp, Clock, AlertCircle, UserCheck, Flag, ArrowLeftRight } from 'lucide-react'
 import { administrationApi, AdminData } from '@/lib/administration-api'
 
-function StatCard({ icon: Icon, label, value, sub, iconBg = 'bg-[#0B1668]/10', iconColor = 'text-[#0B1668]' }: {
-  icon: React.ElementType; label: string; value: string | number; sub?: string; iconBg?: string; iconColor?: string
+function StatCard({ icon: Icon, label, value, sub, iconBg = 'bg-[#0B1668]/10', iconColor = 'text-[#0B1668]', href }: {
+  icon: React.ElementType; label: string; value: string | number; sub?: string
+  iconBg?: string; iconColor?: string; href?: string
 }) {
-  return (
-    <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+  const inner = (
+    <div className={`bg-white rounded-2xl p-5 border border-gray-100 shadow-sm ${href ? 'hover:shadow-md transition-shadow' : ''}`}>
       <div className={`w-10 h-10 ${iconBg} rounded-xl flex items-center justify-center mb-3`}>
         <Icon size={18} className={iconColor} />
       </div>
@@ -16,6 +17,7 @@ function StatCard({ icon: Icon, label, value, sub, iconBg = 'bg-[#0B1668]/10', i
       {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
     </div>
   )
+  return href ? <a href={href}>{inner}</a> : inner
 }
 
 export default function AdministrationDashboard() {
@@ -32,6 +34,13 @@ export default function AdministrationDashboard() {
 
   const fmt = (n: number) => n?.toLocaleString('fr-FR') ?? '—'
   const s = data?.stats
+
+  // Dépôts en attente (transactions + pending_deposit sur users)
+  const pendingFromUsers = (data?.users || []).filter(u => {
+    if (!u.pending_deposit) return false
+    try { const pd = JSON.parse(u.pending_deposit); return pd?.amount > 0 } catch { return false }
+  }).length
+  const pendingCount = Math.max(s?.pendingCount ?? 0, pendingFromUsers)
 
   return (
     <div>
@@ -54,39 +63,106 @@ export default function AdministrationDashboard() {
         </div>
       ) : (
         <>
+          {/* Stats principales — cliquables */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <StatCard icon={Users} label="Comptes enregistrés" value={fmt(s?.total ?? 0)} iconBg="bg-blue-50" iconColor="text-blue-600" />
-            <StatCard icon={Wallet} label="Épargne totale" value={`${fmt(s?.epargneTotal ?? 0)} GNF`} iconBg="bg-[#C9E000]/20" iconColor="text-[#0B1668]" />
-            <StatCard icon={Clock} label="Dépôts en attente" value={fmt(s?.pendingCount ?? 0)} sub="À valider" iconBg="bg-yellow-50" iconColor="text-yellow-600" />
-            <StatCard icon={UserCheck} label="KYC vérifiés" value={fmt(s?.kycVerified ?? 0)} sub={`${fmt(s?.kycPending ?? 0)} en attente`} iconBg="bg-green-50" iconColor="text-green-600" />
-            <StatCard icon={TrendingUp} label="Projets actifs" value={fmt(data?.allProjects?.filter(p => p.status === 'ACTIVE').length ?? 0)} iconBg="bg-purple-50" iconColor="text-purple-600" />
-            <StatCard icon={Flag} label="Guinée" value={fmt(s?.byCountry?.gn ?? 0)} sub={`Bénin: ${s?.byCountry?.bj ?? 0} · CI: ${s?.byCountry?.ci ?? 0}`} iconBg="bg-orange-50" iconColor="text-orange-600" />
+            <StatCard
+              icon={Users} label="Comptes enregistrés" value={fmt(s?.total ?? 0)}
+              iconBg="bg-blue-50" iconColor="text-blue-600"
+              href="/administration/users"
+            />
+            <StatCard
+              icon={Wallet} label="Épargne totale" value={`${fmt(s?.epargneTotal ?? 0)} GNF`}
+              iconBg="bg-[#C9E000]/20" iconColor="text-[#0B1668]"
+            />
+            <StatCard
+              icon={Clock} label="Dépôts en attente" value={fmt(pendingCount)}
+              sub={pendingCount > 0 ? 'Cliquer pour valider' : 'Aucun en attente'}
+              iconBg={pendingCount > 0 ? 'bg-yellow-50' : 'bg-gray-50'}
+              iconColor={pendingCount > 0 ? 'text-yellow-600' : 'text-gray-400'}
+              href="/administration/transactions"
+            />
+            <StatCard
+              icon={UserCheck} label="KYC vérifiés" value={fmt(s?.kycVerified ?? 0)}
+              sub={`${fmt(s?.kycPending ?? 0)} en attente`}
+              iconBg="bg-green-50" iconColor="text-green-600"
+              href="/administration/kyc"
+            />
+            <StatCard
+              icon={TrendingUp} label="Projets actifs"
+              value={fmt(data?.allProjects?.filter(p => p.status === 'ACTIVE').length ?? 0)}
+              iconBg="bg-purple-50" iconColor="text-purple-600"
+              href="/administration/projects"
+            />
+            <StatCard
+              icon={ArrowLeftRight} label="Transactions total"
+              value={fmt(data?.pendingTransactions?.length ?? 0)}
+              sub="en base"
+              iconBg="bg-indigo-50" iconColor="text-indigo-600"
+              href="/administration/transactions"
+            />
+            <StatCard
+              icon={Flag} label="Guinée" value={fmt(s?.byCountry?.gn ?? 0)}
+              sub={`Bénin: ${s?.byCountry?.bj ?? 0} · CI: ${s?.byCountry?.ci ?? 0}`}
+              iconBg="bg-orange-50" iconColor="text-orange-600"
+              href="/administration/analytics"
+            />
           </div>
 
-          {/* Dépôts en attente */}
-          {(data?.pendingTransactions?.length ?? 0) > 0 && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-5 mb-5">
-              <p className="font-bold text-yellow-800 text-sm mb-3">⚠ {data!.pendingTransactions.length} dépôt{data!.pendingTransactions.length > 1 ? 's' : ''} en attente de validation</p>
-              <a href="/administration/transactions" className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-700 text-white text-xs font-bold rounded-xl hover:bg-yellow-800 transition-colors">
-                Valider les dépôts →
-              </a>
-            </div>
-          )}
+          {/* Actions rapides — avec badges en attente */}
+          <div>
+            <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wide mb-3">Actions rapides</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
-          {/* Quick links */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <a href="/administration/transactions" className="block rounded-2xl border p-4 bg-yellow-50 border-yellow-200 text-yellow-700 hover:opacity-80 transition-opacity">
-              <p className="font-bold text-sm">Dépôts en attente</p>
-              <p className="text-xs opacity-70 mt-0.5">Confirmer les paiements Mobile Money</p>
-            </a>
-            <a href="/administration/kyc" className="block rounded-2xl border p-4 bg-blue-50 border-blue-200 text-blue-700 hover:opacity-80 transition-opacity">
-              <p className="font-bold text-sm">KYC à vérifier</p>
-              <p className="text-xs opacity-70 mt-0.5">{s?.kycPending ?? 0} demande{(s?.kycPending ?? 0) > 1 ? 's' : ''} en attente</p>
-            </a>
-            <a href="/administration/users" className="block rounded-2xl border p-4 bg-green-50 border-green-200 text-green-700 hover:opacity-80 transition-opacity">
-              <p className="font-bold text-sm">Gérer les utilisateurs</p>
-              <p className="text-xs opacity-70 mt-0.5">{s?.total ?? 0} compte{(s?.total ?? 0) > 1 ? 's' : ''} enregistré{(s?.total ?? 0) > 1 ? 's' : ''}</p>
-            </a>
+              <a href="/administration/transactions"
+                className="flex items-start gap-4 rounded-2xl border p-5 bg-white border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${pendingCount > 0 ? 'bg-yellow-100' : 'bg-gray-100'}`}>
+                  <Clock size={18} className={pendingCount > 0 ? 'text-yellow-600' : 'text-gray-400'} />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="font-bold text-[#0B1668] text-sm">Transactions</p>
+                    {pendingCount > 0 && (
+                      <span className="bg-red-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full leading-none">{pendingCount}</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {pendingCount > 0 ? `${pendingCount} dépôt${pendingCount > 1 ? 's' : ''} à valider` : 'Aucun dépôt en attente'}
+                  </p>
+                </div>
+              </a>
+
+              <a href="/administration/kyc"
+                className="flex items-start gap-4 rounded-2xl border p-5 bg-white border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${(s?.kycPending ?? 0) > 0 ? 'bg-blue-100' : 'bg-gray-100'}`}>
+                  <UserCheck size={18} className={(s?.kycPending ?? 0) > 0 ? 'text-blue-600' : 'text-gray-400'} />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="font-bold text-[#0B1668] text-sm">KYC</p>
+                    {(s?.kycPending ?? 0) > 0 && (
+                      <span className="bg-red-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full leading-none">{s?.kycPending}</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {(s?.kycPending ?? 0) > 0 ? `${s?.kycPending} demande${(s?.kycPending ?? 0) > 1 ? 's' : ''} à vérifier` : 'Tout est à jour'}
+                  </p>
+                </div>
+              </a>
+
+              <a href="/administration/users"
+                className="flex items-start gap-4 rounded-2xl border p-5 bg-white border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-green-100">
+                  <Users size={18} className="text-green-600" />
+                </div>
+                <div>
+                  <p className="font-bold text-[#0B1668] text-sm">Utilisateurs</p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {fmt(s?.total ?? 0)} compte{(s?.total ?? 0) > 1 ? 's' : ''} enregistré{(s?.total ?? 0) > 1 ? 's' : ''}
+                  </p>
+                </div>
+              </a>
+
+            </div>
           </div>
         </>
       )}

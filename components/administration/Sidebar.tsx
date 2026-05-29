@@ -6,44 +6,35 @@ import {
   Settings, BarChart2, MessageSquare, Menu, X, LogOut,
   Users2, RefreshCw, Globe, Eye,
 } from 'lucide-react'
-import { useState } from 'react'
-
-const sections = [
-  {
-    label: 'VUE GÉNÉRALE',
-    items: [
-      { href: '/administration/dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
-      { href: '/administration/analytics', label: 'Analytiques', icon: BarChart2 },
-    ],
-  },
-  {
-    label: 'GESTION',
-    items: [
-      { href: '/administration/users', label: 'Utilisateurs', icon: Users },
-      { href: '/administration/transactions', label: 'Transactions', icon: ArrowLeftRight },
-      { href: '/administration/projects', label: 'Projets', icon: Target },
-      { href: '/administration/tontines', label: 'Tontines', icon: Users2 },
-    ],
-  },
-  {
-    label: 'VÉRIFICATION',
-    items: [
-      { href: '/administration/kyc', label: 'KYC en attente', icon: ShieldCheck },
-      { href: '/administration/support', label: 'Support', icon: MessageSquare },
-    ],
-  },
-  {
-    label: 'SYSTÈME',
-    items: [
-      { href: '/administration/settings', label: 'Paramètres', icon: Settings },
-    ],
-  },
-]
+import { useState, useEffect } from 'react'
 
 export default function AdminSidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [pendingTx, setPendingTx] = useState(0)
+  const [pendingKyc, setPendingKyc] = useState(0)
+
+  // Charge les compteurs de badges en arrière-plan
+  useEffect(() => {
+    fetch('/api/administration/data')
+      .then(r => r.json())
+      .then(data => {
+        // Compter les dépôts en attente (transactions + pending_deposit sur users)
+        const txPending = (data.pendingTransactions || []).filter((t: { statut: string }) => t.statut === 'pending').length
+        const usersPending = (data.users || []).filter((u: { pending_deposit?: string }) => {
+          if (!u.pending_deposit) return false
+          try { const pd = JSON.parse(u.pending_deposit); return pd?.amount > 0 } catch { return false }
+        }).length
+        // Éviter de doubler compter si pending_deposit est déjà dans pendingTransactions
+        setPendingTx(Math.max(txPending, usersPending))
+
+        // KYC en attente
+        const kycPending = (data.users || []).filter((u: { kyc_status: string }) => u.kyc_status === 'pending').length
+        setPendingKyc(kycPending)
+      })
+      .catch(() => {}) // silencieux si erreur
+  }, [pathname]) // recharger quand on change de page
 
   async function logout() {
     await fetch('/api/administration/auth', { method: 'DELETE' })
@@ -53,6 +44,38 @@ export default function AdminSidebar() {
   async function refresh() {
     router.refresh()
   }
+
+  const sections = [
+    {
+      label: 'VUE GÉNÉRALE',
+      items: [
+        { href: '/administration/dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
+        { href: '/administration/analytics', label: 'Analytiques', icon: BarChart2 },
+      ],
+    },
+    {
+      label: 'GESTION',
+      items: [
+        { href: '/administration/users', label: 'Utilisateurs', icon: Users },
+        { href: '/administration/transactions', label: 'Transactions', icon: ArrowLeftRight, badge: pendingTx },
+        { href: '/administration/projects', label: 'Projets', icon: Target },
+        { href: '/administration/tontines', label: 'Tontines', icon: Users2 },
+      ],
+    },
+    {
+      label: 'VÉRIFICATION',
+      items: [
+        { href: '/administration/kyc', label: 'KYC', icon: ShieldCheck, badge: pendingKyc },
+        { href: '/administration/support', label: 'Support', icon: MessageSquare },
+      ],
+    },
+    {
+      label: 'SYSTÈME',
+      items: [
+        { href: '/administration/settings', label: 'Paramètres', icon: Settings },
+      ],
+    },
+  ]
 
   const NavContent = () => (
     <div className="flex flex-col h-full">
@@ -100,7 +123,7 @@ export default function AdminSidebar() {
             <p className="px-3 text-[10px] font-bold text-white/25 uppercase tracking-widest mb-1.5">
               {section.label}
             </p>
-            {section.items.map(({ href, label, icon: Icon }) => {
+            {section.items.map(({ href, label, icon: Icon, badge }) => {
               const active = pathname === href || pathname.startsWith(href + '/')
               return (
                 <Link
@@ -113,8 +136,15 @@ export default function AdminSidebar() {
                       : 'text-white/55 hover:text-white hover:bg-white/10'
                   }`}
                 >
-                  <Icon size={16} />
-                  {label}
+                  <Icon size={16} className="shrink-0" />
+                  <span className="flex-1">{label}</span>
+                  {badge != null && badge > 0 && (
+                    <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none ${
+                      active ? 'bg-[#0B1668] text-[#C9E000]' : 'bg-red-500 text-white'
+                    }`}>
+                      {badge > 99 ? '99+' : badge}
+                    </span>
+                  )}
                 </Link>
               )
             })}
@@ -150,9 +180,17 @@ export default function AdminSidebar() {
           </div>
           <span className="text-white font-bold text-sm">Administration</span>
         </div>
-        <button onClick={() => setMobileOpen(!mobileOpen)} className="text-white">
-          {mobileOpen ? <X size={22} /> : <Menu size={22} />}
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Badges mobiles */}
+          {(pendingTx > 0 || pendingKyc > 0) && (
+            <span className="bg-red-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full">
+              {pendingTx + pendingKyc}
+            </span>
+          )}
+          <button onClick={() => setMobileOpen(!mobileOpen)} className="text-white">
+            {mobileOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
+        </div>
       </div>
 
       {/* Mobile drawer */}
