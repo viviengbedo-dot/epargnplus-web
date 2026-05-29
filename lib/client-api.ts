@@ -116,7 +116,9 @@ export const clientApi = {
       method: 'POST',
       body: JSON.stringify({
         name: data.name,
-        goal_amount: data.goalAmount,   // backend Supabase column
+        goal: data.goalAmount,          // essai 1: backend extrait 'goal'
+        goal_amount: data.goalAmount,   // essai 2: snake_case Supabase
+        goalAmount: data.goalAmount,    // essai 3: camelCase original
         icon: data.icon ?? '🎯',
         ...(data.deadline ? { deadline: data.deadline } : {}),
       }),
