@@ -55,14 +55,24 @@ export default function ProjectsPage() {
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
     setError('')
+    const parsedGoal = parseInt(goal, 10)
+    if (!name.trim()) { setError('Le nom du projet est requis'); return }
+    if (isNaN(parsedGoal) || parsedGoal < 10000) { setError('Montant minimum : 10 000 GNF'); return }
     setCreating(true)
     try {
-      await clientApi.createProject({ name, goalAmount: parseInt(goal, 10), icon, deadline: deadline || null })
+      const data: import('@/lib/client-api').CreateProjectData = {
+        name: name.trim(),
+        goalAmount: parsedGoal,
+        icon,
+        ...(deadline ? { deadline } : {}),
+      }
+      await clientApi.createProject(data)
       setShowCreate(false)
       setName(''); setGoal(''); setIcon('🎯'); setDeadline('')
       await load()
-    } catch (err) {
-      setError((err as Error).message)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erreur lors de la création'
+      setError(msg)
     } finally {
       setCreating(false)
     }
