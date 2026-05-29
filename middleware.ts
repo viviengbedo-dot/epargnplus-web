@@ -4,15 +4,7 @@ import type { NextRequest } from 'next/server'
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // /administration protection (single-key admin)
-  if (pathname.startsWith('/administration/')) {
-    const session = request.cookies.get('adm_session')?.value
-    if (!session) {
-      return NextResponse.redirect(new URL('/administration', request.url))
-    }
-  }
-
-  // Legacy /admin protection — NE PAS intercepter /administration !
+  // Legacy /admin protection (exactement /admin ou /admin/*)
   if (
     (pathname === '/admin' || pathname.startsWith('/admin/')) &&
     pathname !== '/admin/login'
@@ -24,12 +16,13 @@ export function middleware(request: NextRequest) {
   }
 
   // Client dashboard protection
-  if (pathname.startsWith('/dashboard/') || pathname === '/dashboard') {
-    if (pathname !== '/dashboard/login') {
-      const token = request.cookies.get('client_token')?.value
-      if (!token) {
-        return NextResponse.redirect(new URL('/dashboard/login', request.url))
-      }
+  if (
+    (pathname === '/dashboard' || pathname.startsWith('/dashboard/')) &&
+    pathname !== '/dashboard/login'
+  ) {
+    const token = request.cookies.get('client_token')?.value
+    if (!token) {
+      return NextResponse.redirect(new URL('/dashboard/login', request.url))
     }
   }
 
@@ -37,5 +30,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/administration/:path*', '/admin/:path*', '/dashboard/:path*'],
+  matcher: ['/admin/:path*', '/dashboard/:path*'],
 }

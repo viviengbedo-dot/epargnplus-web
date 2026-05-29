@@ -1,6 +1,5 @@
 import AdminSidebar from '@/components/administration/Sidebar'
-
-export const dynamic = 'force-dynamic'
+import AdminGuard from '@/components/administration/AdminGuard'
 
 export const metadata = {
   title: 'Epargn+ — Administration',
@@ -9,8 +8,8 @@ export const metadata = {
 
 export default function AdministrationLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div id="adm-layout" className="adm-layout">
+    <AdminGuard>
       {children}
-    </div>
+    </AdminGuard>
   )
 }
