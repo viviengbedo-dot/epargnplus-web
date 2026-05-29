@@ -54,8 +54,14 @@ export const clientApi = {
   balance: () =>
     clientFetch<{ balance: number }>('/wallet/balance'),
 
-  transactions: (type?: string) =>
-    clientFetch<Transaction[]>(`/transactions${type ? `?type=${type}` : ''}`),
+  transactions: async (type?: string): Promise<Transaction[]> => {
+    // Proxy local → vrai backend Vercel (évite le Render API cassé)
+    const qs = type ? `?type=${type}` : ''
+    const res = await fetch(`/api/client/transactions${qs}`)
+    const json = await res.json()
+    if (!json.success) throw new Error(json.message || 'Erreur API')
+    return json.data as Transaction[]
+  },
 
   deposit: (data: DepositData) =>
     clientFetch<DepositResult>('/transactions/deposit', {
@@ -90,39 +96,60 @@ export const clientApi = {
       body: JSON.stringify({ pinHash }),
     }),
 
-  aiAdvice: (projectId: string) =>
-    clientFetch<AiAdvice>(`/user/ai-advice?projectId=${projectId}`),
+  aiAdvice: async (projectId: string): Promise<AiAdvice> => {
+    // Proxy local → vrai backend (données Supabase réelles)
+    const res = await fetch(`/api/client/ai-advice?projectId=${encodeURIComponent(projectId)}`)
+    const json = await res.json()
+    if (!json.success) throw new Error(json.message || 'Erreur API')
+    return json.data as AiAdvice
+  },
 
-  notifications: () =>
-    clientFetch<NotificationItem[]>('/notifications'),
+  notifications: async (): Promise<NotificationItem[]> => {
+    const res = await fetch('/api/client/notifications')
+    const json = await res.json()
+    return (json.data as NotificationItem[]) || []
+  },
 
-  unreadCount: () =>
-    clientFetch<{ count: number }>('/notifications/unread-count'),
+  unreadCount: async (): Promise<{ count: number }> => {
+    try {
+      const res = await fetch('/api/client/notifications')
+      const json = await res.json()
+      const count = ((json.data as NotificationItem[]) || []).filter(n => !n.read).length
+      return { count }
+    } catch { return { count: 0 } }
+  },
 
-  markNotificationRead: (id: string) =>
-    clientFetch<void>(`/notifications/${id}/read`, { method: 'PATCH' }),
-
-  markAllRead: () =>
-    clientFetch<void>('/notifications/read-all', { method: 'PATCH' }),
+  markNotificationRead: (_id: string) => Promise.resolve(),
+  markAllRead: () => Promise.resolve(),
 
   referral: () =>
     clientFetch<ReferralData>('/referral'),
 
-  projects: () =>
-    clientFetch<Project[]>('/projects'),
+  projects: async (): Promise<Project[]> => {
+    // Proxy local → vrai backend (données fraîches depuis Supabase, incl. actuel mis à jour)
+    const res = await fetch('/api/client/projects')
+    const json = await res.json()
+    if (!json.success) throw new Error(json.message || 'Erreur API')
+    return json.data as Project[]
+  },
 
-  createProject: (data: CreateProjectData) =>
-    clientFetch<Project>('/projects', {
+  createProject: async (data: CreateProjectData): Promise<Project> => {
+    const res = await fetch('/api/client/projects', {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        name: data.name,
-        goal: data.goalAmount,          // essai 1: backend extrait 'goal'
-        goal_amount: data.goalAmount,   // essai 2: snake_case Supabase
-        goalAmount: data.goalAmount,    // essai 3: camelCase original
-        icon: data.icon ?? '🎯',
+        name:       data.name,
+        goal:       data.goalAmount,
+        goal_amount: data.goalAmount,
+        goalAmount: data.goalAmount,
+        icon:       data.icon ?? '🎯',
         ...(data.deadline ? { deadline: data.deadline } : {}),
       }),
-    }),
+    })
+    const json = await res.json()
+    if (!json.success) throw new Error(json.message || 'Erreur création projet')
+    return json.data as Project
+  },
 
   depositToProject: (projectId: string, amount: number) =>
     clientFetch<void>(`/projects/${projectId}/deposit`, {

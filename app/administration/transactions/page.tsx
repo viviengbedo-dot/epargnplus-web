@@ -1,33 +1,38 @@
 'use client'
 import { useEffect, useState, Suspense } from 'react'
-import { CheckCircle2, XCircle, RefreshCw, AlertCircle, Clock } from 'lucide-react'
+import { CheckCircle2, XCircle, RefreshCw, AlertCircle, Clock, Search } from 'lucide-react'
 import { administrationApi, AdminDataTransaction, AdminDataUser } from '@/lib/administration-api'
 
-type TxWithUser = AdminDataTransaction & { userPhone?: string }
+type TxWithUser = AdminDataTransaction & { userPhone?: string; userName?: string }
+type FilterStatut = 'pending' | 'completed' | 'failed' | 'all'
 
 function TransactionsContent() {
   const [transactions, setTransactions] = useState<TxWithUser[]>([])
-  const [users, setUsers] = useState<AdminDataUser[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [filter, setFilter] = useState<'pending' | 'all'>('pending')
+  const [filter, setFilter] = useState<FilterStatut>('pending')
+  const [search, setSearch] = useState('')
   const [actionId, setActionId] = useState<string | null>(null)
 
   const load = async () => {
     setLoading(true); setError('')
     try {
-      const data = await administrationApi.getData()
-      setUsers(data.users)
-      // Combine pending transactions + pending_deposit from users
-      const txns: TxWithUser[] = [...data.pendingTransactions]
+      const [allRes, adminData] = await Promise.all([
+        fetch('/api/administration/transactions').then(r => r.json()),
+        administrationApi.getData(),
+      ])
 
-      // Ajouter les dépôts depuis pending_deposit des users (si pas déjà dans transactions)
-      data.users.forEach(u => {
+      const fromDB: TxWithUser[] = (allRes.transactions || [])
+      const dbIds = new Set(fromDB.map((t: TxWithUser) => t.id))
+
+      // Ajouter les pending_deposit des users non encore en DB
+      const fromPD: TxWithUser[] = []
+      adminData.users.forEach((u: AdminDataUser) => {
         if (!u.pending_deposit) return
         try {
           const pd = JSON.parse(u.pending_deposit)
-          if (pd && pd.amount > 0 && !txns.find(t => t.id === pd.txnId)) {
-            txns.push({
+          if (pd && pd.amount > 0 && !dbIds.has(pd.txnId)) {
+            fromPD.push({
               id: pd.txnId || `pd_${u.id}`,
               user_id: u.id,
               type: 'depot',
@@ -36,15 +41,13 @@ function TransactionsContent() {
               statut: 'pending',
               created_at: pd.requestedAt || new Date().toISOString(),
               userPhone: u.phone,
+              userName: [u.prenom, u.nom].filter(Boolean).join(' ') || undefined,
             })
           }
         } catch {}
       })
 
-      setTransactions(txns.map(t => ({
-        ...t,
-        userPhone: t.userPhone || data.users.find(u => u.id === t.user_id)?.phone || t.user_id,
-      })))
+      setTransactions([...fromPD, ...fromDB])
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -74,26 +77,62 @@ function TransactionsContent() {
     finally { setActionId(null) }
   }
 
-  const displayed = filter === 'pending'
-    ? transactions.filter(t => t.statut === 'pending')
-    : transactions
+  const pendingCount = transactions.filter(t => t.statut === 'pending').length
+
+  const displayed = transactions
+    .filter(t => {
+      if (filter === 'pending')   return t.statut === 'pending'
+      if (filter === 'completed') return t.statut === 'completed'
+      if (filter === 'failed')    return t.statut === 'failed'
+      return true
+    })
+    .filter(t => {
+      if (!search) return true
+      const q = search.toLowerCase()
+      return (
+        (t.userPhone || '').includes(q) ||
+        (t.userName || '').toLowerCase().includes(q) ||
+        t.id.includes(q) ||
+        (t.operator || '').toLowerCase().includes(q)
+      )
+    })
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-black text-[#0B1668]">Transactions</h1>
-          <p className="text-gray-400 text-sm mt-0.5">{transactions.filter(t => t.statut === 'pending').length} dépôt{transactions.filter(t => t.statut === 'pending').length !== 1 ? 's' : ''} en attente</p>
+          <p className="text-gray-400 text-sm mt-0.5">
+            {pendingCount > 0
+              ? <span className="text-yellow-600 font-semibold">{pendingCount} dépôt{pendingCount > 1 ? 's' : ''} en attente</span>
+              : 'Aucun dépôt en attente'}
+          </p>
         </div>
-        <div className="flex gap-2">
-          <select value={filter} onChange={e => setFilter(e.target.value as 'pending' | 'all')}
-            className="text-sm border border-gray-200 rounded-xl px-3 py-2 outline-none bg-white">
-            <option value="pending">En attente</option>
-            <option value="all">Toutes</option>
-          </select>
-          <button onClick={load} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">
-            <RefreshCw size={14} /> Actualiser
-          </button>
+        <button onClick={load} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">
+          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Actualiser
+        </button>
+      </div>
+
+      {/* Filtres + recherche */}
+      <div className="flex gap-3 mb-5 flex-wrap">
+        <div className="flex gap-1 bg-white border border-gray-200 rounded-xl p-1">
+          {(['pending', 'completed', 'failed', 'all'] as FilterStatut[]).map(f => (
+            <button key={f} onClick={() => setFilter(f)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                filter === f ? 'bg-[#0B1668] text-white' : 'text-gray-500 hover:bg-gray-50'
+              }`}>
+              {f === 'pending'    ? `En attente${pendingCount > 0 ? ` (${pendingCount})` : ''}`
+               : f === 'completed' ? 'Validés'
+               : f === 'failed'    ? 'Rejetés'
+               : `Tous (${transactions.length})`}
+            </button>
+          ))}
+        </div>
+        <div className="flex-1 min-w-[200px] bg-white border border-gray-200 rounded-xl px-3 py-2 flex items-center gap-2">
+          <Search size={14} className="text-gray-400 shrink-0" />
+          <input type="text" placeholder="Téléphone, opérateur…" value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="flex-1 text-sm outline-none text-gray-700 placeholder-gray-300" />
         </div>
       </div>
 
@@ -129,7 +168,7 @@ function TransactionsContent() {
                 <tr>
                   <td colSpan={6} className="px-5 py-16 text-center">
                     <Clock size={32} className="text-gray-200 mx-auto mb-3" />
-                    <p className="text-gray-400 text-sm">Aucun dépôt {filter === 'pending' ? 'en attente' : ''}</p>
+                    <p className="text-gray-400 text-sm">Aucune transaction</p>
                   </td>
                 </tr>
               ) : displayed.map(tx => (
@@ -137,12 +176,15 @@ function TransactionsContent() {
                   <td className="px-5 py-3.5 text-gray-500 whitespace-nowrap text-xs">
                     {new Date(tx.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                   </td>
-                  <td className="px-5 py-3.5 font-mono text-xs text-[#0B1668] font-medium">{tx.userPhone}</td>
-                  <td className="px-5 py-3.5 font-black text-[#0B1668]">{tx.montant.toLocaleString('fr-FR')} GNF</td>
+                  <td className="px-5 py-3.5">
+                    <p className="font-mono text-xs text-[#0B1668] font-medium">{tx.userPhone || tx.user_id.slice(0, 8)}</p>
+                    {tx.userName && <p className="text-xs text-gray-400 mt-0.5">{tx.userName}</p>}
+                  </td>
+                  <td className="px-5 py-3.5 font-black text-[#0B1668]">{(tx.montant || 0).toLocaleString('fr-FR')} GNF</td>
                   <td className="px-5 py-3.5 text-gray-500 text-xs uppercase">{tx.operator || '—'}</td>
                   <td className="px-5 py-3.5">
                     <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${
-                      tx.statut === 'pending' ? 'bg-yellow-100 text-yellow-700'
+                      tx.statut === 'pending'    ? 'bg-yellow-100 text-yellow-700'
                       : tx.statut === 'completed' ? 'bg-green-100 text-green-700'
                       : 'bg-red-100 text-red-600'
                     }`}>
@@ -154,7 +196,7 @@ function TransactionsContent() {
                       <div className="flex gap-2">
                         <button onClick={() => approve(tx)} disabled={actionId === tx.id}
                           className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500 text-white text-xs font-bold rounded-lg hover:bg-green-600 disabled:opacity-50 transition-colors">
-                          <CheckCircle2 size={12} /> Confirmer
+                          <CheckCircle2 size={12} /> Valider
                         </button>
                         <button onClick={() => reject(tx)} disabled={actionId === tx.id}
                           className="flex items-center gap-1.5 px-3 py-1.5 bg-red-100 text-red-600 text-xs font-bold rounded-lg hover:bg-red-200 disabled:opacity-50 transition-colors">

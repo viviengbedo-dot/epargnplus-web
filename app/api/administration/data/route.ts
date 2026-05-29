@@ -16,6 +16,15 @@ export async function GET() {
       next: { revalidate: 0 },
     })
     const data = await res.json()
+
+    // Normalise les champs : le backend retourne `amount` mais l'interface attend `montant`
+    if (data.pendingTransactions) {
+      data.pendingTransactions = data.pendingTransactions.map((t: Record<string, unknown>) => ({
+        ...t,
+        montant: (t.montant as number) ?? (t.amount as number) ?? 0,
+      }))
+    }
+
     return NextResponse.json(data)
   } catch (err) {
     return NextResponse.json({ error: 'Backend inaccessible' }, { status: 502 })

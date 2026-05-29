@@ -59,7 +59,7 @@ export default function AdminSidebar() {
         { href: '/administration/users', label: 'Utilisateurs', icon: Users },
         { href: '/administration/transactions', label: 'Transactions', icon: ArrowLeftRight, badge: pendingTx },
         { href: '/administration/projects', label: 'Projets', icon: Target },
-        { href: '/administration/tontines', label: 'Tontines', icon: Users2 },
+        { href: '/administration/tontines', label: 'Épargne Collective', icon: Users2 },
       ],
     },
     {
