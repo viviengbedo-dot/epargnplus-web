@@ -1,3 +1,4 @@
+import { cookies } from 'next/headers'
 import AdminSidebar from '@/components/administration/Sidebar'
 
 export const metadata = {
@@ -5,7 +6,16 @@ export const metadata = {
   robots: 'noindex,nofollow',
 }
 
-export default function AdministrationLayout({ children }: { children: React.ReactNode }) {
+export default async function AdministrationLayout({ children }: { children: React.ReactNode }) {
+  const cookieStore = await cookies()
+  const session = cookieStore.get('adm_session')?.value
+
+  // Login page — no sidebar
+  if (!session) {
+    return <>{children}</>
+  }
+
+  // Authenticated — full layout with sidebar
   return (
     <div className="flex min-h-screen bg-[#F2F4FA]">
       <AdminSidebar />
