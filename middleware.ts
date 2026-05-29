@@ -5,15 +5,18 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // /administration protection (single-key admin)
-  if (pathname.startsWith('/administration/') && pathname !== '/administration') {
+  if (pathname.startsWith('/administration/')) {
     const session = request.cookies.get('adm_session')?.value
     if (!session) {
       return NextResponse.redirect(new URL('/administration', request.url))
     }
   }
 
-  // Legacy /admin protection
-  if (pathname.startsWith('/admin') && pathname !== '/admin/login') {
+  // Legacy /admin protection — NE PAS intercepter /administration !
+  if (
+    (pathname === '/admin' || pathname.startsWith('/admin/')) &&
+    pathname !== '/admin/login'
+  ) {
     const token = request.cookies.get('admin_token')?.value
     if (!token) {
       return NextResponse.redirect(new URL('/admin/login', request.url))
@@ -21,10 +24,12 @@ export function middleware(request: NextRequest) {
   }
 
   // Client dashboard protection
-  if (pathname.startsWith('/dashboard') && pathname !== '/dashboard/login') {
-    const token = request.cookies.get('client_token')?.value
-    if (!token) {
-      return NextResponse.redirect(new URL('/dashboard/login', request.url))
+  if (pathname.startsWith('/dashboard/') || pathname === '/dashboard') {
+    if (pathname !== '/dashboard/login') {
+      const token = request.cookies.get('client_token')?.value
+      if (!token) {
+        return NextResponse.redirect(new URL('/dashboard/login', request.url))
+      }
     }
   }
 
