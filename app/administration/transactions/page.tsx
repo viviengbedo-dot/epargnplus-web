@@ -1,8 +1,7 @@
 'use client'
-export const dynamic = 'force-dynamic'
 import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { CheckCircle2, XCircle, Clock, Search, RefreshCw, AlertCircle } from 'lucide-react'
+import { CheckCircle2, XCircle, Search, RefreshCw, AlertCircle } from 'lucide-react'
 import { adminApi, AdminTransaction } from '@/lib/api'
 
 const STATUS_LABELS: Record<string, string> = {
@@ -22,7 +21,7 @@ const TYPE_LABELS: Record<string, string> = {
   bonus: 'Bonus',
 }
 
-export default function TransactionsPage() {
+function TransactionsContent() {
   const searchParams = useSearchParams()
   const [transactions, setTransactions] = useState<AdminTransaction[]>([])
   const [total, setTotal] = useState(0)
@@ -51,7 +50,7 @@ export default function TransactionsPage() {
 
   useEffect(() => { fetchData() }, [fetchData])
 
-  async function confirm(id: string) {
+  async function confirmTx(id: string) {
     setActionId(id)
     try {
       await adminApi.confirmTransaction(id)
@@ -63,8 +62,7 @@ export default function TransactionsPage() {
     }
   }
 
-  async function reject(id: string) {
-    if (!confirm('Rejeter cette transaction ?')) return
+  async function rejectTx(id: string) {
     setActionId(id)
     try {
       await adminApi.rejectTransaction(id)
@@ -162,7 +160,7 @@ export default function TransactionsPage() {
                   </td>
                   <td className="px-5 py-3.5 font-medium text-[#0B1668]">{tx.userPhone}</td>
                   <td className="px-5 py-3.5">
-                    <span className="bg-[#0B1668]/8 text-[#0B1668] px-2.5 py-1 rounded-lg text-xs font-medium">
+                    <span className="bg-[#0B1668]/10 text-[#0B1668] px-2.5 py-1 rounded-lg text-xs font-medium">
                       {TYPE_LABELS[tx.type] ?? tx.type}
                     </span>
                   </td>
@@ -180,14 +178,14 @@ export default function TransactionsPage() {
                     {tx.status === 'pending' ? (
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => confirm(tx.id)}
+                          onClick={() => confirmTx(tx.id)}
                           disabled={actionId === tx.id}
                           className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500 text-white text-xs font-bold rounded-lg hover:bg-green-600 disabled:opacity-50 transition-colors"
                         >
                           <CheckCircle2 size={12} /> Confirmer
                         </button>
                         <button
-                          onClick={() => reject(tx.id)}
+                          onClick={() => rejectTx(tx.id)}
                           disabled={actionId === tx.id}
                           className="flex items-center gap-1.5 px-3 py-1.5 bg-red-100 text-red-600 text-xs font-bold rounded-lg hover:bg-red-200 disabled:opacity-50 transition-colors"
                         >
@@ -196,7 +194,9 @@ export default function TransactionsPage() {
                       </div>
                     ) : (
                       <span className="flex items-center gap-1.5 text-xs text-gray-300">
-                        {tx.status === 'success' ? <CheckCircle2 size={14} className="text-green-400" /> : <XCircle size={14} className="text-red-300" />}
+                        {tx.status === 'success'
+                          ? <CheckCircle2 size={14} className="text-green-400" />
+                          : <XCircle size={14} className="text-red-300" />}
                         Traité
                       </span>
                     )}
@@ -207,29 +207,28 @@ export default function TransactionsPage() {
           </table>
         </div>
 
-        {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100">
             <p className="text-xs text-gray-400">Page {page} / {totalPages}</p>
             <div className="flex gap-2">
-              <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50"
-              >
-                ← Précédent
-              </button>
-              <button
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50"
-              >
-                Suivant →
-              </button>
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50">← Précédent</button>
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50">Suivant →</button>
             </div>
           </div>
         )}
       </div>
     </div>
+  )
+}
+
+export default function TransactionsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center py-20">
+        <div className="w-8 h-8 border-2 border-[#0B1668] border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <TransactionsContent />
+    </Suspense>
   )
 }
