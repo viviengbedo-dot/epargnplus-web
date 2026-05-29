@@ -114,7 +114,12 @@ export const clientApi = {
   createProject: (data: CreateProjectData) =>
     clientFetch<Project>('/projects', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        name: data.name,
+        goal_amount: data.goalAmount,   // backend Supabase column
+        icon: data.icon ?? '🎯',
+        ...(data.deadline ? { deadline: data.deadline } : {}),
+      }),
     }),
 
   depositToProject: (projectId: string, amount: number) =>
