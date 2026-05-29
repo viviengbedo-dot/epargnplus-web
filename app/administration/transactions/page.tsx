@@ -1,5 +1,6 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+export const dynamic = 'force-dynamic'
+import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { CheckCircle2, XCircle, Clock, Search, RefreshCw, AlertCircle } from 'lucide-react'
 import { adminApi, AdminTransaction } from '@/lib/api'
