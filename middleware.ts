@@ -4,7 +4,15 @@ import type { NextRequest } from 'next/server'
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Admin protection
+  // /administration protection (single-key admin)
+  if (pathname.startsWith('/administration/') && pathname !== '/administration') {
+    const session = request.cookies.get('adm_session')?.value
+    if (!session) {
+      return NextResponse.redirect(new URL('/administration', request.url))
+    }
+  }
+
+  // Legacy /admin protection
   if (pathname.startsWith('/admin') && pathname !== '/admin/login') {
     const token = request.cookies.get('admin_token')?.value
     if (!token) {
@@ -24,5 +32,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/dashboard/:path*'],
+  matcher: ['/administration/:path*', '/admin/:path*', '/dashboard/:path*'],
 }
