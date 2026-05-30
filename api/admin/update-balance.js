@@ -395,6 +395,31 @@ module.exports = async (req, res) => {
     }
   }
 
+  /* ════════════ UPDATE-SETTINGS ════════════ */
+  if (action === 'update-settings') {
+    const { merchant_config } = body;
+    if (!merchant_config || typeof merchant_config !== 'object') {
+      return res.status(400).json({ error: 'merchant_config requis' });
+    }
+    try {
+      /* Upsert : PATCH si la ligne existe, POST sinon */
+      const updated = await supabaseRequest('PATCH', '/settings?key=eq.merchant_config', {
+        value: merchant_config,
+        updated_at: new Date().toISOString(),
+      });
+      if (!Array.isArray(updated) || updated.length === 0) {
+        await supabaseRequest('POST', '/settings', {
+          key: 'merchant_config',
+          value: merchant_config,
+          updated_at: new Date().toISOString(),
+        });
+      }
+      return res.status(200).json({ ok: true, action: 'update-settings' });
+    } catch (err) {
+      return res.status(500).json({ error: 'Erreur sauvegarde paramètres : ' + err.message });
+    }
+  }
+
   /* ════════════ DELETE-ACCOUNT ════════════ */
   if (action === 'delete-account') {
     const { targetUserId, reason } = body;

@@ -75,6 +75,7 @@ module.exports = async (req, res) => {
   if (resource === 'transactions')  return handleTransactions(req, res, payload);
   if (resource === 'notifications') return handleNotifications(req, res, payload, resourceId);
   if (resource === 'invitations')   return handleInvitations(req, res, payload, resourceId);
+  if (resource === 'settings')      return handleSettings(req, res);
 
   /* ══════════ ROUTE PROFIL ══════════ */
   if (!['GET', 'PATCH'].includes(req.method)) {
@@ -125,6 +126,18 @@ module.exports = async (req, res) => {
     return res.status(500).json({ error: 'Erreur serveur' });
   }
 };
+
+/* ── Paramètres publics (merchant config) ── */
+async function handleSettings(req, res) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'GET uniquement' });
+  try {
+    const rows = await supabaseRequest('GET', '/settings?key=eq.merchant_config&select=value');
+    const cfg  = (Array.isArray(rows) && rows.length > 0) ? rows[0].value : null;
+    return res.status(200).json({ ok: true, merchant_config: cfg });
+  } catch (err) {
+    return res.status(500).json({ error: 'Erreur chargement paramètres : ' + err.message });
+  }
+}
 
 /* ── Gestion des projets ── */
 async function handleProjects(req, res, payload, resourceId) {

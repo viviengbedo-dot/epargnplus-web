@@ -1506,6 +1506,7 @@
       <div style="font-size:13px;color:#78350F;line-height:1.8;">
         1. Ouvrez votre application <strong>Alipay</strong><br/>
         2. Scannez le QR Code ou recherchez : <strong id="alipayAccountId">epargn.plus</strong><br/>
+        <div id="alipayQrContainer" style="display:none;margin:8px 0;text-align:center;"></div>
         3. Envoyez le montant souhaité<br/>
         4. Notez la <strong>référence de transaction</strong> Alipay<br/>
         5. Soumettez votre demande ci-dessous
@@ -2490,7 +2491,44 @@ document.addEventListener('DOMContentLoaded', function() {
     console.warn('[auth] Actualisation impossible :', err.message);
     /* Conserver les données en cache, ne pas déconnecter */
   });
+
+  /* Charger la config marchande depuis la DB (numéros de dépôt dynamiques) */
+  fetchMerchantSettings();
 });
+
+/* ── Numéros de dépôt dynamiques depuis la DB ── */
+function fetchMerchantSettings() {
+  if (!_authToken) return;
+  fetch('/api/user/me?resource=settings', {
+    headers: { 'Authorization': 'Bearer ' + _authToken },
+  })
+  .then(function(r) { return r.ok ? r.json() : null; })
+  .then(function(data) {
+    if (!data || !data.merchant_config) return;
+    var cfg = data.merchant_config;
+    /* Mettre à jour l'objet MERCHANT avec les valeurs de la DB */
+    ['orange','mtn','wave','moov','celtiis','coris'].forEach(function(op) {
+      if (cfg[op] && typeof cfg[op] === 'object') {
+        MERCHANT[op] = MERCHANT[op] || {};
+        Object.assign(MERCHANT[op], cfg[op]);
+      }
+    });
+    /* Config Alipay */
+    if (cfg.alipay) {
+      var alipayIdEl = document.getElementById('alipayAccountId');
+      if (alipayIdEl && cfg.alipay.id) alipayIdEl.textContent = cfg.alipay.id;
+      /* QR Code Alipay */
+      if (cfg.alipay.qr_url) {
+        var qrContainer = document.getElementById('alipayQrContainer');
+        if (qrContainer) {
+          qrContainer.innerHTML = '<img src="' + cfg.alipay.qr_url + '" alt="QR Alipay" style="width:120px;height:120px;border-radius:12px;border:2px solid #BFDBFE;display:block;margin:0 auto 4px;" />';
+          qrContainer.style.display = 'block';
+        }
+      }
+    }
+  })
+  .catch(function() { /* silencieux, utilise les valeurs hardcodées en fallback */ });
+}
 
 function hidePinMigrationBanner() {
   var b = document.getElementById('pinMigrationBanner');
@@ -4726,11 +4764,12 @@ const OP_CFG = {
   },
 };
 
-/* Opérateurs disponibles par pays (filtrés sur ceux qui ont un numéro MERCHANT) */
+/* Opérateurs disponibles par pays (filtrés dynamiquement sur ceux qui ont un numéro MERCHANT) */
 const COUNTRY_OPS = {
-  gn: ['orange', 'mtn'],   /* Wave supprimé */
-  bj: ['mtn'],              /* MTN uniquement */
-  ci: ['wave'],             /* Wave uniquement */
+  gn: ['orange', 'mtn', 'wave', 'moov'],
+  bj: ['mtn', 'moov', 'celtiis'],
+  ci: ['orange', 'wave', 'moov', 'coris'],
+  cn: [], /* Chine → Alipay géré séparément */
 };
 
 let _selectedDepOp = '';

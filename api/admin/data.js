@@ -142,7 +142,18 @@ module.exports = async (req, res) => {
       console.warn('[admin/data] project_members:', e.message);
     }
 
-    /* ── 5. Invitations (toutes) ── */
+    /* ── 5. Settings (merchant config) ── */
+    let merchantConfig = null;
+    try {
+      const settingsRows = await supabaseRequest('GET', '/settings?key=eq.merchant_config&select=value');
+      if (Array.isArray(settingsRows) && settingsRows.length > 0) {
+        merchantConfig = settingsRows[0].value;
+      }
+    } catch (e) {
+      console.warn('[admin/data] settings:', e.message);
+    }
+
+    /* ── 6. Invitations (toutes) ── */
     let allInvitations = [];
     try {
       allInvitations = await supabaseRequest('GET',
@@ -200,6 +211,7 @@ module.exports = async (req, res) => {
       allProjects,
       projectMembers,
       allInvitations,
+      merchantConfig,
       stats: {
         total, epargneTotal, kycPending, kycVerified, pendingCount, byCountry,
         alipay: { pending: alipayPending, confirmed: alipayConfirmed, total: alipayTotal },

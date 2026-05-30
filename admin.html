@@ -850,6 +850,117 @@
         <h2 style="font-size:22px;font-weight:800;color:var(--primary);margin-bottom:6px;">Paramètres Système</h2>
         <p class="text-muted" style="margin-bottom:24px;">Configuration globale de la plateforme</p>
 
+        <!-- ══ Numéros de dépôt ══ -->
+        <div class="card" style="margin-bottom:24px;border:2px solid #DBEAFE;background:#EFF6FF;">
+          <div class="card-title" style="margin-bottom:4px;">💳 Numéros de dépôt — Mobile Money &amp; Alipay</div>
+          <p style="font-size:13px;color:var(--text-secondary);margin-bottom:18px;">
+            Ces numéros s'affichent aux utilisateurs lors d'un dépôt. Laissez vide pour désactiver un opérateur.
+          </p>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+            <!-- Orange Money -->
+            <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px;">
+              <div style="font-size:12px;font-weight:700;color:#FF6600;margin-bottom:10px;">🟠 Orange Money</div>
+              <div class="form-group" style="margin:0 0 8px;">
+                <label class="form-label">Guinée (+224)</label>
+                <input class="form-input" type="tel" id="sm_orange_gn" placeholder="628 24 85 47" />
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label class="form-label">Côte d'Ivoire (+225)</label>
+                <input class="form-input" type="tel" id="sm_orange_ci" placeholder="07 00 68 00" />
+              </div>
+            </div>
+            <!-- MTN MoMo -->
+            <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px;">
+              <div style="font-size:12px;font-weight:700;color:#92400E;margin-bottom:10px;">🟡 MTN MoMo</div>
+              <div class="form-group" style="margin:0 0 8px;">
+                <label class="form-label">Guinée (+224)</label>
+                <input class="form-input" type="tel" id="sm_mtn_gn" placeholder="662 160 036" />
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label class="form-label">Bénin (+229)</label>
+                <input class="form-input" type="tel" id="sm_mtn_bj" placeholder="01 53 69 63 00" />
+              </div>
+            </div>
+            <!-- Wave -->
+            <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px;">
+              <div style="font-size:12px;font-weight:700;color:#0BA6E0;margin-bottom:10px;">🔵 Wave</div>
+              <div class="form-group" style="margin:0;">
+                <label class="form-label">Côte d'Ivoire (+225)</label>
+                <input class="form-input" type="tel" id="sm_wave_ci" placeholder="01 00 68 01" />
+              </div>
+            </div>
+            <!-- Moov Money -->
+            <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px;">
+              <div style="font-size:12px;font-weight:700;color:#0066CC;margin-bottom:10px;">🔵 Moov Money</div>
+              <div class="form-group" style="margin:0 0 8px;">
+                <label class="form-label">Bénin (+229)</label>
+                <input class="form-input" type="tel" id="sm_moov_bj" placeholder="" />
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label class="form-label">Côte d'Ivoire (+225)</label>
+                <input class="form-input" type="tel" id="sm_moov_ci" placeholder="" />
+              </div>
+            </div>
+            <!-- Celtiis -->
+            <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px;">
+              <div style="font-size:12px;font-weight:700;color:#E30613;margin-bottom:10px;">🔴 Celtiis Cash</div>
+              <div class="form-group" style="margin:0;">
+                <label class="form-label">Bénin (+229)</label>
+                <input class="form-input" type="tel" id="sm_celtiis_bj" placeholder="" />
+              </div>
+            </div>
+            <!-- Coris -->
+            <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px;">
+              <div style="font-size:12px;font-weight:700;color:#8B1A1A;margin-bottom:10px;">🔴 Coris Money</div>
+              <div class="form-group" style="margin:0;">
+                <label class="form-label">Côte d'Ivoire (+225)</label>
+                <input class="form-input" type="tel" id="sm_coris_ci" placeholder="" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Alipay / WeChat -->
+          <div style="background:#fff;border:1px solid #BFDBFE;border-radius:12px;padding:14px;">
+            <div style="font-size:12px;font-weight:700;color:#1677FF;margin-bottom:12px;">🀄 Alipay &amp; WeChat Pay (Chine)</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+              <div>
+                <div style="font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:.06em;margin-bottom:8px;">ALIPAY</div>
+                <div class="form-group" style="margin:0 0 8px;">
+                  <label class="form-label">ID du compte Alipay</label>
+                  <input class="form-input" type="text" id="sm_alipay_id" placeholder="epargn.plus" />
+                </div>
+                <div class="form-group" style="margin:0;">
+                  <label class="form-label">URL du QR Code <span style="font-weight:400;color:#9CA3AF;">(lien image)</span></label>
+                  <input class="form-input" type="url" id="sm_alipay_qr" placeholder="https://..." oninput="previewQr('alipay')" />
+                  <div id="sm_alipay_preview" style="display:none;margin-top:8px;">
+                    <img id="sm_alipay_img" src="" alt="QR Alipay" style="width:90px;height:90px;border-radius:8px;border:2px solid #BFDBFE;object-fit:contain;" />
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div style="font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:.06em;margin-bottom:8px;">WECHAT PAY</div>
+                <div class="form-group" style="margin:0 0 8px;">
+                  <label class="form-label">ID du compte WeChat</label>
+                  <input class="form-input" type="text" id="sm_wechat_id" placeholder="" />
+                </div>
+                <div class="form-group" style="margin:0;">
+                  <label class="form-label">URL du QR Code <span style="font-weight:400;color:#9CA3AF;">(lien image)</span></label>
+                  <input class="form-input" type="url" id="sm_wechat_qr" placeholder="https://..." oninput="previewQr('wechat')" />
+                  <div id="sm_wechat_preview" style="display:none;margin-top:8px;">
+                    <img id="sm_wechat_img" src="" alt="QR WeChat" style="width:90px;height:90px;border-radius:8px;border:2px solid #BFDBFE;object-fit:contain;" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top:16px;display:flex;align-items:center;gap:12px;">
+            <button class="btn btn-primary" onclick="saveMerchantConfig()">💾 Sauvegarder</button>
+            <div id="settingsSaveMsg" style="font-size:13px;color:var(--text-secondary);"></div>
+          </div>
+        </div>
+
         <!-- Africa's Talking Integration Card -->
         <div class="card" style="margin-bottom:24px;border:2px solid #FEF3C7;background:#FFFBEB;">
           <div class="card-title" style="margin-bottom:16px;">
@@ -2989,7 +3100,80 @@ window.loadAdminDashboard = function(data) {
   renderAlipayDeposits();
   renderChineUsers(data.users || []);
   updateNewBadges(data.stats || {});
+  /* Pré-remplir l'éditeur de numéros si les données sont disponibles */
+  if (data.merchantConfig) loadMerchantConfig(data.merchantConfig);
 };
+
+/* ════════ ÉDITEUR NUMÉROS DE DÉPÔT ════════ */
+function loadMerchantConfig(cfg) {
+  if (!cfg) return;
+  var fields = {
+    'sm_orange_gn':  (cfg.orange    || {}).gn,
+    'sm_orange_ci':  (cfg.orange    || {}).ci,
+    'sm_mtn_gn':     (cfg.mtn       || {}).gn,
+    'sm_mtn_bj':     (cfg.mtn       || {}).bj,
+    'sm_wave_ci':    (cfg.wave      || {}).ci,
+    'sm_moov_bj':    (cfg.moov      || {}).bj,
+    'sm_moov_ci':    (cfg.moov      || {}).ci,
+    'sm_celtiis_bj': (cfg.celtiis   || {}).bj,
+    'sm_coris_ci':   (cfg.coris     || {}).ci,
+    'sm_alipay_id':  (cfg.alipay    || {}).id,
+    'sm_alipay_qr':  (cfg.alipay    || {}).qr_url,
+    'sm_wechat_id':  (cfg.wechatpay || {}).id,
+    'sm_wechat_qr':  (cfg.wechatpay || {}).qr_url,
+  };
+  Object.keys(fields).forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el && fields[id] !== undefined) el.value = fields[id] || '';
+  });
+  previewQr('alipay');
+  previewQr('wechat');
+}
+
+function previewQr(type) {
+  var input   = document.getElementById('sm_' + type + '_qr');
+  var preview = document.getElementById('sm_' + type + '_preview');
+  var img     = document.getElementById('sm_' + type + '_img');
+  if (!input || !preview || !img) return;
+  var url = (input.value || '').trim();
+  if (url) { img.src = url; preview.style.display = 'block'; }
+  else      { preview.style.display = 'none'; }
+}
+
+function saveMerchantConfig() {
+  function get(id) { var el = document.getElementById(id); return el ? el.value.trim() : ''; }
+  var config = {
+    orange:    { gn: get('sm_orange_gn'),  ci: get('sm_orange_ci')  },
+    mtn:       { gn: get('sm_mtn_gn'),     bj: get('sm_mtn_bj')     },
+    wave:      { ci: get('sm_wave_ci')     },
+    moov:      { bj: get('sm_moov_bj'),    ci: get('sm_moov_ci')    },
+    celtiis:   { bj: get('sm_celtiis_bj') },
+    coris:     { ci: get('sm_coris_ci')    },
+    alipay:    { id: get('sm_alipay_id'),  qr_url: get('sm_alipay_qr')  },
+    wechatpay: { id: get('sm_wechat_id'),  qr_url: get('sm_wechat_qr')  },
+  };
+  var msgEl = document.getElementById('settingsSaveMsg');
+  if (msgEl) msgEl.textContent = 'Sauvegarde…';
+
+  fetch('/api/admin/update-balance', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
+    body: JSON.stringify({ action: 'update-settings', merchant_config: config }),
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.ok) {
+      if (msgEl) { msgEl.style.color = 'var(--success)'; msgEl.textContent = '✅ Sauvegardé !'; }
+      setTimeout(function() { if (msgEl) { msgEl.textContent = ''; msgEl.style.color = ''; } }, 3000);
+      previewQr('alipay'); previewQr('wechat');
+    } else {
+      if (msgEl) { msgEl.style.color = '#DC2626'; msgEl.textContent = '❌ ' + (data.error || 'Erreur'); }
+    }
+  })
+  .catch(function() {
+    if (msgEl) { msgEl.style.color = '#DC2626'; msgEl.textContent = '❌ Erreur réseau'; }
+  });
+}
 
 function esc(str) {
   return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
