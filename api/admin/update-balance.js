@@ -17,6 +17,9 @@
 
 const { supabaseRequest } = require('../_lib/supabase');
 const ADMIN_SECRET = process.env.ADMIN_SECRET || 'epargn-admin-dev-2026';
+if (!process.env.ADMIN_SECRET) {
+  console.warn('[SECURITY] ADMIN_SECRET non défini — secret par défaut actif, DANGER en production !');
+}
 
 function parseBody(req) {
   if (req.body && typeof req.body === 'object') return Promise.resolve(req.body);
@@ -458,8 +461,12 @@ module.exports = async (req, res) => {
       if (txnId) {
         try {
           const txRows = await supabaseRequest('GET',
-            '/transactions?id=eq.' + encodeURIComponent(txnId) + '&select=amount,project_id');
+            '/transactions?id=eq.' + encodeURIComponent(txnId) + '&select=amount,project_id,statut');
           if (Array.isArray(txRows) && txRows[0]) {
+            /* Idempotence : refuser si déjà validé */
+            if (txRows[0].statut === 'completed') {
+              return res.status(409).json({ error: 'Ce dépôt est déjà approuvé — opération ignorée pour éviter un double crédit.' });
+            }
             if (!depositAmount) depositAmount = Number(txRows[0].amount) || 0;
             if (!projectId)     projectId     = txRows[0].project_id   || null;
           }
@@ -502,6 +509,25 @@ module.exports = async (req, res) => {
       await supabaseRequest('PATCH',
         '/users?id=eq.' + encodeURIComponent(userId),
         { epargne: newEpargne, pending_deposit: null });
+
+      /* Mettre à jour projects.actuel si le dépôt est lié à un projet */
+      if (projectId) {
+        try {
+          const projRows = await supabaseRequest('GET',
+            '/projects?id=eq.' + encodeURIComponent(projectId) + '&select=id,actuel,goal');
+          if (Array.isArray(projRows) && projRows[0]) {
+            const newActuel = Math.min(
+              (Number(projRows[0].actuel) || 0) + netForServer,
+              Number(projRows[0].goal) || Infinity
+            );
+            await supabaseRequest('PATCH',
+              '/projects?id=eq.' + encodeURIComponent(projectId),
+              { actuel: newActuel, updated_at: now });
+          }
+        } catch (projErr) {
+          console.warn('[approve] update project actuel:', projErr.message);
+        }
+      }
 
       await createNotification(userId, 'deposit', '✅ Dépôt confirmé',
         `Votre dépôt de ${depositAmount.toLocaleString('fr-FR')} GNF a été validé.`,

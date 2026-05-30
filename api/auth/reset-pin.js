@@ -18,9 +18,9 @@ const { supabaseRequest } = require('../_lib/supabase');
 const { hashPin, createJWT } = require('../_lib/auth');
 
 const OTP_SECRET = process.env.OTP_SECRET || 'epargn-otp-dev-secret-change-me';
-const OTP_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const OTP_TTL_MS = 10 * 60 * 1000; // 10 minutes — aligné avec otp/index.js
 
-const VALID_PREFIXES = ['+224', '+229', '+225'];
+const VALID_PREFIXES = ['+224', '+229', '+225', '+86'];
 
 function parseBody(req) {
   if (req.body && typeof req.body === 'object') return Promise.resolve(req.body);
@@ -100,7 +100,8 @@ module.exports = async (req, res) => {
 
     console.log('[reset-pin] PIN réinitialisé pour :', normalized);
 
-    return res.status(200).json({ token, user });
+    const { pin_hash: _ph, ...safeUser } = user;
+    return res.status(200).json({ token, user: safeUser });
 
   } catch (err) {
     console.error('[reset-pin] Erreur :', err.message);

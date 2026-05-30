@@ -10,7 +10,7 @@ const { hashPin, createJWT } = require('../_lib/auth');
 const { sendEmail, welcomeEmailHtml } = require('../_lib/email');
 
 const OTP_SECRET = process.env.OTP_SECRET || 'epargn-otp-dev-secret-change-me';
-const OTP_TTL_MS = 5 * 60 * 1000;
+const OTP_TTL_MS = 10 * 60 * 1000;
 
 /* ── Configuration multi-pays ── */
 const COUNTRY_CONFIG = {
@@ -28,7 +28,7 @@ const COUNTRY_CONFIG = {
     phoneMinLen: 8,
     phoneMaxLen: 10,
     operators: ['mtn', 'moov', 'wave', 'celtiis'],
-    currency: 'GNF',
+    currency: 'FCFA',
   },
   ci: {
     name: "Côte d'Ivoire",
@@ -123,9 +123,8 @@ module.exports = async (req, res) => {
 
   const fullPhone = countryCfg.prefix + localPhone;
 
-  /* ── Vérification OTP (sauf Chine en mode dev si pas d'OTP configuré) ── */
-  const skipOtp = country === 'cn' && !otp_token && process.env.NODE_ENV !== 'production';
-  if (!skipOtp && !verifyOTPToken(otp_code, fullPhone, otp_token)) {
+  /* ── Vérification OTP ── */
+  if (!verifyOTPToken(otp_code, fullPhone, otp_token)) {
     return res.status(400).json({ error: 'Code OTP invalide ou expiré. Demandez un nouveau code.' });
   }
 

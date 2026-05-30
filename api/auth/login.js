@@ -19,7 +19,7 @@ const { supabaseRequest } = require('../_lib/supabase');
 const { verifyPin, createJWT } = require('../_lib/auth');
 
 /* ── Préfixes pays reconnus ── */
-const VALID_PREFIXES = ['+224', '+229', '+225'];
+const VALID_PREFIXES = ['+224', '+229', '+225', '+86'];
 
 function parseBody(req) {
   if (req.body && typeof req.body === 'object') return Promise.resolve(req.body);

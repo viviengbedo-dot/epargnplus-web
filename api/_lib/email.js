@@ -73,7 +73,7 @@ function otpEmailHtml(otp, prenom) {
       <div style="background:#F0F3FF;border-radius:16px;padding:28px;text-align:center;margin-bottom:24px;">
         <span style="font-size:48px;font-weight:900;letter-spacing:10px;color:#0B1566;">${otp}</span>
       </div>
-      <p style="color:#6B7280;font-size:14px;text-align:center;margin:0;">Valable <strong>5 minutes</strong>. Ne partagez jamais ce code.</p>
+      <p style="color:#6B7280;font-size:14px;text-align:center;margin:0;">Valable <strong>10 minutes</strong>. Ne partagez jamais ce code.</p>
     </div>
     <div style="background:#F8FAFF;padding:20px 40px;border-top:1px solid #E8EDF5;">
       <p style="color:#9CA3AF;font-size:12px;margin:0;text-align:center;">© 2026 Epargn+ · Vous recevez cet email car vous avez créé un compte.</p>
@@ -131,7 +131,7 @@ function resetPinEmailHtml(otp, prenom) {
       <div style="background:#FEF3C7;border-radius:16px;padding:28px;text-align:center;margin-bottom:24px;">
         <span style="font-size:48px;font-weight:900;letter-spacing:10px;color:#92400E;">${otp}</span>
       </div>
-      <p style="color:#6B7280;font-size:14px;text-align:center;">Valable <strong>5 minutes</strong>. Si vous n'avez pas demandé ce code, ignorez cet email.</p>
+      <p style="color:#6B7280;font-size:14px;text-align:center;">Valable <strong>10 minutes</strong>. Si vous n'avez pas demandé ce code, ignorez cet email.</p>
     </div>
     <div style="background:#F8FAFF;padding:20px 40px;border-top:1px solid #E8EDF5;">
       <p style="color:#9CA3AF;font-size:12px;margin:0;text-align:center;">© 2026 Epargn+</p>

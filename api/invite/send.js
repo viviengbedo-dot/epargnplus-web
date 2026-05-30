@@ -14,6 +14,7 @@
 const https  = require('https');
 const { supabaseRequest } = require('../_lib/supabase');
 const { sendEmail }       = require('../_lib/email');
+const { verifyJWT }       = require('../_lib/auth');
 const crypto = require('crypto');
 
 const INFOBIP_API_KEY  = process.env.INFOBIP_API_KEY;
@@ -257,9 +258,11 @@ module.exports = async (req, res) => {
   /* ════ POST : envoyer une invitation ════ */
   if (req.method !== 'POST') return res.status(405).json({ error: 'GET/POST uniquement' });
 
-  /* Auth */
+  /* Auth — vérifier JWT */
   const rawToken = extractToken(req);
   if (!rawToken) return res.status(401).json({ error: 'Non authentifié' });
+  const jwtPayload = verifyJWT(rawToken);
+  if (!jwtPayload) return res.status(401).json({ error: 'Session expirée — reconnectez-vous' });
 
   const body = await parseBody(req);
   const {
@@ -281,6 +284,9 @@ module.exports = async (req, res) => {
   } catch (e) {}
 
   if (!project) return res.status(404).json({ error: 'Projet introuvable' });
+  if (project.user_id !== jwtPayload.userId) {
+    return res.status(403).json({ error: 'Vous n\'êtes pas autorisé à inviter dans ce projet' });
+  }
   if (project.status !== 'active') return res.status(400).json({ error: 'Ce projet n\'est plus actif' });
 
   const inviteCode = project.invite_code;

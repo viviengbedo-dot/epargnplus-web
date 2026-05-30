@@ -319,9 +319,12 @@ async function handleTransactions(req, res, payload) {
             '/users?id=eq.' + encodeURIComponent(payload.userId) + '&select=epargne');
           const currentEpargne = (Array.isArray(users) && users[0] && users[0].epargne)
             ? Number(users[0].epargne) : 0;
+          if (amount > currentEpargne) {
+            return res.status(400).json({ error: 'Solde insuffisant. Votre épargne disponible est de ' + currentEpargne + '.' });
+          }
           await supabaseRequest('PATCH',
             '/users?id=eq.' + encodeURIComponent(payload.userId),
-            { epargne: Math.max(0, currentEpargne - amount), updated_at: now });
+            { epargne: currentEpargne - amount, updated_at: now });
         } catch (e) {}
 
         if (projectId) {
