@@ -1163,7 +1163,7 @@ function populateAdminData(data) {
         var pct      = t.goal > 0 ? Math.min(100, Math.round(t.actuel / t.goal * 100)) : 0;
         var safeNom  = (t.nom || '').replace(/'/g, "\\'");
         var safeUser = (t.user || '').replace(/'/g, "\\'");
-        return '<tr>' +
+        return '<tr data-project-id="' + t.id + '">' +
           '<td style="font-weight:700;color:#DC2626;">' + t.nom + '</td>' +
           '<td>' + fmt(t.goal) + ' GNF</td>' +
           '<td>' +
@@ -1197,7 +1197,7 @@ function populateAdminData(data) {
         var pct      = t.goal > 0 ? Math.min(100, Math.round(t.actuel / t.goal * 100)) : 0;
         var safeNom  = (t.nom  || '').replace(/'/g, "\\'");
         var safeUser = (t.user || '').replace(/'/g, "\\'");
-        return '<tr>' +
+        return '<tr data-project-id="' + t.id + '">' +
           '<td style="font-weight:600;">' + t.nom + '</td>' +
           '<td>' + fmt(t.goal) + ' GNF</td>' +
           '<td style="font-weight:700;color:var(--primary);">' + fmt(t.actuel) + ' GNF</td>' +
@@ -2237,7 +2237,22 @@ function adminConfirmTontineClose() {
       closeAdminModal('amodal-deleteApproval');
       var msg = mode === 'force' ? '✅ Groupe clôturé par l\'admin.' : '✅ Suppression approuvée — groupe clôturé.';
       showToast(msg, 'success');
-      reloadAdminData();
+
+      /* ── Suppression optimiste : retirer la ligne du tableau immédiatement ── */
+      ['tontinesTbody', 'tontineDeleteTbody'].forEach(function(tbodyId) {
+        var tbody = document.getElementById(tbodyId);
+        if (!tbody) return;
+        var row = tbody.querySelector('tr[data-project-id="' + projectId + '"]');
+        if (row) {
+          row.style.transition = 'opacity .3s, transform .3s';
+          row.style.opacity = '0';
+          row.style.transform = 'translateX(20px)';
+          setTimeout(function(){ if (row.parentNode) row.parentNode.removeChild(row); }, 320);
+        }
+      });
+
+      /* ── Reload décalé (laisse Supabase propager le PATCH) ── */
+      setTimeout(function() { reloadAdminData(); }, 800);
     } else {
       var errMsg = '❌ Erreur : ' + (d.error || 'réponse inattendue du serveur');
       if (errEl) { errEl.textContent = errMsg; errEl.style.display = ''; }
