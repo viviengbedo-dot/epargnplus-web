@@ -280,6 +280,11 @@
               <span class="c-name">Côte d'Ivoire</span>
               <span class="c-code">+225</span>
             </button>
+            <button type="button" class="country-btn" id="lcountry-cn" onclick="selectLoginCountry('cn')">
+              <span class="c-flag">🇨🇳</span>
+              <span class="c-name">Chine</span>
+              <span class="c-code">+86</span>
+            </button>
           </div>
         </div>
 
@@ -337,6 +342,9 @@
                   </button>
                   <button type="button" class="reg-prefix-opt" onclick="selectResetCountry('ci')">
                     <span>🇨🇮</span><span>Côte d'Ivoire</span><span class="rpo-code">+225</span>
+                  </button>
+                  <button type="button" class="reg-prefix-opt" onclick="selectResetCountry('cn')">
+                    <span>🇨🇳</span><span>Chine</span><span class="rpo-code">+86</span>
                   </button>
                 </div>
               </div>
@@ -445,6 +453,9 @@
                   </button>
                   <button type="button" class="reg-prefix-opt" onclick="selectRegCountry('ci')">
                     <span>🇨🇮</span><span>Côte d'Ivoire</span><span class="rpo-code">+225</span>
+                  </button>
+                  <button type="button" class="reg-prefix-opt" onclick="selectRegCountry('cn')">
+                    <span>🇨🇳</span><span>Chine</span><span class="rpo-code">+86</span>
                   </button>
                 </div>
               </div>
@@ -558,6 +569,11 @@ const COUNTRIES = {
     placeholder: 'XX XX XX XX XX',        maxlength: 10,
     operators: ['orange', 'mtn', 'moov', 'wave', 'coris'],
   },
+  cn: {
+    flag: '🇨🇳', name: 'Chine',           prefix: '+86',
+    placeholder: 'XXX XXXX XXXX',         maxlength: 11,
+    operators: ['alipay', 'wechatpay'],
+  },
 };
 
 /* ── Configuration opérateurs ── */
@@ -619,6 +635,24 @@ const OPERATORS = {
             <text x="22" y="35" text-anchor="middle" fill="white" font-family="Arial,sans-serif" font-weight="700" font-size="8">Coris</text>
           </svg>`,
   },
+  alipay: {
+    name: 'Alipay', shortName: 'Alipay',
+    color: '#1677FF', textColor: '#fff',
+    svg: `<svg viewBox="0 0 44 44" style="width:36px;height:36px;">
+            <rect width="44" height="44" fill="#1677FF" rx="10"/>
+            <text x="22" y="20" text-anchor="middle" fill="white" font-family="Arial,sans-serif" font-weight="900" font-size="8">Ali</text>
+            <text x="22" y="31" text-anchor="middle" fill="white" font-family="Arial,sans-serif" font-weight="700" font-size="8">pay</text>
+          </svg>`,
+  },
+  wechatpay: {
+    name: 'WeChat Pay', shortName: 'WeChat',
+    color: '#07C160', textColor: '#fff',
+    svg: `<svg viewBox="0 0 44 44" style="width:36px;height:36px;">
+            <rect width="44" height="44" fill="#07C160" rx="10"/>
+            <text x="22" y="19" text-anchor="middle" fill="white" font-family="Arial,sans-serif" font-weight="900" font-size="7">WeChat</text>
+            <text x="22" y="31" text-anchor="middle" fill="white" font-family="Arial,sans-serif" font-weight="700" font-size="8">Pay</text>
+          </svg>`,
+  },
 };
 
 /* ── État ── */
@@ -663,7 +697,7 @@ let _regParrainCode = '';
 function selectLoginCountry(code) {
   _loginCountry = code;
   const cfg = COUNTRIES[code];
-  ['gn','bj','ci'].forEach(function(c) {
+  ['gn','bj','ci','cn'].forEach(function(c) {
     document.getElementById('lcountry-' + c).classList.toggle('active', c === code);
   });
   const prefixEl = document.getElementById('loginPrefix');
