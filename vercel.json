@@ -7,6 +7,8 @@
     "api/**/*.js": { "maxDuration": 10 }
   },
   "rewrites": [
+    { "source": "/api/otp/send",   "destination": "/api/otp" },
+    { "source": "/api/otp/verify", "destination": "/api/otp" },
     { "source": "/",               "destination": "/index.html" },
     { "source": "/connexion",      "destination": "/login.html" },
     { "source": "/espace-client",  "destination": "/dashboard.html" },
