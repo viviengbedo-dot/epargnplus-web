@@ -1,14 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <!-- Fond arrondi bleu primary -->
-  <rect width="64" height="64" rx="14" fill="#0B1566"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <!-- Fond bleu navy avec coins arrondis -->
+  <rect width="100" height="100" rx="18" fill="#0B1566"/>
 
-  <!-- Lettre E stylisée -->
-  <rect x="16" y="16" width="22" height="5" rx="2.5" fill="#ffffff"/>
-  <rect x="16" y="16" width="5" height="32" rx="2.5" fill="#ffffff"/>
-  <rect x="16" y="29.5" width="18" height="5" rx="2.5" fill="#C8E000"/>
-  <rect x="16" y="43" width="22" height="5" rx="2.5" fill="#ffffff"/>
+  <!-- Cercle décoratif navy foncé — coin haut-gauche -->
+  <circle cx="12" cy="12" r="22" fill="#060D45" opacity="0.7"/>
 
-  <!-- Signe + accent -->
-  <rect x="40" y="26" width="10" height="4" rx="2" fill="#C8E000"/>
-  <rect x="43" y="23" width="4" height="10" rx="2" fill="#C8E000"/>
+  <!-- Cercle accent jaune-vert — coin bas-droite -->
+  <circle cx="88" cy="88" r="34" fill="#C8E000"/>
+
+  <!-- Lettre E bold blanche -->
+  <text x="14" y="62"
+    font-family="Arial Black, Arial, sans-serif"
+    font-weight="900"
+    font-size="52"
+    fill="#ffffff"
+    letter-spacing="-2">E+</text>
 </svg>

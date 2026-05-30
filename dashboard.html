@@ -1293,14 +1293,23 @@
         <input class="form-input" id="tont-goal" type="number" min="10000" step="1000" placeholder="3 000 000" oninput="tontineAutoCalc()" />
       </div>
       <div class="form-group">
-        <label class="form-label">Durée (mois) <span style="color:#DC2626;">*</span></label>
+        <label class="form-label">Durée <span style="color:#DC2626;">*</span></label>
         <select class="form-input form-select" id="tont-duree" onchange="tontineAutoCalc()">
-          <option value="3">3 mois</option>
-          <option value="6">6 mois</option>
-          <option value="9">9 mois</option>
-          <option value="12" selected>12 mois</option>
-          <option value="18">18 mois</option>
-          <option value="24">24 mois</option>
+          <optgroup label="— Semaines —">
+            <option value="w1">1 semaine</option>
+            <option value="w2">2 semaines</option>
+            <option value="w3">3 semaines</option>
+          </optgroup>
+          <optgroup label="— Mois —">
+            <option value="m1">1 mois</option>
+            <option value="m2">2 mois</option>
+            <option value="m3">3 mois</option>
+            <option value="m6">6 mois</option>
+            <option value="m9">9 mois</option>
+            <option value="m12" selected>12 mois</option>
+            <option value="m18">18 mois</option>
+            <option value="m24">24 mois</option>
+          </optgroup>
         </select>
       </div>
     </div>
@@ -6216,10 +6225,41 @@ function _tontineProgress(t) {
   return { collected: collected, expected: expected, pct: pct, monthsElapsed: monthsElapsed, goal: goal };
 }
 
+/* ── Décompose une valeur de durée (ex: 'w2'→{n:2,unit:'w'}, 'm12'→{n:12,unit:'m'}) ── */
+function _parseDuree(val) {
+  val = String(val || 'm12');
+  if (val.charAt(0) === 'w') return { n: parseInt(val.slice(1), 10) || 1, unit: 'w' };
+  if (val.charAt(0) === 'm') return { n: parseInt(val.slice(1), 10) || 12, unit: 'm' };
+  /* rétrocompatibilité : ancienne valeur numérique = mois */
+  return { n: parseInt(val, 10) || 12, unit: 'm' };
+}
+
+/* ── Total de périodes de dépôt pour une durée donnée ── */
+function _totalPeriods(dureeVal, freq) {
+  var d = _parseDuree(dureeVal);
+  if (d.unit === 'w') {
+    /* 1 semaine hebdomadaire = 1 versement ; 1 semaine journalière = 7 versements */
+    if (freq === 'journalier')   return d.n * 7;
+    if (freq === 'hebdomadaire') return d.n;
+    if (freq === 'bimensuelle')  return Math.max(1, Math.round(d.n * 0.5));
+    return Math.max(1, Math.round(d.n * 0.25)); /* mensuelle : fraction de mois */
+  }
+  /* mois */
+  return d.n * _tontinePeriodsPerMonth(freq || 'mensuelle');
+}
+
+/* ── Libellé humain de la durée ── */
+function _dureeLabel(dureeVal) {
+  var d = _parseDuree(dureeVal);
+  if (d.unit === 'w') return d.n + ' semaine' + (d.n > 1 ? 's' : '');
+  return d.n + ' mois';
+}
+
 /* ── Calcul de la mise (arrondie à la centaine sup) ── */
-function _tontineCalcMise(goal, duree, nbMembers, freq) {
-  if (!goal || !duree || !nbMembers) return 0;
-  var totalPeriods = duree * _tontinePeriodsPerMonth(freq || 'mensuelle');
+function _tontineCalcMise(goal, dureeVal, nbMembers, freq) {
+  if (!goal || !dureeVal || !nbMembers) return 0;
+  var totalPeriods = _totalPeriods(dureeVal, freq || 'mensuelle');
+  if (totalPeriods < 1) totalPeriods = 1;
   var raw = goal / totalPeriods / nbMembers;
   return Math.ceil(raw / 100) * 100;
 }
@@ -6267,25 +6307,26 @@ function tontineFreqChanged() {
 /* ── Auto-calcul dans le formulaire de création ── */
 function tontineAutoCalc() {
   var goalVal  = parseInt((document.getElementById('tont-goal') || {}).value || '0', 10);
-  var dureeVal = parseInt((document.getElementById('tont-duree') || {}).value || '12', 10);
+  var dureeRaw = (document.getElementById('tont-duree') || {}).value || 'm12';
   var freq     = (document.getElementById('tont-freq') || {}).value || 'mensuelle';
   var mbStr    = (document.getElementById('tont-membres') || {}).value || '';
   var phones   = mbStr.split(',').map(function(s){ return s.trim(); }).filter(Boolean);
   var nb       = phones.length + 1;
   var cur      = (_currentUser && COUNTRY_LABELS[_currentUser.country]) ? COUNTRY_LABELS[_currentUser.country].currency : 'GNF';
-  var ppm      = _tontinePeriodsPerMonth(freq);
   var freqLbl  = _tontineFreqLabel(freq);
+  var totalP   = _totalPeriods(dureeRaw, freq);
+  var dureeLbl = _dureeLabel(dureeRaw);
 
   var box = document.getElementById('tont-calcBox');
-  if (!goalVal || !dureeVal) { if (box) box.style.display = 'none'; return; }
+  if (!goalVal || !dureeRaw) { if (box) box.style.display = 'none'; return; }
 
-  var mise    = _tontineCalcMise(goalVal, dureeVal, nb, freq);
-  var potPer  = mise * nb; /* pot collecté à chaque période */
+  var mise   = _tontineCalcMise(goalVal, dureeRaw, nb, freq);
+  var potPer = mise * nb;
 
   if (box) box.style.display = '';
   var el;
   el = document.getElementById('tont-calcMembres');  if (el) el.textContent = nb + ' membre' + (nb > 1 ? 's' : '');
-  el = document.getElementById('tont-calcDuree');    if (el) el.textContent = dureeVal + ' mois (' + (dureeVal * ppm) + ' versements)';
+  el = document.getElementById('tont-calcDuree');    if (el) el.textContent = dureeLbl + ' (' + totalP + ' versement' + (totalP > 1 ? 's' : '') + ')';
   el = document.getElementById('tont-calcMiseLabel');if (el) el.textContent = 'Mise / membre ' + freqLbl + ' :';
   el = document.getElementById('tont-calcMise');     if (el) el.textContent = fmt(mise) + ' ' + cur;
   el = document.getElementById('tont-calcPotLabel'); if (el) el.textContent = 'Pot ' + freqLbl + ' :';
@@ -6492,25 +6533,27 @@ function renderUserTontines() {
 function createTontine() {
   var nom        = ((document.getElementById('tont-nom')        || {}).value || '').trim();
   var goalVal    = parseInt((document.getElementById('tont-goal')       || {}).value || '0', 10);
-  var dureeVal   = parseInt((document.getElementById('tont-duree')      || {}).value || '12', 10);
+  var dureeRaw   = (document.getElementById('tont-duree')      || {}).value || 'm12';
   var depositDay = parseInt((document.getElementById('tont-depositDay') || {}).value || '10', 10);
   var freq       = (document.getElementById('tont-freq')      || {}).value || 'mensuelle';
   var mbStr      = (document.getElementById('tont-membres')   || {}).value || '';
 
-  if (!nom)         { showToast('Donnez un nom à l\'épargne collective.', 'error'); return; }
+  if (!nom)            { showToast('Donnez un nom à l\'épargne collective.', 'error'); return; }
   if (goalVal < 10000) { showToast('Objectif minimum : 10 000.', 'error'); return; }
-  if (!dureeVal)    { showToast('Choisissez une durée.', 'error'); return; }
+  if (!dureeRaw)       { showToast('Choisissez une durée.', 'error'); return; }
 
   var phones   = mbStr.split(',').map(function(s){ return s.trim(); }).filter(Boolean);
   var nb       = phones.length + 1; // +1 admin
-  var mise     = _tontineCalcMise(goalVal, dureeVal, nb, freq);
+  var mise     = _tontineCalcMise(goalVal, dureeRaw, nb, freq);
+  var freqLbl  = _tontineFreqLabel(freq);
+  var dureeLbl = _dureeLabel(dureeRaw);
   var cur      = (_currentUser && COUNTRY_LABELS[_currentUser.country]) ? COUNTRY_LABELS[_currentUser.country].currency : 'GNF';
 
   var tontine = {
     id:         _tontineGenId(),
     nom:        nom,
     goal:       goalVal,
-    duree:      dureeVal,
+    duree:      dureeRaw,
     depositDay: depositDay,
     freq:       freq,
     mise:       mise,
@@ -6528,7 +6571,7 @@ function createTontine() {
     fetch('/api/user/me?resource=projects', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
-      body: JSON.stringify({ nom: '🤝 ' + nom, cible: goalVal, duree: String(dureeVal), color: '#0B1566' }),
+      body: JSON.stringify({ nom: '🤝 ' + nom, cible: goalVal, duree: dureeRaw, color: '#0B1566' }),
     })
     .then(function(r){ return r.json(); })
     .then(function(proj) {
@@ -6550,7 +6593,7 @@ function createTontine() {
   closeModal('modal-newTontine');
   renderTontineStats();
   renderUserTontines();
-  showToast('🤝 Épargne collective « ' + nom + ' » créée ! Mise : ' + fmt(mise) + ' ' + cur + '/membre/mois', 'success');
+  showToast('🤝 Épargne collective « ' + nom + ' » créée ! Mise : ' + fmt(mise) + ' ' + cur + ' ' + freqLbl + ' — Durée : ' + dureeLbl, 'success');
 
   /* Reset form */
   ['tont-nom','tont-goal','tont-membres'].forEach(function(id) {
