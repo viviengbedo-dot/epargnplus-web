@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Fond arrondi bleu primary -->
+  <rect width="64" height="64" rx="14" fill="#0B1566"/>
+
+  <!-- Lettre E stylisée -->
+  <rect x="16" y="16" width="22" height="5" rx="2.5" fill="#ffffff"/>
+  <rect x="16" y="16" width="5" height="32" rx="2.5" fill="#ffffff"/>
+  <rect x="16" y="29.5" width="18" height="5" rx="2.5" fill="#C8E000"/>
+  <rect x="16" y="43" width="22" height="5" rx="2.5" fill="#ffffff"/>
+
+  <!-- Signe + accent -->
+  <rect x="40" y="26" width="10" height="4" rx="2" fill="#C8E000"/>
+  <rect x="43" y="23" width="4" height="10" rx="2" fill="#C8E000"/>
+</svg>
