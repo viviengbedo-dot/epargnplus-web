@@ -2209,34 +2209,46 @@ function openDeleteApprovalModal(projectId, nom, userId, actuel, ownerLabel, mod
 /* Confirmer la clôture définitive d'une tontine (appelé depuis le modal) */
 function adminConfirmTontineClose() {
   var projectId = document.getElementById('delApprProjectId').value;
-  var mode      = document.getElementById('delApprMode').value || 'approve';
-  if (!projectId) { showToast('Erreur : ID projet manquant.', 'error'); return; }
+  var mode      = (document.getElementById('delApprMode') || {}).value || 'approve';
 
-  var btn = document.getElementById('delApprConfirmBtn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Clôture en cours…'; }
+  var btn      = document.getElementById('delApprConfirmBtn');
+  var errEl    = document.getElementById('delApprError');
+
+  if (!projectId) {
+    if (errEl) { errEl.textContent = '⚠️ ID projet manquant — rechargez la page.'; errEl.style.display = ''; }
+    return;
+  }
+
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Clôture en cours…'; }
+  if (errEl) errEl.style.display = 'none';
 
   fetch('/api/admin/update-balance', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
     body: JSON.stringify({ action: 'update-project', projectId: projectId, status: 'closed' }),
   })
-  .then(function(r){ return r.json(); })
+  .then(function(r) {
+    if (!r.ok && r.status !== 200) throw new Error('HTTP ' + r.status);
+    return r.json();
+  })
   .then(function(d) {
     if (btn) { btn.disabled = false; btn.textContent = '✅ Confirmer la clôture définitive →'; }
     if (d.ok) {
       closeAdminModal('amodal-deleteApproval');
-      var msg = mode === 'force'
-        ? '✅ Groupe clôturé par l\'admin.'
-        : '✅ Suppression approuvée — groupe clôturé.';
+      var msg = mode === 'force' ? '✅ Groupe clôturé par l\'admin.' : '✅ Suppression approuvée — groupe clôturé.';
       showToast(msg, 'success');
       reloadAdminData();
     } else {
-      showToast('Erreur : ' + (d.error || 'inconnue'), 'error');
+      var errMsg = '❌ Erreur : ' + (d.error || 'réponse inattendue du serveur');
+      if (errEl) { errEl.textContent = errMsg; errEl.style.display = ''; }
+      else showToast(errMsg, 'error');
     }
   })
   .catch(function(e) {
     if (btn) { btn.disabled = false; btn.textContent = '✅ Confirmer la clôture définitive →'; }
-    showToast('Erreur réseau : ' + e.message, 'error');
+    var errMsg = '❌ Erreur réseau : ' + e.message;
+    if (errEl) { errEl.textContent = errMsg; errEl.style.display = ''; }
+    else showToast(errMsg, 'error');
   });
 }
 
@@ -2312,7 +2324,10 @@ function openAdminModal(id) {
   document.body.style.overflow = 'hidden';
 }
 function closeAdminModal(id) {
-  document.getElementById(id).classList.remove('open');
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.classList.remove('open');
+  el.style.display = ''; /* ferme aussi les modaux ouverts via style.display='flex' */
   document.body.style.overflow = '';
 }
 function handleOverlayClick(e, id) {
@@ -2676,6 +2691,9 @@ function runSmileVerify(userId, idNumber, idType, country, firstName, lastName) 
       <input type="hidden" id="delApprProjectId" />
       <input type="hidden" id="delApprUserId" />
       <input type="hidden" id="delApprMode" value="approve" />
+
+      <!-- Message d'erreur affiché dans le modal (visible même si toast masqué) -->
+      <div id="delApprError" style="display:none;background:#FEE2E2;color:#991B1B;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:600;margin-bottom:12px;"></div>
 
       <button id="delApprConfirmBtn" onclick="adminConfirmTontineClose()"
         style="width:100%;padding:14px;background:#DC2626;color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:8px;">
