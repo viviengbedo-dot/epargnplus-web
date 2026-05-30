@@ -100,8 +100,8 @@ module.exports = async (req, res) => {
   if (!phone || !prenom || !nom || !pin) {
     return res.status(400).json({ error: 'Champs requis manquants (phone, prenom, nom, pin)' });
   }
-  if (!/^\d{6}$/.test(pin)) {
-    return res.status(400).json({ error: 'Le PIN doit contenir exactement 6 chiffres' });
+  if (!/^\d{4}$/.test(pin)) {
+    return res.status(400).json({ error: 'Le PIN doit contenir exactement 4 chiffres' });
   }
 
   /* ── Opérateur : utiliser celui fourni ou le premier du pays ── */

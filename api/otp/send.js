@@ -1,10 +1,7 @@
 /**
  * /api/otp/send — Epargn+
- * Routage SMS intelligent par pays + envoi email via Resend :
- *   GN (+224) → Infobip
- *   BJ (+229) → Africa's Talking
- *   CI (+225) → Africa's Talking
- *   Email (si fourni) → Resend (en parallèle du SMS)
+ * Canal unique : Email via Resend (tous pays).
+ * L'envoi SMS a été supprimé — seul le canal email est utilisé.
  */
 
 const https  = require('https');
@@ -154,7 +151,7 @@ module.exports = async (req, res) => {
   const email   = (body.email   || '').trim().toLowerCase();
   const prenom  = (body.prenom  || '').trim();
   const purpose = body.purpose  || 'register';
-  const channel = body.channel  || 'sms'; // 'sms' | 'email'
+  const channel = 'email'; // canal unique — SMS supprimé
 
   if (!phone) return res.status(400).json({ error: 'phone requis' });
 
@@ -194,73 +191,28 @@ module.exports = async (req, res) => {
   const token    = `${ts}.${signOTP(otp, phone, ts)}`;
   const smsText  = `Votre code Epargn+ : ${otp}. Valable 5 min. Ne jamais partager ce code.`;
 
-  const country    = detectCountry(phone);
-  const hasInfobip = !!(INFOBIP_API_KEY && INFOBIP_BASE_URL);
-  const hasAT      = !!(AT_API_KEY && AT_USERNAME);
-  const hasResend  = !!process.env.RESEND_API_KEY;
-  const demo       = !hasInfobip && !hasAT && !hasResend;
+  const hasResend   = !!process.env.RESEND_API_KEY;
   const targetEmail = email || body._emailFromDb || null;
+  const demo        = !hasResend;
+
+  /* ── Validation email obligatoire ── */
+  if (!targetEmail) {
+    return res.status(400).json({ error: 'Entrez votre adresse email pour recevoir le code.' });
+  }
 
   if (!demo) {
-    if (channel === 'email') {
-      /* ── Canal email uniquement ── */
-      if (!targetEmail || !hasResend) {
-        return res.status(400).json({ error: 'Email requis pour ce canal. Vérifiez votre adresse.' });
-      }
-      const emailResult = await sendEmail({
-        to:      targetEmail,
-        subject: `${otp} — Votre code Epargn+`,
-        html:    otpEmailHtml(otp, prenom),
-      });
-      console.log(`[otp/send] email-only to=${targetEmail} ok=${emailResult.ok} ${emailResult.error || ''}`);
-      if (!emailResult.ok) {
-        return res.status(502).json({ error: emailResult.error || "Envoi email échoué. Vérifiez l'adresse." });
-      }
-    } else {
-      /* ── Canal SMS (+ email en bonus si fourni) ── */
-      try {
-        let smsResult;
-        if (country === 'gn') {
-          smsResult = hasInfobip ? await sendViaInfobip(phone, smsText)
-                                 : await sendViaAT(phone, smsText);
-        } else {
-          if (hasAT) {
-            smsResult = await sendViaAT(phone, smsText);
-            if (!smsResult.ok && hasInfobip) {
-              console.log(`[otp/send] AT failed for ${country}, fallback Infobip`);
-              smsResult = await sendViaInfobip(phone, smsText);
-            }
-          } else if (hasInfobip) {
-            smsResult = await sendViaInfobip(phone, smsText);
-          }
-        }
-        if (smsResult && !smsResult.ok) {
-          console.error('[otp/send] SMS failed:', smsResult.error);
-          if (!targetEmail || !hasResend) {
-            return res.status(502).json({ error: smsResult.error || 'Envoi SMS échoué.' });
-          }
-        } else {
-          console.log(`[otp/send] SMS sent via ${smsResult?.provider} to=${phone}`);
-        }
-      } catch (err) {
-        console.error('[otp/send] SMS exception:', err.message);
-        if (!targetEmail || !hasResend) {
-          return res.status(502).json({ error: 'Erreur envoi SMS.' });
-        }
-      }
-
-      /* Email bonus si fourni */
-      if (targetEmail && hasResend) {
-        const emailResult = await sendEmail({
-          to:      targetEmail,
-          subject: `${otp} — Votre code Epargn+`,
-          html:    otpEmailHtml(otp, prenom),
-        });
-        console.log(`[otp/send] bonus email to=${targetEmail} ok=${emailResult.ok}`);
-      }
+    /* ── Envoi OTP par email (Resend) ── */
+    const emailResult = await sendEmail({
+      to:      targetEmail,
+      subject: `${otp} — Votre code Epargn+`,
+      html:    otpEmailHtml(otp, prenom),
+    });
+    console.log(`[otp/send] email to=${targetEmail} ok=${emailResult.ok} ${emailResult.error || ''}`);
+    if (!emailResult.ok) {
+      return res.status(502).json({ error: emailResult.error || "Envoi email échoué. Vérifiez l'adresse." });
     }
   } else {
-    console.log(`[DEMO OTP] phone=${phone} email=${targetEmail || 'none'} channel=${channel} code=${otp} purpose=${purpose}`);
+    console.log(`[DEMO OTP] phone=${phone} email=${targetEmail} code=${otp} purpose=${purpose}`);
   }
 
   return res.status(200).json({

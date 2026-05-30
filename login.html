@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Connexion / Inscription — Epargn+</title>
+  <!-- PWA / icône écran d'accueil -->
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#0B1566" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Epargn+" />
+  <link rel="apple-touch-icon" href="/icon-180.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
+  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+  <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { min-height: 100vh; background: #F4F6FF; font-family: 'Inter', sans-serif; display: flex; }
+
+    /* ── Layout ── */
+    .auth-wrap   { display: flex; width: 100%; min-height: 100vh; }
+    .auth-left   { width: 42%; background: var(--primary); display: flex; flex-direction: column; padding: 48px 40px; position: relative; overflow: hidden; }
+    .auth-right  { flex: 1; display: flex; align-items: center; justify-content: center; padding: 32px 24px; }
+
+    /* ── Left panel ── */
+    .auth-left-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 56px; text-decoration: none; }
+    .auth-left-logo img { width: 40px; height: 40px; }
+    .auth-left-logo span { font-size: 22px; font-weight: 900; color: #fff; }
+    .auth-left h2 { font-size: 28px; font-weight: 900; color: #fff; line-height: 1.25; margin-bottom: 14px; }
+    .auth-left p  { font-size: 14px; color: rgba(255,255,255,.65); line-height: 1.6; margin-bottom: 28px; }
+    .auth-benefit { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 18px; }
+    .ab-icon { width: 40px; height: 40px; border-radius: 10px; background: rgba(200,230,0,.18); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+    .ab-text strong { display: block; font-size: 14px; font-weight: 800; color: #fff; margin-bottom: 3px; }
+    .ab-text span   { font-size: 12px; color: rgba(255,255,255,.55); }
+    .auth-left-bg  { position: absolute; bottom: -60px; right: -60px; width: 300px; height: 300px; border-radius: 50%; background: rgba(200,230,0,.06); pointer-events: none; }
+    .auth-left-bg2 { position: absolute; bottom: 80px; right: 60px; width: 140px; height: 140px; border-radius: 50%; background: rgba(200,230,0,.06); pointer-events: none; }
+
+    /* Country logos bar */
+    .auth-countries { display: flex; gap: 10px; margin-top: 24px; flex-wrap: wrap; }
+    .auth-country-tag {
+      display: flex; align-items: center; gap: 6px; padding: 6px 12px;
+      background: rgba(255,255,255,.10); border-radius: 20px;
+      font-size: 12px; color: rgba(255,255,255,.85); font-weight: 600;
+    }
+
+    /* Operator logos */
+    .auth-ops { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .auth-op  { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }
+
+    /* ── Right panel / card ── */
+    .auth-card { width: 100%; max-width: 480px; background: #fff; border-radius: 24px; box-shadow: 0 8px 48px rgba(11,21,102,.10); padding: 36px 36px 32px; }
+    .auth-card-title { font-size: 22px; font-weight: 900; color: var(--primary); margin-bottom: 4px; }
+    .auth-card-sub   { font-size: 13px; color: var(--text-secondary); margin-bottom: 24px; }
+
+    /* ── Tabs ── */
+    .auth-tabs { display: flex; background: #F4F6FF; border-radius: 12px; padding: 4px; margin-bottom: 24px; }
+    .auth-tab  { flex: 1; padding: 10px; text-align: center; font-size: 13px; font-weight: 700; color: var(--text-secondary); border: none; background: none; border-radius: 10px; cursor: pointer; transition: all .2s; }
+    .auth-tab.active { background: #fff; color: var(--primary); box-shadow: 0 2px 8px rgba(11,21,102,.08); }
+
+    /* ── Country selector ── */
+    .country-selector { display: flex; gap: 8px; margin-bottom: 18px; }
+    .country-btn {
+      flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
+      padding: 10px 6px; border-radius: 12px; border: 2px solid #E2E6F0;
+      background: #F8FAFF; cursor: pointer; transition: all .2s; font-family: inherit;
+    }
+    .country-btn:hover { border-color: #B0BBD0; background: #F0F3FF; }
+    .country-btn.active { border-color: var(--primary); background: #EEF2FF; }
+    .country-btn .c-flag { font-size: 22px; line-height: 1; }
+    .country-btn .c-name { font-size: 9px; font-weight: 700; color: var(--primary); text-align: center; letter-spacing: .02em; }
+    .country-btn .c-code { font-size: 10px; color: var(--text-secondary); font-weight: 600; }
+    .country-label { font-size: 11px; font-weight: 700; color: var(--text-secondary); letter-spacing: .06em; margin-bottom: 6px; }
+
+    /* ── Forms ── */
+    .auth-form { display: flex; flex-direction: column; gap: 16px; }
+    .auth-group { display: flex; flex-direction: column; gap: 6px; }
+    .auth-label { font-size: 12px; font-weight: 700; color: var(--text-secondary); letter-spacing: .04em; }
+    .auth-input { border: 1.5px solid #E2E6F0; border-radius: 12px; padding: 13px 16px; font-size: 15px; font-family: inherit; color: var(--primary); outline: none; transition: border-color .2s, background .2s; background: #F8FAFF; }
+    .auth-input:focus { border-color: var(--primary); background: #fff; }
+    .auth-input::placeholder { color: #B0B8D0; }
+    .auth-phone-wrap { display: flex; align-items: center; gap: 0; }
+    .auth-prefix { background: #F4F6FF; border: 1.5px solid #E2E6F0; border-right: none; border-radius: 12px 0 0 12px; padding: 13px 12px; font-size: 13px; font-weight: 700; color: var(--primary); white-space: nowrap; transition: all .2s; }
+    .auth-phone-wrap .auth-input { border-radius: 0 12px 12px 0; flex: 1; }
+
+    /* Operator selector */
+    .op-selector { display: flex; gap: 8px; flex-wrap: wrap; }
+    .op-sel-btn  { flex: 1; min-width: 72px; border: 2px solid #E2E6F0; border-radius: 14px; padding: 10px 6px 8px; display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; background: #F8FAFF; transition: all .2s; font-family: inherit; }
+    .op-sel-btn:hover  { border-color: #B0BBD0; background: #F0F3FF; }
+    .op-sel-btn.active { border-color: var(--primary); background: #EEF2FF; }
+    .op-sel-logo { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    .op-sel-name { font-size: 10px; font-weight: 700; color: var(--primary); text-align: center; }
+
+    /* PIN row */
+    .pin-row { display: flex; gap: 8px; justify-content: center; }
+    .pin-digit { width: 44px; height: 52px; border: 1.5px solid #E2E6F0; border-radius: 12px; text-align: center; font-size: 22px; font-weight: 800; color: var(--primary); font-family: inherit; background: #F8FAFF; outline: none; transition: border-color .2s; }
+    .pin-digit:focus { border-color: var(--primary); background: #fff; }
+
+    /* Form row */
+    .auth-form-row { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px; }
+    .auth-form-row .auth-input { width: 100%; box-sizing: border-box; }
+
+    /* Error / success */
+    .auth-msg { font-size: 13px; border-radius: 10px; padding: 10px 14px; display: none; }
+    .auth-msg.error   { background: #FFF1F2; color: #BE123C; display: block; }
+    .auth-msg.success { background: #F0FDF4; color: #15803D; display: block; }
+
+    /* Submit */
+    .auth-submit { background: var(--primary); color: #fff; border: none; border-radius: 14px; padding: 16px; font-size: 16px; font-weight: 800; cursor: pointer; font-family: inherit; transition: opacity .2s, transform .1s; }
+    .auth-submit:hover   { opacity: .9; }
+    .auth-submit:active  { transform: scale(.98); }
+    .auth-submit:disabled{ opacity: .5; cursor: not-allowed; }
+
+    /* Demo link */
+    .auth-demo-link { text-align: center; font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+    .auth-demo-link button { background: none; border: none; color: var(--primary); font-weight: 700; cursor: pointer; font-family: inherit; font-size: 13px; text-decoration: underline; }
+
+    /* Section divider */
+    .auth-section-title {
+      font-size: 11px; font-weight: 700; color: var(--text-secondary); letter-spacing: .06em;
+      text-transform: uppercase; margin-bottom: 6px;
+    }
+
+    /* ── Integrated prefix dropdown (registration) ── */
+    .reg-prefix-wrap { position: relative; flex-shrink: 0; }
+    .reg-prefix-btn {
+      display: flex; align-items: center; gap: 5px;
+      background: #F4F6FF; border: 1.5px solid #E2E6F0; border-right: none;
+      border-radius: 12px 0 0 12px; padding: 13px 12px;
+      font-size: 13px; font-weight: 700; color: var(--primary);
+      cursor: pointer; white-space: nowrap; font-family: inherit;
+      transition: background .2s, border-color .2s; line-height: 1;
+    }
+    .reg-prefix-btn:hover { background: #E8ECFF; border-color: #B0BBD0; }
+    .reg-prefix-arrow { font-size: 10px; color: var(--text-secondary); margin-left: 1px; opacity: .7; }
+    .reg-prefix-dropdown {
+      position: absolute; top: calc(100% + 4px); left: 0; z-index: 50;
+      background: #fff; border: 1.5px solid #E2E6F0; border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(11,21,102,.13); overflow: hidden; min-width: 188px;
+    }
+    .reg-prefix-opt {
+      display: flex; align-items: center; gap: 10px; width: 100%;
+      padding: 10px 14px; border: none; background: none;
+      cursor: pointer; font-family: inherit; font-size: 14px;
+      color: var(--primary); transition: background .15s;
+    }
+    .reg-prefix-opt:hover { background: #F0F3FF; }
+    .reg-prefix-opt .rpo-code { margin-left: auto; font-size: 12px; color: var(--text-secondary); font-weight: 600; }
+
+    /* Mobile */
+    @media (max-width: 768px) {
+      .auth-left { display: none; }
+      .auth-right { padding: 20px 16px; align-items: flex-start; padding-top: 0; }
+      .auth-card { border-radius: 0; box-shadow: none; padding: 20px 16px; max-width: 100%; }
+      .auth-wrap { background: #fff; }
+      .auth-mobile-logo { display: flex; align-items: center; gap: 10px; padding: 20px 16px 8px; text-decoration: none; }
+      .auth-mobile-logo img { width: 32px; height: 32px; }
+      .auth-mobile-logo span { font-size: 20px; font-weight: 900; color: var(--primary); }
+    }
+    @media (min-width: 769px) {
+      .auth-mobile-logo { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Mobile logo -->
+<a href="/" class="auth-mobile-logo" style="position:fixed;top:0;left:0;width:100%;background:#fff;border-bottom:1px solid #E2E6F0;z-index:100;">
+  <img src="logo.svg" alt="Epargn+" />
+  <span>Epargn<strong style="color:var(--accent);">+</strong></span>
+</a>
+
+<div class="auth-wrap">
+
+  <!-- ── Left panel ── -->
+  <div class="auth-left">
+    <a href="/" class="auth-left-logo">
+      <img src="logo.svg" alt="Epargn+" />
+      <span>Epargn<strong style="color:#C8E600;">+</strong></span>
+    </a>
+
+    <h2>L'épargne intelligente<br />pour l'Afrique de l'Ouest.</h2>
+    <p>Rejoignez des milliers d'épargnants en Guinée, au Bénin et en Côte d'Ivoire qui atteignent leurs objectifs financiers avec Epargn+.</p>
+
+    <div class="auth-benefit">
+      <div class="ab-icon">🌍</div>
+      <div class="ab-text">
+        <strong>3 pays, 9 opérateurs</strong>
+        <span>Orange, MTN, Wave, Moov, Celtiis, Coris — votre opérateur est supporté</span>
+      </div>
+    </div>
+    <div class="auth-benefit">
+      <div class="ab-icon">🎯</div>
+      <div class="ab-text">
+        <strong>Projets personnalisés</strong>
+        <span>Mariage, voiture, études, retraite — suivez chaque objectif</span>
+      </div>
+    </div>
+    <div class="auth-benefit">
+      <div class="ab-icon">🛡️</div>
+      <div class="ab-text">
+        <strong>Sécurisé & vérifié KYC</strong>
+        <span>Chiffrement bout en bout, conforme aux normes bancaires</span>
+      </div>
+    </div>
+
+    <div class="auth-countries">
+      <div class="auth-country-tag">🇬🇳 Guinée · +224</div>
+      <div class="auth-country-tag">🇧🇯 Bénin · +229</div>
+      <div class="auth-country-tag">🇨🇮 Côte d'Ivoire · +225</div>
+    </div>
+
+    <div class="auth-ops" style="margin-top: 16px;">
+      <!-- Orange -->
+      <div class="auth-op" style="background:#FF6600;">
+        <svg viewBox="0 0 44 44" style="width:28px;height:28px;"><text x="22" y="18" text-anchor="middle" fill="white" font-family="Arial" font-weight="900" font-size="9">orange</text><text x="22" y="29" text-anchor="middle" fill="white" font-family="Arial" font-weight="700" font-size="8">money</text></svg>
+      </div>
+      <!-- MTN -->
+      <div class="auth-op" style="background:#FFCB05;">
+        <svg viewBox="0 0 44 44" style="width:28px;height:28px;"><text x="22" y="20" text-anchor="middle" fill="#1F2B5B" font-family="Arial" font-weight="900" font-size="11">MTN</text><text x="22" y="31" text-anchor="middle" fill="#1F2B5B" font-family="Arial" font-weight="700" font-size="9">MoMo</text></svg>
+      </div>
+      <!-- Wave -->
+      <div class="auth-op" style="background:#0BA6E0;">
+        <svg viewBox="0 0 44 44" style="width:28px;height:28px;"><text x="22" y="25" text-anchor="middle" fill="white" font-family="Arial" font-weight="900" font-size="10" letter-spacing="1">WAVE</text></svg>
+      </div>
+      <!-- Moov -->
+      <div class="auth-op" style="background:#0066CC;">
+        <svg viewBox="0 0 44 44" style="width:28px;height:28px;"><text x="22" y="20" text-anchor="middle" fill="white" font-family="Arial" font-weight="900" font-size="11">Moov</text><text x="22" y="31" text-anchor="middle" fill="white" font-family="Arial" font-weight="700" font-size="9">Money</text></svg>
+      </div>
+      <!-- Celtiis -->
+      <div class="auth-op" style="background:#E30613;">
+        <svg viewBox="0 0 44 44" style="width:28px;height:28px;"><text x="22" y="20" text-anchor="middle" fill="white" font-family="Arial" font-weight="900" font-size="9">Celtiis</text><text x="22" y="31" text-anchor="middle" fill="white" font-family="Arial" font-weight="700" font-size="9">Cash</text></svg>
+      </div>
+      <!-- Coris -->
+      <div class="auth-op" style="background:#8B1A1A;">
+        <svg viewBox="0 0 44 44" style="width:28px;height:28px;"><text x="22" y="20" text-anchor="middle" fill="white" font-family="Arial" font-weight="900" font-size="10">Coris</text><text x="22" y="31" text-anchor="middle" fill="white" font-family="Arial" font-weight="700" font-size="9">Money</text></svg>
+      </div>
+    </div>
+
+    <div class="auth-left-bg"></div>
+    <div class="auth-left-bg2"></div>
+  </div>
+
+  <!-- ── Right panel ── -->
+  <div class="auth-right" style="padding-top:60px;">
+    <div class="auth-card">
+      <div class="auth-card-title">Bienvenue sur Epargn+ 👋</div>
+      <div class="auth-card-sub">Connectez-vous ou créez votre compte en 2 minutes.</div>
+
+      <!-- Tabs -->
+      <div class="auth-tabs" id="auth-tabs-area">
+        <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">Se connecter</button>
+        <button class="auth-tab" id="tab-register" onclick="switchTab('register')">Créer un compte</button>
+      </div>
+
+      <!-- Error / Success -->
+      <div class="auth-msg" id="authMsg"></div>
+
+      <!-- ══ FORMULAIRE CONNEXION ══ -->
+      <form class="auth-form" id="formLogin" onsubmit="submitLogin(event)">
+
+        <!-- Sélecteur de pays -->
+        <div class="auth-group">
+          <div class="country-label">VOTRE PAYS</div>
+          <div class="country-selector">
+            <button type="button" class="country-btn active" id="lcountry-gn" onclick="selectLoginCountry('gn')">
+              <span class="c-flag">🇬🇳</span>
+              <span class="c-name">Guinée</span>
+              <span class="c-code">+224</span>
+            </button>
+            <button type="button" class="country-btn" id="lcountry-bj" onclick="selectLoginCountry('bj')">
+              <span class="c-flag">🇧🇯</span>
+              <span class="c-name">Bénin</span>
+              <span class="c-code">+229</span>
+            </button>
+            <button type="button" class="country-btn" id="lcountry-ci" onclick="selectLoginCountry('ci')">
+              <span class="c-flag">🇨🇮</span>
+              <span class="c-name">Côte d'Ivoire</span>
+              <span class="c-code">+225</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="auth-group">
+          <label class="auth-label">NUMÉRO DE TÉLÉPHONE</label>
+          <div class="auth-phone-wrap">
+            <span class="auth-prefix" id="loginPrefix">🇬🇳 +224</span>
+            <input class="auth-input" type="tel" id="loginPhone" placeholder="6XX XX XX XX" inputmode="numeric" maxlength="12" autocomplete="tel" />
+          </div>
+        </div>
+        <div class="auth-group">
+          <label class="auth-label">CODE PIN (4 chiffres)</label>
+          <div class="pin-row" id="loginPinRow">
+            <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" id="lp0" oninput="pinAdvance(this,1,'lp')" />
+            <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" id="lp1" oninput="pinAdvance(this,2,'lp')" onkeydown="pinBack(event,0,'lp')" />
+            <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" id="lp2" oninput="pinAdvance(this,3,'lp')" onkeydown="pinBack(event,1,'lp')" />
+            <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" id="lp3" onkeydown="pinBack(event,2,'lp')" />
+          </div>
+        </div>
+        <button class="auth-submit" type="submit" id="btnLogin">Connexion →</button>
+        <div class="auth-demo-link" style="margin-top:10px;">
+          <button type="button" onclick="showReset()">🔑 PIN oublié ?</button>
+        </div>
+      </form>
+
+      <!-- ══ RÉINITIALISATION PIN ══ -->
+      <div id="formReset" style="display:none;flex-direction:column;gap:16px;">
+
+        <!-- En-tête reset -->
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+          <button type="button" onclick="backToLogin()" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--primary);padding:0;line-height:1;">←</button>
+          <div>
+            <div style="font-size:16px;font-weight:900;color:var(--primary);">Réinitialiser mon PIN</div>
+            <div style="font-size:12px;color:var(--text-secondary);">Un code de vérification sera envoyé par email</div>
+          </div>
+        </div>
+
+        <!-- Étape 1 : numéro + email -->
+        <div id="resetStep1" style="display:flex;flex-direction:column;gap:14px;">
+          <div class="auth-group">
+            <label class="auth-label">NUMÉRO DE TÉLÉPHONE</label>
+            <div class="auth-phone-wrap">
+              <div class="reg-prefix-wrap" id="resetPrefixWrap">
+                <button type="button" class="reg-prefix-btn" id="resetPrefixBtn" onclick="toggleResetPrefixDropdown()">
+                  <span id="resetPrefixFlag">🇬🇳</span>
+                  <span id="resetPrefixCode">+224</span>
+                  <span class="reg-prefix-arrow">▾</span>
+                </button>
+                <div class="reg-prefix-dropdown" id="resetPrefixDropdown" style="display:none;">
+                  <button type="button" class="reg-prefix-opt" onclick="selectResetCountry('gn')">
+                    <span>🇬🇳</span><span>Guinée</span><span class="rpo-code">+224</span>
+                  </button>
+                  <button type="button" class="reg-prefix-opt" onclick="selectResetCountry('bj')">
+                    <span>🇧🇯</span><span>Bénin</span><span class="rpo-code">+229</span>
+                  </button>
+                  <button type="button" class="reg-prefix-opt" onclick="selectResetCountry('ci')">
+                    <span>🇨🇮</span><span>Côte d'Ivoire</span><span class="rpo-code">+225</span>
+                  </button>
+                </div>
+              </div>
+              <input class="auth-input" type="tel" id="resetPhone" placeholder="6XX XX XX XX" inputmode="numeric" maxlength="12" />
+            </div>
+          </div>
+          <div class="auth-group">
+            <label class="auth-label">ADRESSE EMAIL <span style="color:#DC2626;">*</span></label>
+            <input class="auth-input" type="email" id="resetEmail" placeholder="votre@gmail.com" autocomplete="email" />
+            <div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">✉️ Le code de réinitialisation sera envoyé à cette adresse.</div>
+          </div>
+          <button class="auth-submit" type="button" id="btnSendResetOTP" onclick="sendResetOTP()">
+            Recevoir mon code par email →
+          </button>
+        </div>
+
+        <!-- Étape 2 : OTP uniquement -->
+        <div id="resetStep2" style="display:none;flex-direction:column;gap:14px;">
+          <div style="text-align:center;padding:8px 0 4px;">
+            <div style="font-size:40px;margin-bottom:6px;">📧</div>
+            <div style="font-size:15px;font-weight:800;color:var(--primary);">Vérifiez votre email</div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">
+              Code envoyé à <strong id="resetEmailDisplay"></strong>
+            </div>
+          </div>
+          <div class="auth-group">
+            <label class="auth-label">CODE REÇU PAR EMAIL (6 chiffres)</label>
+            <div class="pin-row">
+              <input class="pin-digit" type="text" inputmode="numeric" maxlength="1" id="ro0" oninput="pinAdvance(this,1,'ro')" />
+              <input class="pin-digit" type="text" inputmode="numeric" maxlength="1" id="ro1" oninput="pinAdvance(this,2,'ro')" onkeydown="pinBack(event,0,'ro')" />
+              <input class="pin-digit" type="text" inputmode="numeric" maxlength="1" id="ro2" oninput="pinAdvance(this,3,'ro')" onkeydown="pinBack(event,1,'ro')" />
+              <input class="pin-digit" type="text" inputmode="numeric" maxlength="1" id="ro3" oninput="pinAdvance(this,4,'ro')" onkeydown="pinBack(event,2,'ro')" />
+              <input class="pin-digit" type="text" inputmode="numeric" maxlength="1" id="ro4" oninput="pinAdvance(this,5,'ro')" onkeydown="pinBack(event,3,'ro')" />
+              <input class="pin-digit" type="text" inputmode="numeric" maxlength="1" id="ro5" onkeydown="pinBack(event,4,'ro')" />
+            </div>
+          </div>
+          <button class="auth-submit" type="button" id="btnVerifyResetOtp" onclick="verifyResetOtp()">
+            Confirmer le code →
+          </button>
+          <div class="auth-demo-link">
+            <button type="button" onclick="backToResetStep1()">← Modifier l'email</button>
+            &nbsp;·&nbsp;
+            <button type="button" onclick="resendResetOTP()">Renvoyer le code</button>
+          </div>
+        </div>
+
+        <!-- Étape 3 : Nouveau PIN -->
+        <div id="resetStep3" style="display:none;flex-direction:column;gap:14px;">
+          <div style="text-align:center;padding:8px 0 4px;">
+            <div style="font-size:40px;margin-bottom:6px;">🔐</div>
+            <div style="font-size:15px;font-weight:800;color:var(--primary);">Nouveau code PIN</div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">Choisissez votre nouveau code à 4 chiffres</div>
+          </div>
+          <div class="auth-group">
+            <label class="auth-label">NOUVEAU CODE PIN (4 chiffres)</label>
+            <div class="pin-row">
+              <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" id="rn0" oninput="pinAdvance(this,1,'rn')" />
+              <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" id="rn1" oninput="pinAdvance(this,2,'rn')" onkeydown="pinBack(event,0,'rn')" />
+              <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" id="rn2" oninput="pinAdvance(this,3,'rn')" onkeydown="pinBack(event,1,'rn')" />
+              <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" id="rn3" onkeydown="pinBack(event,2,'rn')" />
+            </div>
+          </div>
+          <button class="auth-submit" type="button" id="btnResetConfirm" onclick="submitResetPin()">
+            Confirmer le nouveau PIN →
+          </button>
+          <div class="auth-demo-link">
+            <button type="button" onclick="backToResetStep2()">← Retour</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ══ FORMULAIRE INSCRIPTION ══ -->
+      <form class="auth-form" id="formRegister" style="display:none;" onsubmit="return false;">
+
+        <!-- ── Étape 1 ── -->
+        <div id="regStep1" style="display:flex;flex-direction:column;gap:16px;">
+
+          <div class="auth-form-row">
+            <div class="auth-group">
+              <label class="auth-label">PRÉNOM(S)</label>
+              <input class="auth-input" type="text" id="regPrenom" placeholder="Mamadou" />
+            </div>
+            <div class="auth-group">
+              <label class="auth-label">NOM</label>
+              <input class="auth-input" type="text" id="regNom" placeholder="Diallo" />
+            </div>
+          </div>
+
+          <div class="auth-group">
+            <label class="auth-label">NUMÉRO DE TÉLÉPHONE</label>
+            <div class="auth-phone-wrap">
+              <!-- Indicatif intégré avec sélecteur de pays -->
+              <div class="reg-prefix-wrap" id="regPrefixWrap">
+                <button type="button" class="reg-prefix-btn" id="regPrefixBtn" onclick="togglePrefixDropdown()">
+                  <span id="regPrefixFlag">🇬🇳</span>
+                  <span id="regPrefixCode">+224</span>
+                  <span class="reg-prefix-arrow">▾</span>
+                </button>
+                <div class="reg-prefix-dropdown" id="regPrefixDropdown" style="display:none;">
+                  <button type="button" class="reg-prefix-opt" onclick="selectRegCountry('gn')">
+                    <span>🇬🇳</span><span>Guinée</span><span class="rpo-code">+224</span>
+                  </button>
+                  <button type="button" class="reg-prefix-opt" onclick="selectRegCountry('bj')">
+                    <span>🇧🇯</span><span>Bénin</span><span class="rpo-code">+229</span>
+                  </button>
+                  <button type="button" class="reg-prefix-opt" onclick="selectRegCountry('ci')">
+                    <span>🇨🇮</span><span>Côte d'Ivoire</span><span class="rpo-code">+225</span>
+                  </button>
+                </div>
+              </div>
+              <input class="auth-input" type="tel" id="regPhone" placeholder="6XX XX XX XX" inputmode="numeric" maxlength="12" />
+            </div>
+          </div>
+
+          <div class="auth-group">
+            <label class="auth-label">ADRESSE EMAIL <span style="color:#DC2626;">*</span></label>
+            <input class="auth-input" type="email" id="regEmail" placeholder="votre@gmail.com" autocomplete="email" />
+            <div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">✉️ Votre code de vérification sera envoyé à cette adresse.</div>
+          </div>
+
+          <div class="auth-group">
+            <label class="auth-label">CODE DE PARRAINAGE <span style="font-weight:400;color:#9CA3AF;">(optionnel)</span></label>
+            <input class="auth-input" type="text" id="regParrain" placeholder="ex: MAM4XK2" maxlength="12" autocomplete="off" style="letter-spacing:.1em;text-transform:uppercase;" />
+          </div>
+
+          <button class="auth-submit" type="button" id="btnRegisterStep1" onclick="sendRegisterOTP(event)">
+            Recevoir mon code →
+          </button>
+        </div>
+
+        <!-- ── Étape 2 : Vérification OTP ── -->
+        <div id="regStep2" style="display:none;flex-direction:column;gap:16px;">
+          <div style="text-align:center;padding:8px 0 4px;">
+            <div style="font-size:40px;margin-bottom:6px;">📧</div>
+            <div style="font-size:16px;font-weight:800;color:var(--primary);">Vérifiez votre email</div>
+            <div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">
+              Code envoyé à <strong id="regSentViaDisplay"></strong>
+            </div>
+          </div>
+          <div class="auth-group">
+            <label class="auth-label">CODE REÇU PAR EMAIL (6 chiffres)</label>
+            <div class="pin-row">
+              <input class="pin-digit" type="text" inputmode="numeric" maxlength="1" id="op0" oninput="pinAdvance(this,1,'op')" />
+              <input class="pin-digit" type="text" inputmode="numeric" maxlength="1" id="op1" oninput="pinAdvance(this,2,'op')" onkeydown="pinBack(event,0,'op')" />
+              <input class="pin-digit" type="text" inputmode="numeric" maxlength="1" id="op2" oninput="pinAdvance(this,3,'op')" onkeydown="pinBack(event,1,'op')" />
+              <input class="pin-digit" type="text" inputmode="numeric" maxlength="1" id="op3" oninput="pinAdvance(this,4,'op')" onkeydown="pinBack(event,2,'op')" />
+              <input class="pin-digit" type="text" inputmode="numeric" maxlength="1" id="op4" oninput="pinAdvance(this,5,'op')" onkeydown="pinBack(event,3,'op')" />
+              <input class="pin-digit" type="text" inputmode="numeric" maxlength="1" id="op5" onkeydown="pinBack(event,4,'op')" />
+            </div>
+          </div>
+          <button class="auth-submit" type="button" id="btnVerifyRegOtp" onclick="verifyRegOtp()">
+            Confirmer le code →
+          </button>
+          <div class="auth-demo-link">
+            <button type="button" onclick="backToStep1()">← Modifier l'email</button>
+            &nbsp;·&nbsp;
+            <button type="button" onclick="resendOTP()">Renvoyer le code</button>
+          </div>
+        </div>
+
+        <!-- ── Étape 3 : Choix du PIN ── -->
+        <div id="regStep3" style="display:none;flex-direction:column;gap:16px;">
+          <div style="text-align:center;padding:8px 0 4px;">
+            <div style="font-size:40px;margin-bottom:6px;">🔐</div>
+            <div style="font-size:16px;font-weight:800;color:var(--primary);">Choisissez votre PIN secret</div>
+            <div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">
+              Ce code à 4 chiffres protège votre compte Epargn+
+            </div>
+          </div>
+          <div class="auth-group">
+            <label class="auth-label">VOTRE CODE PIN (4 chiffres)</label>
+            <div class="pin-row">
+              <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" id="rp0" oninput="pinAdvance(this,1,'rp')" />
+              <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" id="rp1" oninput="pinAdvance(this,2,'rp')" onkeydown="pinBack(event,0,'rp')" />
+              <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" id="rp2" oninput="pinAdvance(this,3,'rp')" onkeydown="pinBack(event,1,'rp')" />
+              <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" id="rp3" onkeydown="pinBack(event,2,'rp')" />
+            </div>
+            <div style="font-size:11px;color:var(--text-secondary);margin-top:6px;text-align:center;">
+              Retenez-le bien — il vous sera demandé à chaque connexion.
+            </div>
+          </div>
+          <button class="auth-submit" type="button" id="btnRegister" onclick="submitRegister(event)">
+            Créer mon compte →
+          </button>
+          <div class="auth-demo-link">
+            <button type="button" onclick="backToStep2()">← Retour</button>
+          </div>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════════
+   EPARGN+ — AUTH MULTI-PAYS
+   Guinée (+224) · Bénin (+229) · Côte d'Ivoire (+225)
+   ════════════════════════════════════════════════════════════ */
+
+const TOKEN_KEY = 'epargn_token';
+const USER_KEY  = 'epargn_user';
+
+/* ── Configuration pays ── */
+const COUNTRIES = {
+  gn: {
+    flag: '🇬🇳', name: 'Guinée',         prefix: '+224',
+    placeholder: '6XX XX XX XX',          maxlength: 10,
+    operators: ['orange', 'mtn', 'wave'],
+  },
+  bj: {
+    flag: '🇧🇯', name: 'Bénin',          prefix: '+229',
+    placeholder: 'XX XX XX XX XX',        maxlength: 10,
+    operators: ['mtn', 'moov', 'wave', 'celtiis'],
+  },
+  ci: {
+    flag: '🇨🇮', name: "Côte d'Ivoire",  prefix: '+225',
+    placeholder: 'XX XX XX XX XX',        maxlength: 10,
+    operators: ['orange', 'mtn', 'moov', 'wave', 'coris'],
+  },
+};
+
+/* ── Configuration opérateurs ── */
+const OPERATORS = {
+  orange: {
+    name: 'Orange Money', shortName: 'Orange',
+    color: '#FF6600', textColor: '#fff',
+    svg: `<svg viewBox="0 0 44 44" style="width:36px;height:36px;">
+            <rect width="44" height="44" fill="#FF6600" rx="10"/>
+            <circle cx="22" cy="22" r="12" fill="white" opacity="0.15"/>
+            <text x="22" y="20" text-anchor="middle" fill="white" font-family="Arial,sans-serif" font-weight="900" font-size="9" letter-spacing="-0.3">orange</text>
+            <text x="22" y="30" text-anchor="middle" fill="white" font-family="Arial,sans-serif" font-weight="700" font-size="8">money</text>
+          </svg>`,
+  },
+  mtn: {
+    name: 'MTN MoMo', shortName: 'MTN',
+    color: '#FFCB05', textColor: '#1F2B5B',
+    svg: `<svg viewBox="0 0 44 44" style="width:36px;height:36px;">
+            <rect width="44" height="44" fill="#FFCB05" rx="10"/>
+            <text x="22" y="21" text-anchor="middle" fill="#1F2B5B" font-family="Arial,sans-serif" font-weight="900" font-size="13" letter-spacing="-0.5">MTN</text>
+            <text x="22" y="33" text-anchor="middle" fill="#1F2B5B" font-family="Arial,sans-serif" font-weight="700" font-size="10">MoMo</text>
+          </svg>`,
+  },
+  wave: {
+    name: 'Wave', shortName: 'Wave',
+    color: '#0BA6E0', textColor: '#fff',
+    svg: `<svg viewBox="0 0 44 44" style="width:36px;height:36px;">
+            <rect width="44" height="44" fill="#0BA6E0" rx="10"/>
+            <path d="M8 28 Q18 14 22 22 Q26 30 36 16" stroke="white" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+            <path d="M8 34 Q18 20 22 28 Q26 36 36 22" stroke="white" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.55"/>
+            <text x="22" y="42" text-anchor="middle" fill="white" font-family="Arial,sans-serif" font-weight="900" font-size="8" letter-spacing="1">WAVE</text>
+          </svg>`,
+  },
+  moov: {
+    name: 'Moov Money', shortName: 'Moov',
+    color: '#0066CC', textColor: '#fff',
+    svg: `<svg viewBox="0 0 44 44" style="width:36px;height:36px;">
+            <rect width="44" height="44" fill="#0066CC" rx="10"/>
+            <text x="22" y="21" text-anchor="middle" fill="white" font-family="Arial,sans-serif" font-weight="900" font-size="13" letter-spacing="-0.5">moov</text>
+            <text x="22" y="33" text-anchor="middle" fill="white" font-family="Arial,sans-serif" font-weight="700" font-size="10">money</text>
+          </svg>`,
+  },
+  celtiis: {
+    name: 'Celtiis Cash', shortName: 'Celtiis',
+    color: '#E30613', textColor: '#fff',
+    svg: `<svg viewBox="0 0 44 44" style="width:36px;height:36px;">
+            <rect width="44" height="44" fill="#E30613" rx="10"/>
+            <text x="22" y="19" text-anchor="middle" fill="white" font-family="Arial,sans-serif" font-weight="900" font-size="10">Celtiis</text>
+            <text x="22" y="32" text-anchor="middle" fill="white" font-family="Arial,sans-serif" font-weight="700" font-size="10">Cash</text>
+          </svg>`,
+  },
+  coris: {
+    name: 'Coris Money', shortName: 'Coris',
+    color: '#8B1A1A', textColor: '#fff',
+    svg: `<svg viewBox="0 0 44 44" style="width:36px;height:36px;">
+            <rect width="44" height="44" fill="#8B1A1A" rx="10"/>
+            <circle cx="22" cy="18" r="7" fill="rgba(255,255,255,0.2)"/>
+            <text x="22" y="22" text-anchor="middle" fill="white" font-family="Arial,sans-serif" font-weight="900" font-size="10">C</text>
+            <text x="22" y="35" text-anchor="middle" fill="white" font-family="Arial,sans-serif" font-weight="700" font-size="8">Coris</text>
+          </svg>`,
+  },
+};
+
+/* ── État ── */
+let _loginCountry   = 'gn';
+let _regCountry     = 'gn';
+let _regOtpToken    = null;
+let _regOtpCode     = null;   /* mémorisé entre étape 2 et étape 3 */
+let _regPhone       = null;
+let _regEmail       = '';
+/* OTP envoyé uniquement par email */
+let _regParrainCode = '';
+
+/* ── Lire ?ref=CODE dans l'URL et pré-remplir le champ parrainage ── */
+(function() {
+  const ref = new URLSearchParams(window.location.search).get('ref');
+  if (ref) {
+    _regParrainCode = ref.toUpperCase();
+    /* Pré-remplir après le DOM prêt */
+    document.addEventListener('DOMContentLoaded', function() {
+      var el = document.getElementById('regParrain');
+      if (el) { el.value = _regParrainCode; }
+      /* Ouvrir l'onglet inscription si ref présent */
+      switchTab('register');
+    });
+  }
+})();
+
+/* selectOtpChannel supprimé — email uniquement */
+
+/* ── Vérifier session existante ── */
+(function checkExistingSession() {
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) return;
+  fetch('/api/user/me', { headers: { 'Authorization': 'Bearer ' + token } })
+    .then(function(r) { if (r.ok) window.location.replace('/espace-client'); })
+    .catch(function() {});
+})();
+
+/* ══════════════════════════════════════
+   SÉLECTEUR DE PAYS
+   ══════════════════════════════════════ */
+function selectLoginCountry(code) {
+  _loginCountry = code;
+  const cfg = COUNTRIES[code];
+  ['gn','bj','ci'].forEach(function(c) {
+    document.getElementById('lcountry-' + c).classList.toggle('active', c === code);
+  });
+  const prefixEl = document.getElementById('loginPrefix');
+  if (prefixEl) prefixEl.textContent = cfg.flag + ' ' + cfg.prefix;
+  const phoneEl = document.getElementById('loginPhone');
+  if (phoneEl) {
+    phoneEl.placeholder = cfg.placeholder;
+    phoneEl.maxLength   = cfg.maxlength;
+    phoneEl.value = '';
+  }
+}
+
+function selectRegCountry(code) {
+  _regCountry = code;
+  const cfg = COUNTRIES[code];
+  const flagEl = document.getElementById('regPrefixFlag');
+  const codeEl = document.getElementById('regPrefixCode');
+  if (flagEl) flagEl.textContent = cfg.flag;
+  if (codeEl) codeEl.textContent = cfg.prefix;
+  const phoneEl = document.getElementById('regPhone');
+  if (phoneEl) {
+    phoneEl.placeholder = cfg.placeholder;
+    phoneEl.maxLength   = cfg.maxlength;
+    phoneEl.value = '';
+  }
+  /* Fermer le dropdown après sélection */
+  var dd = document.getElementById('regPrefixDropdown');
+  if (dd) dd.style.display = 'none';
+  phoneEl && phoneEl.focus();
+}
+
+/* ══════════════════════════════════════
+   DROPDOWN INDICATIF
+   ══════════════════════════════════════ */
+function togglePrefixDropdown() {
+  var dd = document.getElementById('regPrefixDropdown');
+  if (!dd) return;
+  dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+}
+
+/* Fermer le dropdown si clic hors du sélecteur */
+document.addEventListener('click', function(e) {
+  var wrap = document.getElementById('regPrefixWrap');
+  var dd   = document.getElementById('regPrefixDropdown');
+  if (wrap && dd && !wrap.contains(e.target)) {
+    dd.style.display = 'none';
+  }
+});
+
+/* ══════════════════════════════════════
+   TABS
+   ══════════════════════════════════════ */
+function switchTab(tab) {
+  document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+  document.getElementById('tab-register').classList.toggle('active', tab === 'register');
+  document.getElementById('formLogin').style.display    = tab === 'login'    ? 'flex' : 'none';
+  document.getElementById('formRegister').style.display = tab === 'register' ? 'flex' : 'none';
+  clearMsg();
+}
+
+/* ── PIN inputs ── */
+function pinAdvance(input, nextIdx, prefix) {
+  input.value = input.value.replace(/\D/g, '');
+  if (input.value.length === 1) {
+    const next = document.getElementById(prefix + nextIdx);
+    if (next) next.focus();
+  }
+}
+function pinBack(e, prevIdx, prefix) {
+  if (e.key === 'Backspace' && !e.target.value) {
+    const prev = document.getElementById(prefix + prevIdx);
+    if (prev) { prev.value = ''; prev.focus(); }
+  }
+}
+function getPIN(prefix) {
+  /* OTP rows (op, ro) are 6 digits; PIN rows (lp, rn, rp) are 4 digits */
+  var maxLen = (prefix === 'op' || prefix === 'ro') ? 6 : 4;
+  return [0,1,2,3,4,5].slice(0, maxLen).map(function(i) {
+    var el = document.getElementById(prefix + i); return el ? el.value : '';
+  }).join('');
+}
+
+/* ── Messages ── */
+function showMsg(msg, type) {
+  var el = document.getElementById('authMsg');
+  el.textContent = msg;
+  el.className = 'auth-msg ' + type;
+  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function clearMsg() {
+  var el = document.getElementById('authMsg');
+  el.className = 'auth-msg'; el.textContent = '';
+}
+
+/* ── Session ── */
+function saveSession(token, user) {
+  localStorage.setItem(TOKEN_KEY, token);
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
+}
+
+/* ══════════════════════════════════════
+   CONNEXION
+   ══════════════════════════════════════ */
+async function submitLogin(e) {
+  e.preventDefault();
+  clearMsg();
+  const countryCfg = COUNTRIES[_loginCountry];
+  const localPhone = document.getElementById('loginPhone').value.replace(/[\s\-\.]/g, '');
+  const pin        = getPIN('lp');
+  const fullPhone  = countryCfg.prefix + localPhone;
+
+  if (!localPhone || localPhone.length < 6) {
+    showMsg('Entrez votre numéro de téléphone.', 'error'); return;
+  }
+  if (pin.length < 4) {
+    showMsg('Entrez votre code PIN à 4 chiffres.', 'error'); return;
+  }
+
+  const btn = document.getElementById('btnLogin');
+  btn.disabled = true;
+  btn.textContent = 'Connexion en cours…';
+
+  try {
+    const r = await fetch('/api/auth/login', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ phone: fullPhone, pin }),
+    });
+    const data = await r.json();
+
+    if (!r.ok) {
+      showMsg(data.error || 'Connexion échouée.', 'error');
+      btn.disabled = false; btn.textContent = 'Connexion →';
+      return;
+    }
+
+    saveSession(data.token, data.user);
+    /* PIN 4 chiffres → déjà migré, pas besoin de bannière */
+    if (pin.length === 4) localStorage.setItem('epargn_pin4_done', '1');
+    showMsg('✅ Connexion réussie ! Redirection…', 'success');
+    setTimeout(function() { window.location.replace('/espace-client'); }, 800);
+
+  } catch (err) {
+    showMsg('Erreur réseau. Vérifiez votre connexion.', 'error');
+    btn.disabled = false; btn.textContent = 'Connexion →';
+  }
+}
+
+/* ══════════════════════════════════════
+   INSCRIPTION — Étape 1 : envoi OTP par email
+   ══════════════════════════════════════ */
+async function sendRegisterOTP(e) {
+  e.preventDefault();
+  clearMsg();
+
+  const countryCfg = COUNTRIES[_regCountry];
+  const prenom  = document.getElementById('regPrenom').value.trim();
+  const nom     = document.getElementById('regNom').value.trim();
+  const local   = document.getElementById('regPhone').value.replace(/[\s\-\.]/g, '');
+  const email   = (document.getElementById('regEmail').value || '').trim().toLowerCase();
+  _regParrainCode = (document.getElementById('regParrain').value || '').trim().toUpperCase();
+
+  if (!prenom || !nom)    { showMsg('Prénom et Nom sont obligatoires.', 'error'); return; }
+  if (!local || local.length < 6) { showMsg('Entrez un numéro de téléphone valide.', 'error'); return; }
+  if (!email)             { showMsg('Entrez votre adresse email pour recevoir le code.', 'error'); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showMsg('Adresse email invalide.', 'error'); return; }
+
+  const fullPhone = countryCfg.prefix + local;
+  const btn = document.getElementById('btnRegisterStep1');
+  btn.disabled = true;
+  btn.textContent = 'Envoi du code…';
+
+  try {
+    const r = await fetch('/api/otp/send', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        phone:   fullPhone,
+        email,
+        prenom,
+        channel: 'email',
+        purpose: 'register',
+      }),
+    });
+    const data = await r.json();
+
+    if (!r.ok) {
+      if (r.status === 409) {
+        var el = document.getElementById('authMsg');
+        el.className = 'auth-msg error';
+        el.innerHTML = '⚠️ ' + (data.error || 'Ce numéro est déjà enregistré.') + ' <a href="#" onclick="switchTab(\'login\');return false;" style="color:#BE123C;font-weight:700;">Se connecter →</a>';
+      } else {
+        showMsg(data.error || "Impossible d'envoyer le code. Réessayez.", 'error');
+      }
+      btn.disabled = false; btn.textContent = 'Recevoir mon code →';
+      return;
+    }
+
+    _regOtpToken = data.token;
+    _regPhone    = local;
+    _regEmail    = email;
+
+    document.getElementById('regStep1').style.display = 'none';
+    document.getElementById('regStep2').style.display = 'flex';
+
+    var sentVia = document.getElementById('regSentViaDisplay');
+    if (sentVia) sentVia.textContent = email;
+
+    document.getElementById('op0').focus();
+    clearMsg();
+    if (data.demo) showMsg('⚠️ Mode test : code visible dans les logs Vercel.', 'success');
+
+  } catch (err) {
+    showMsg('Erreur réseau. Vérifiez votre connexion.', 'error');
+    btn.disabled = false; btn.textContent = 'Recevoir mon code →';
+  }
+}
+
+/* ══════════════════════════════════════
+   INSCRIPTION — Étape 2 : Vérifier l'OTP (→ étape 3)
+   ══════════════════════════════════════ */
+function verifyRegOtp() {
+  clearMsg();
+  const otp_code = getPIN('op');
+  if (otp_code.length < 6) { showMsg('Entrez le code à 6 chiffres reçu par email.', 'error'); return; }
+  /* Mémoriser l'OTP et passer à l'étape PIN */
+  _regOtpCode = otp_code;
+  document.getElementById('regStep2').style.display = 'none';
+  document.getElementById('regStep3').style.display = 'flex';
+  document.getElementById('rp0').focus();
+}
+
+/* ══════════════════════════════════════
+   INSCRIPTION — Étape 3 : Créer le compte avec PIN
+   ══════════════════════════════════════ */
+async function submitRegister(e) {
+  e.preventDefault();
+  clearMsg();
+  const otp_code = _regOtpCode || getPIN('op');
+  const pin      = getPIN('rp');
+
+  if (!otp_code || otp_code.length < 6) { showMsg('Code OTP invalide. Recommencez depuis le début.', 'error'); return; }
+  if (pin.length < 4) { showMsg('Choisissez un code PIN à 4 chiffres.', 'error'); return; }
+
+  const btn = document.getElementById('btnRegister');
+  btn.disabled = true;
+  btn.textContent = 'Création du compte…';
+
+  const prenom = document.getElementById('regPrenom').value.trim();
+  const nom    = document.getElementById('regNom').value.trim();
+
+  try {
+    const r = await fetch('/api/auth/register', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        phone:       _regPhone,
+        country:     _regCountry,
+        prenom, nom,
+        pin,
+        otp_token:   _regOtpToken,
+        otp_code,
+        email:       _regEmail || undefined,
+        parraine_par: _regParrainCode || undefined,
+      }),
+    });
+    const data = await r.json();
+
+    if (!r.ok) {
+      if (r.status === 409) {
+        var msg = data.error || 'Ce compte existe déjà.';
+        var el = document.getElementById('authMsg');
+        el.className = 'auth-msg error';
+        el.innerHTML = '⚠️ ' + msg + ' <a href="#" onclick="switchTab(\'login\');return false;" style="color:#BE123C;font-weight:700;">Se connecter →</a>';
+      } else {
+        showMsg(data.error || 'Inscription échouée.', 'error');
+      }
+      btn.disabled = false; btn.textContent = 'Créer mon compte →';
+      return;
+    }
+
+    saveSession(data.token, data.user);
+    /* Nouveau membre → PIN 4 chiffres depuis le départ, bannière migration inutile */
+    localStorage.setItem('epargn_pin4_done', '1');
+    showMsg('✅ Compte créé ! Bienvenue sur Epargn+ 🎉', 'success');
+    setTimeout(function() { window.location.replace('/espace-client'); }, 900);
+
+  } catch (err) {
+    showMsg('Erreur réseau. Vérifiez votre connexion.', 'error');
+    btn.disabled = false; btn.textContent = 'Créer mon compte →';
+  }
+}
+
+/* ── Renvoyer OTP ── */
+async function resendOTP() {
+  if (!_regPhone) return;
+  clearMsg();
+  const countryCfg = COUNTRIES[_regCountry];
+  const fullPhone  = countryCfg.prefix + _regPhone;
+  try {
+    const r = await fetch('/api/otp/send', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ phone: fullPhone, email: _regEmail, channel: 'email', purpose: 'register' }),
+    });
+    const data = await r.json();
+    if (r.ok) {
+      _regOtpToken = data.token;
+      [0,1,2,3,4,5].forEach(function(i) {
+        var el = document.getElementById('op' + i); if (el) el.value = '';
+      });
+      document.getElementById('op0').focus();
+      showMsg('✅ Nouveau code envoyé.', 'success');
+    } else {
+      showMsg('Impossible de renvoyer le code.', 'error');
+    }
+  } catch { showMsg('Erreur réseau.', 'error'); }
+}
+
+/* ── Retour étape 1 ── */
+function backToStep1() {
+  document.getElementById('regStep2').style.display = 'none';
+  document.getElementById('regStep3').style.display = 'none';
+  document.getElementById('regStep1').style.display = 'flex';
+  document.getElementById('btnRegisterStep1').disabled = false;
+  document.getElementById('btnRegisterStep1').textContent = 'Recevoir mon code →';
+  _regOtpCode = null;
+  ['op','rp'].forEach(function(pfx) {
+    [0,1,2,3,4,5].forEach(function(i) {
+      var el = document.getElementById(pfx+i); if (el) el.value = '';
+    });
+  });
+  clearMsg();
+}
+
+function backToStep2() {
+  document.getElementById('regStep3').style.display = 'none';
+  document.getElementById('regStep2').style.display = 'flex';
+  [0,1,2,3].forEach(function(i) {
+    var el = document.getElementById('rp'+i); if (el) el.value = '';
+  });
+  clearMsg();
+}
+
+/* ══════════════════════════════════════
+   RÉINITIALISATION PIN
+   ══════════════════════════════════════ */
+
+let _resetCountry  = 'gn';
+let _resetEmail    = '';
+let _resetOtpCode  = null;
+let _resetOtpToken = null;
+let _resetPhone    = null;
+
+function showReset() {
+  document.getElementById('auth-tabs-area').style.display = 'none';
+  document.getElementById('formLogin').style.display    = 'none';
+  document.getElementById('formRegister').style.display = 'none';
+  document.getElementById('formReset').style.display    = 'flex';
+  clearMsg();
+}
+
+function backToLogin() {
+  document.getElementById('auth-tabs-area').style.display = 'flex';
+  document.getElementById('formReset').style.display   = 'none';
+  document.getElementById('formLogin').style.display   = 'flex';
+  document.getElementById('resetStep1').style.display  = 'flex';
+  document.getElementById('resetStep2').style.display  = 'none';
+  document.getElementById('resetStep3').style.display  = 'none';
+  document.getElementById('resetPhone').value = '';
+  var re = document.getElementById('resetEmail'); if (re) re.value = '';
+  [0,1,2,3,4,5].forEach(function(i) {
+    var el = document.getElementById('ro'+i); if (el) el.value = '';
+  });
+  [0,1,2,3].forEach(function(i) {
+    var el = document.getElementById('rn'+i); if (el) el.value = '';
+  });
+  _resetOtpToken = null; _resetPhone = null; _resetEmail = ''; _resetOtpCode = null;
+  clearMsg();
+}
+
+function toggleResetPrefixDropdown() {
+  var dd = document.getElementById('resetPrefixDropdown');
+  if (!dd) return;
+  dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+}
+
+function selectResetCountry(code) {
+  _resetCountry = code;
+  const cfg = COUNTRIES[code];
+  var flagEl = document.getElementById('resetPrefixFlag');
+  var codeEl = document.getElementById('resetPrefixCode');
+  if (flagEl) flagEl.textContent = cfg.flag;
+  if (codeEl) codeEl.textContent = cfg.prefix;
+  var phoneEl = document.getElementById('resetPhone');
+  if (phoneEl) { phoneEl.placeholder = cfg.placeholder; phoneEl.maxLength = cfg.maxlength; phoneEl.value = ''; }
+  var dd = document.getElementById('resetPrefixDropdown');
+  if (dd) dd.style.display = 'none';
+  phoneEl && phoneEl.focus();
+}
+
+/* Fermer dropdown reset si clic extérieur */
+document.addEventListener('click', function(e) {
+  var wrap = document.getElementById('resetPrefixWrap');
+  var dd   = document.getElementById('resetPrefixDropdown');
+  if (wrap && dd && !wrap.contains(e.target)) dd.style.display = 'none';
+});
+
+async function sendResetOTP() {
+  clearMsg();
+  const cfg   = COUNTRIES[_resetCountry];
+  const local = document.getElementById('resetPhone').value.replace(/[\s\-\.]/g, '');
+  const email = (document.getElementById('resetEmail').value || '').trim().toLowerCase();
+  if (!local || local.length < 6) { showMsg('Entrez votre numéro de téléphone.', 'error'); return; }
+  if (!email) { showMsg('Entrez votre adresse email.', 'error'); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showMsg('Adresse email invalide.', 'error'); return; }
+  const fullPhone = cfg.prefix + local;
+  const btn = document.getElementById('btnSendResetOTP');
+  btn.disabled = true; btn.textContent = 'Envoi du code…';
+  try {
+    const r = await fetch('/api/otp/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: fullPhone, email, channel: 'email', purpose: 'reset' }),
+    });
+    const data = await r.json();
+    if (!r.ok) {
+      showMsg(data.error || "Impossible d'envoyer le code.", 'error');
+      btn.disabled = false; btn.textContent = 'Recevoir mon code par email →';
+      return;
+    }
+    _resetOtpToken = data.token;
+    _resetPhone    = fullPhone;
+    _resetEmail    = email;
+    var disp = document.getElementById('resetEmailDisplay');
+    if (disp) disp.textContent = email;
+    document.getElementById('resetStep1').style.display = 'none';
+    document.getElementById('resetStep2').style.display = 'flex';
+    document.getElementById('ro0').focus();
+    clearMsg();
+    if (data.demo) showMsg('⚠️ Mode test : consultez les logs Vercel pour le code OTP.', 'success');
+  } catch (err) {
+    showMsg('Erreur réseau. Vérifiez votre connexion.', 'error');
+    btn.disabled = false; btn.textContent = 'Recevoir mon code par email →';
+  }
+}
+
+/* Étape 2 reset → vérifier OTP → étape 3 */
+function verifyResetOtp() {
+  clearMsg();
+  const otp_code = getPIN('ro');
+  if (otp_code.length < 6) { showMsg('Entrez le code à 6 chiffres reçu par email.', 'error'); return; }
+  _resetOtpCode = otp_code;
+  document.getElementById('resetStep2').style.display = 'none';
+  document.getElementById('resetStep3').style.display = 'flex';
+  document.getElementById('rn0').focus();
+}
+
+/* Étape 3 reset → confirmer le nouveau PIN */
+async function submitResetPin() {
+  clearMsg();
+  const otp_code = _resetOtpCode || getPIN('ro');
+  const new_pin  = getPIN('rn');
+  if (!otp_code || otp_code.length < 6) { showMsg('Code OTP invalide. Recommencez.', 'error'); return; }
+  if (new_pin.length < 4)  { showMsg('Choisissez un nouveau PIN à 4 chiffres.', 'error'); return; }
+  const btn = document.getElementById('btnResetConfirm');
+  btn.disabled = true; btn.textContent = 'Réinitialisation…';
+  try {
+    const r = await fetch('/api/auth/reset-pin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: _resetPhone, otp_token: _resetOtpToken, otp_code, new_pin }),
+    });
+    const data = await r.json();
+    if (!r.ok) {
+      showMsg(data.error || 'Réinitialisation échouée.', 'error');
+      btn.disabled = false; btn.textContent = 'Confirmer le nouveau PIN →';
+      return;
+    }
+    saveSession(data.token, data.user);
+    showMsg('✅ PIN réinitialisé avec succès ! Redirection…', 'success');
+    setTimeout(function() { window.location.replace('/espace-client'); }, 900);
+  } catch (err) {
+    showMsg('Erreur réseau. Vérifiez votre connexion.', 'error');
+    btn.disabled = false; btn.textContent = 'Confirmer le nouveau PIN →';
+  }
+}
+
+function backToResetStep1() {
+  document.getElementById('resetStep2').style.display = 'none';
+  document.getElementById('resetStep3').style.display = 'none';
+  document.getElementById('resetStep1').style.display = 'flex';
+  document.getElementById('btnSendResetOTP').disabled = false;
+  document.getElementById('btnSendResetOTP').textContent = 'Recevoir mon code par email →';
+  _resetOtpCode = null;
+  [0,1,2,3,4,5].forEach(function(i) {
+    var el = document.getElementById('ro'+i); if (el) el.value = '';
+  });
+  [0,1,2,3].forEach(function(i) {
+    var el = document.getElementById('rn'+i); if (el) el.value = '';
+  });
+  clearMsg();
+}
+
+function backToResetStep2() {
+  document.getElementById('resetStep3').style.display = 'none';
+  document.getElementById('resetStep2').style.display = 'flex';
+  [0,1,2,3].forEach(function(i) {
+    var el = document.getElementById('rn'+i); if (el) el.value = '';
+  });
+  clearMsg();
+}
+
+async function resendResetOTP() {
+  if (!_resetPhone) return;
+  clearMsg();
+  try {
+    const r = await fetch('/api/otp/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: _resetPhone, email: _resetEmail, channel: 'email', purpose: 'reset' }),
+    });
+    const data = await r.json();
+    if (r.ok) {
+      _resetOtpToken = data.token;
+      [0,1,2,3,4,5].forEach(function(i) {
+        var el = document.getElementById('ro'+i); if (el) el.value = '';
+      });
+      document.getElementById('ro0').focus();
+      showMsg('✅ Nouveau code envoyé.', 'success');
+    } else {
+      showMsg(data.error || 'Impossible de renvoyer le code.', 'error');
+    }
+  } catch { showMsg('Erreur réseau.', 'error'); }
+}
+
+/* ── Init ── */
+(function init() {
+  selectLoginCountry('gn');
+})();
+</script>
+</body>
+</html>

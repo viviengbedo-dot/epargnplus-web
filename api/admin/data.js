@@ -61,6 +61,25 @@ module.exports = async (req, res) => {
       /* La table n'existe pas encore — on utilisera pending_deposit sur users */
     }
 
+    /* ── 2b. Toutes les transactions récentes (historique complet) ── */
+    let allTransactions = [];
+    try {
+      allTransactions = await supabaseRequest('GET',
+        '/transactions?select=id,user_id,type,amount,operator,project_id,statut,status,label,created_at&order=created_at.desc&limit=300'
+      );
+      if (!Array.isArray(allTransactions)) allTransactions = [];
+    } catch (e) {
+      /* Retry sans colonnes optionnelles */
+      try {
+        allTransactions = await supabaseRequest('GET',
+          '/transactions?select=id,user_id,type,amount,operator,statut,status,created_at&order=created_at.desc&limit=300'
+        );
+        if (!Array.isArray(allTransactions)) allTransactions = [];
+      } catch (e2) {
+        console.warn('[admin/data] allTransactions:', e2.message);
+      }
+    }
+
     /* ── 3. Projets de tous les utilisateurs ── */
     let allProjects = [];
     try {
@@ -91,6 +110,7 @@ module.exports = async (req, res) => {
     return res.status(200).json({
       users,
       pendingTransactions,
+      allTransactions,
       allProjects,
       stats: { total, epargneTotal, kycPending, kycVerified, pendingCount, byCountry },
     });

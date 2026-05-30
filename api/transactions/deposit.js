@@ -2,7 +2,7 @@
  * POST /api/transactions/deposit — Epargn+
  * Enregistre une DEMANDE de dépôt en attente de validation admin.
  *
- * Corps JSON : { amount, operator, projectId?, note? }
+ * Corps JSON : { amount, operator, projectId?, note?, senderPhone? }
  */
 
 const { supabaseRequest } = require('../_lib/supabase');
@@ -37,10 +37,11 @@ module.exports = async (req, res) => {
   if (!jwtPayload) return res.status(401).json({ error: 'Session expirée' });
 
   const body      = await parseBody(req);
-  const amount    = parseInt(body.amount, 10);
-  const operator  = (body.operator || 'Mobile Money').trim();
-  const projectId = body.projectId || null;
-  const note      = body.note || null;
+  const amount      = parseInt(body.amount, 10);
+  const operator    = (body.operator    || 'Mobile Money').trim();
+  const projectId   = body.projectId   || null;
+  const note        = body.note        || null;
+  const senderPhone = (body.senderPhone || '').trim() || null;
 
   if (!amount || amount < 1000) {
     return res.status(400).json({ error: 'Montant minimum : 1 000 GNF' });
@@ -63,6 +64,14 @@ module.exports = async (req, res) => {
   let txnId = null;
   let usedFallback = false;
 
+  /* ── Référence unique internationale : DEP-YYYYMMDD-XXXXXX ── */
+  const ref = 'DEP-' + now.slice(0,10).replace(/-/g,'') + '-' +
+    Math.random().toString(36).substr(2,6).toUpperCase();
+
+  if (!senderPhone) {
+    console.warn('[deposit] senderPhone absent — dépôt accepté sans N° expéditeur (compatibilité)');
+  }
+
   /* ── 1. Écriture dans la table transactions ── */
   try {
     const txnRows = await supabaseRequest('POST', '/transactions', {
@@ -71,11 +80,12 @@ module.exports = async (req, res) => {
       amount:     amount,
       operator:   operator,
       is_credit:  true,
-      label:      'Dépôt ' + operator,
-      note:       note,
-      project_id: projectId,
-      statut:     'pending',
-      status:     'pending',
+      label:        ref + ' · Dépôt ' + operator,
+      note:         note || (senderPhone ? 'Expéditeur : ' + senderPhone : null),
+      sender_phone: senderPhone,
+      project_id:   projectId,
+      statut:       'pending',
+      status:       'pending',
     });
     const created = Array.isArray(txnRows) ? txnRows[0] : txnRows;
     if (created) txnId = created.id;
@@ -86,7 +96,7 @@ module.exports = async (req, res) => {
   }
 
   /* ── 2. Mise à jour pending_deposit (rétrocompat) ── */
-  const pendingData = JSON.stringify({ amount, operator, requestedAt: now, txnId, projectId });
+  const pendingData = JSON.stringify({ amount, operator, requestedAt: now, txnId, projectId, senderPhone });
   try {
     await supabaseRequest('PATCH',
       '/users?id=eq.' + encodeURIComponent(jwtPayload.userId),

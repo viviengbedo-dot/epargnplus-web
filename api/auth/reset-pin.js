@@ -66,8 +66,8 @@ module.exports = async (req, res) => {
     return res.status(400).json({ error: 'Format de numéro invalide (+224, +229 ou +225 requis)' });
   }
 
-  if (!/^\d{6}$/.test(new_pin)) {
-    return res.status(400).json({ error: 'Le nouveau PIN doit contenir exactement 6 chiffres' });
+  if (!/^\d{4}$/.test(new_pin)) {
+    return res.status(400).json({ error: 'Le nouveau PIN doit contenir exactement 4 chiffres' });
   }
 
   /* ── Vérification OTP ── */

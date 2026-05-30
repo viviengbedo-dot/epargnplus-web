@@ -1,0 +1,2687 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Epargn+ — Administration | epargnplus.com</title>
+  <meta name="description" content="Tableau de bord administrateur Epargn+ — gestion des utilisateurs, KYC, transactions sur epargnplus.com" />
+  <meta name="robots" content="noindex, nofollow" />
+  <meta property="og:url" content="https://epargnplus.com/admin.html" />
+  <link rel="canonical" href="https://epargnplus.com/admin.html" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#0B1566" />
+  <link rel="apple-touch-icon" href="/icon-180.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
+  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+  <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Admin-specific overrides ── */
+    .admin-badge {
+      background: rgba(200,230,0,.15);
+      color: var(--accent);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 100px;
+      letter-spacing: .06em;
+    }
+    .chart-bar-wrap {
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+      height: 120px;
+      padding-top: 12px;
+    }
+    .chart-bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .chart-bar {
+      width: 100%;
+      border-radius: 4px 4px 0 0;
+      transition: opacity .2s;
+      cursor: pointer;
+    }
+    .chart-bar:hover { opacity: .8; }
+    .chart-label { font-size: 10px; color: var(--text-hint); }
+    .chart-val   { font-size: 9px;  color: var(--text-secondary); font-weight: 600; }
+
+    .donut-wrap {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+    .donut-svg { flex-shrink: 0; }
+    .donut-legend { display: flex; flex-direction: column; gap: 10px; }
+    .legend-item { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+    .legend-dot  { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+    .action-col { display: flex; gap: 6px; }
+    .btn-icon {
+      width: 30px; height: 30px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      transition: all .2s;
+    }
+    .btn-icon:hover { background: var(--bg-light); border-color: var(--primary); }
+    .btn-icon.danger:hover { background: rgba(255,68,68,.06); border-color: var(--error); }
+
+    .mini-avatar {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      color: #fff;
+      font-weight: 700;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .kyc-row { display: flex; align-items: center; gap: 10px; }
+    .kyc-img-placeholder {
+      width: 48px; height: 36px;
+      background: var(--bg-light);
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+
+    .activity-feed { display: flex; flex-direction: column; gap: 0; }
+    .activity-entry {
+      display: flex;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--divider);
+    }
+    .activity-entry:last-child { border-bottom: none; }
+    .activity-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      margin-top: 5px;
+      flex-shrink: 0;
+    }
+    .activity-text { font-size: 13px; color: var(--text-primary); line-height: 1.5; }
+    .activity-time { font-size: 11px; color: var(--text-hint); margin-top: 2px; }
+
+    .search-input {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-light);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 8px 12px;
+      font-size: 14px;
+      color: var(--text-primary);
+      width: 240px;
+      transition: border-color .2s;
+    }
+    .search-input:focus-within { border-color: var(--primary); background: #fff; }
+    .search-input input {
+      border: none;
+      background: none;
+      outline: none;
+      font-family: inherit;
+      font-size: 14px;
+      color: var(--text-primary);
+      width: 100%;
+    }
+
+    .kpi-trend {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-top: 6px;
+    }
+    .kpi-trend.up   { color: var(--success); }
+    .kpi-trend.down { color: var(--error);   }
+    .kpi-trend.neutral { color: var(--text-hint); }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════ LOGIN OVERLAY ADMIN ═══════════ -->
+<div id="adminLoginOverlay" style="position:fixed;inset:0;z-index:9999;background:linear-gradient(135deg,#0B1566,#1a2a8a);display:flex;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:#fff;border-radius:24px;padding:40px 36px;max-width:420px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,.35);text-align:center;">
+    <img src="logo.svg" alt="Epargn+" style="height:44px;margin-bottom:16px;" />
+    <div style="font-size:22px;font-weight:900;color:#0B1566;margin-bottom:4px;">Espace Administration</div>
+    <div style="font-size:13px;color:#6B7280;margin-bottom:28px;">Accès réservé aux administrateurs Epargn+</div>
+    <div style="text-align:left;margin-bottom:16px;">
+      <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px;letter-spacing:.04em;">CLÉ D'ADMINISTRATION</label>
+      <input id="adminTokenInput" type="password" placeholder="Entrez votre clé secrète…"
+        style="width:100%;box-sizing:border-box;padding:13px 16px;border:1.5px solid #E5E7EB;border-radius:12px;font-size:15px;font-family:inherit;outline:none;transition:.2s;"
+        onfocus="this.style.borderColor='#0B1566'" onblur="this.style.borderColor='#E5E7EB'"
+        onkeydown="if(event.key==='Enter')adminLogin()" />
+    </div>
+    <div id="adminLoginError" style="display:none;color:#DC2626;font-size:13px;font-weight:600;margin-bottom:12px;padding:10px;background:#FEF2F2;border-radius:8px;"></div>
+    <button onclick="adminLogin()" style="width:100%;background:#0B1566;color:#C8E600;border:none;border-radius:12px;padding:15px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;letter-spacing:.02em;">
+      Accéder au tableau de bord →
+    </button>
+    <div style="margin-top:16px;font-size:12px;color:#9CA3AF;">
+      🔒 Connexion chiffrée · Accès protégé
+    </div>
+  </div>
+</div>
+
+<div class="dash-layout">
+
+  <!-- ── SIDEBAR OVERLAY (mobile) ── -->
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+  <!-- ══════════════ SIDEBAR ══════════════ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <img src="logo.svg" alt="Epargn+" class="logo-img" />
+      <div>
+        <span>Epargn<strong style="color:var(--accent)">+</strong></span>
+        <span class="admin-badge" style="margin-left:8px;">ADMIN</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-title">VUE GÉNÉRALE</div>
+      <button class="nav-item active" onclick="showAdminSection('overview', this)">
+        <span class="nav-icon">📊</span> Tableau de bord
+      </button>
+      <button class="nav-item" onclick="showAdminSection('analytics', this)">
+        <span class="nav-icon">📈</span> Analytiques
+      </button>
+
+      <div class="nav-section-title">GESTION</div>
+      <button class="nav-item" onclick="showAdminSection('users', this)">
+        <span class="nav-icon">👥</span> Utilisateurs
+        <span class="nav-badge" id="navUsersBadge" style="display:none;">0</span>
+      </button>
+      <button class="nav-item" onclick="showAdminSection('transactions', this)">
+        <span class="nav-icon">💳</span> Transactions
+      </button>
+      <button class="nav-item" onclick="showAdminSection('projets', this)">
+        <span class="nav-icon">🎯</span> Projets
+      </button>
+      <button class="nav-item" onclick="showAdminSection('tontines', this)">
+        <span class="nav-icon">🤝</span> Épargne Coll.
+      </button>
+
+      <div class="nav-section-title">VÉRIFICATION</div>
+      <button class="nav-item" onclick="showAdminSection('kyc', this)">
+        <span class="nav-icon">🆔</span> KYC en attente
+        <span class="nav-badge" id="navKycAdminBadge" style="display:none;">0</span>
+      </button>
+      <button class="nav-item" onclick="showAdminSection('support', this)">
+        <span class="nav-icon">🎧</span> Support
+      </button>
+
+      <div class="nav-section-title">SYSTÈME</div>
+      <button class="nav-item" onclick="showAdminSection('parametres', this)">
+        <span class="nav-icon">⚙️</span> Paramètres
+      </button>
+      <button class="nav-item" onclick="showAdminSection('logs', this)">
+        <span class="nav-icon">📋</span> Logs système
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-pill">
+        <div class="user-avatar" style="background:#C8E600;color:var(--primary);">SA</div>
+        <div class="user-info">
+          <div class="user-name">Super Admin</div>
+          <div class="user-role">admin@epargn.plus</div>
+        </div>
+      </div>
+      <button class="nav-item" style="margin-top:8px;color:rgba(255,68,68,.8);" onclick="adminLogout()">
+        <span class="nav-icon">🚪</span> Déconnexion
+      </button>
+    </div>
+  </aside>
+
+  <!-- ══════════════ MAIN ══════════════ -->
+  <main class="dash-main">
+
+    <!-- Top Bar -->
+    <div class="dash-topbar">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button class="icon-btn" id="burgerBtn" onclick="toggleSidebar()" style="display:none;">☰</button>
+        <div class="topbar-title" id="topbarTitle">Tableau de bord</div>
+      </div>
+      <div class="topbar-right">
+        <div class="search-input">
+          <span>🔍</span>
+          <input type="text" placeholder="Rechercher..." oninput="globalSearch(this.value)" />
+        </div>
+        <button class="btn btn-outline btn-sm" id="refreshBtn" onclick="manualRefresh()" title="Recharger les données depuis Supabase" style="display:flex;align-items:center;gap:6px;font-weight:700;">
+          🔄 <span id="refreshLabel">Actualiser</span>
+        </button>
+        <span id="lastUpdatedLabel" style="font-size:11px;color:var(--text-secondary);white-space:nowrap;display:none;"></span>
+        <div style="position:relative;">
+          <button class="icon-btn" id="adminBellBtn" onclick="toggleAdminNotifDropdown()" title="Notifications en attente">🔔
+            <span class="notif-dot" id="adminBellDot" style="display:none;"></span>
+          </button>
+          <div id="adminNotifDropdown" style="display:none;position:absolute;right:0;top:44px;width:300px;background:#fff;border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,.15);border:1px solid var(--divider);z-index:200;overflow:hidden;">
+            <div style="padding:12px 16px;font-size:13px;font-weight:800;color:var(--primary);border-bottom:1px solid var(--divider);">Actions en attente</div>
+            <div id="adminNotifItems" style="max-height:280px;overflow-y:auto;"></div>
+          </div>
+        </div>
+        <a href="https://epargnplus.com/" class="btn btn-outline btn-sm">← Site</a>
+        <a href="https://epargnplus.com/espace-client" class="btn btn-primary btn-sm">Vue Client</a>
+      </div>
+    </div>
+
+    <!-- ══ CONTENT ══ -->
+    <div class="dash-content">
+
+      <!-- ════════ OVERVIEW ════════ -->
+      <section id="sec-overview">
+
+        <!-- KPI Cards -->
+        <div class="stat-cards" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px;">
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#EEF2FF;">👥</div>
+            <div class="stat-card-info">
+              <div class="stat-card-value" id="kpi-total-users">—</div>
+              <div class="stat-card-label">Utilisateurs inscrits</div>
+              <div class="kpi-trend up" id="kpi-kyc-verified-trend">Chargement…</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#F0FDF4;">💰</div>
+            <div class="stat-card-info">
+              <div class="stat-card-value" id="kpi-epargne-total">—</div>
+              <div class="stat-card-label">Épargne totale (GNF)</div>
+              <div class="kpi-trend up">Données en direct</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#FFFBEB;">💳</div>
+            <div class="stat-card-info">
+              <div class="stat-card-value" id="kpi-kyc-verified">—</div>
+              <div class="stat-card-label">KYC Vérifiés</div>
+              <div class="kpi-trend up">✅ Comptes validés</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#FFF1F2;">🆔</div>
+            <div class="stat-card-info">
+              <div class="stat-card-value" id="kpi-kyc-pending">—</div>
+              <div class="stat-card-label">KYC en attente</div>
+              <div class="kpi-trend down" id="kpi-kyc-pending-trend">⚠ À traiter</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-bottom:24px;">
+
+          <!-- Épargne mensuelle (bar chart) -->
+          <div class="card">
+            <div class="card-title">
+              📊 Épargne collectée — 6 derniers mois
+              <span class="text-muted" style="font-weight:400;font-size:12px;">en GNF</span>
+            </div>
+            <div class="chart-bar-wrap" id="barChart">
+              <!-- injected -->
+            </div>
+            <div style="display:flex;gap:12px;margin-top:16px;font-size:12px;color:var(--text-secondary);">
+              <span style="display:flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;background:var(--primary);border-radius:2px;display:inline-block;"></span>Dépôts</span>
+              <span style="display:flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;background:var(--accent);border-radius:2px;display:inline-block;"></span>Retraits</span>
+            </div>
+          </div>
+
+          <!-- Répartition (donut) — données réelles -->
+          <div class="card">
+            <div class="card-title">🥧 Épargne totale</div>
+            <div class="donut-wrap">
+              <svg class="donut-svg" width="140" height="140" viewBox="0 0 140 140">
+                <circle cx="70" cy="70" r="52" fill="none" stroke="var(--divider)" stroke-width="22"/>
+                <circle cx="70" cy="70" r="52" fill="none" stroke="#3B82F6" stroke-width="22"
+                  stroke-dasharray="326.7 326.7" stroke-dashoffset="81.7" stroke-linecap="butt" id="donutMain"/>
+                <text x="70" y="62" text-anchor="middle" font-size="9" fill="var(--text-secondary)">TOTAL</text>
+                <text x="70" y="76" text-anchor="middle" font-size="11" font-weight="800" fill="var(--primary)" id="donutTotal">0</text>
+                <text x="70" y="89" text-anchor="middle" font-size="8" fill="var(--text-secondary)">GNF</text>
+              </svg>
+              <div class="donut-legend">
+                <div class="legend-item"><div class="legend-dot" style="background:#3B82F6;"></div><div><div style="font-weight:600;">Épargne clients</div><div class="text-muted" style="font-size:12px;" id="donutEpargneLabel">Chargement…</div></div></div>
+                <div class="legend-item"><div class="legend-dot" style="background:#E5E5F0;"></div><div><div style="font-weight:600;color:var(--text-secondary);">Répartition</div><div class="text-muted" style="font-size:12px;">Disponible prochainement</div></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+
+          <!-- Dernières transactions -->
+          <div class="card">
+            <div class="card-title">
+              ⚡ Transactions récentes
+              <button class="link" onclick="showAdminSection('transactions', null)">Voir tout →</button>
+            </div>
+            <div id="adminRecentTxn"><!-- injected --></div>
+          </div>
+
+          <!-- Activité live -->
+          <div class="card">
+            <div class="card-title">🔴 Activité en temps réel</div>
+            <div class="activity-feed" id="activityFeed"><!-- injected --></div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ════════ ANALYTICS ════════ -->
+      <section id="sec-analytics" style="display:none;">
+        <h2 style="font-size:22px;font-weight:800;color:var(--primary);margin-bottom:6px;">Analytiques</h2>
+        <p class="text-muted" style="margin-bottom:24px;">Indicateurs de performance de la plateforme</p>
+
+        <div class="stat-cards" style="margin-bottom:24px;">
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#EEF2FF;">📥</div>
+            <div class="stat-card-info">
+              <div class="stat-card-value">0</div>
+              <div class="stat-card-label">Dépôts ce mois (FCFA)</div>
+              <div class="kpi-trend neutral">Données à venir</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#FFF1F2;">📤</div>
+            <div class="stat-card-info">
+              <div class="stat-card-value">0</div>
+              <div class="stat-card-label">Retraits ce mois (FCFA)</div>
+              <div class="kpi-trend neutral">Données à venir</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#F0FDF4;">🎁</div>
+            <div class="stat-card-info">
+              <div class="stat-card-value">0</div>
+              <div class="stat-card-label">Parrainages validés</div>
+              <div class="kpi-trend neutral">Données à venir</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#FFFBEB;">🏦</div>
+            <div class="stat-card-info">
+              <div class="stat-card-value">0</div>
+              <div class="stat-card-label">Revenus commissions (FCFA)</div>
+              <div class="kpi-trend neutral">Données à venir</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:24px;">
+          <div class="card-title">📊 Croissance utilisateurs — 12 derniers mois</div>
+          <div class="chart-bar-wrap" id="growthChart" style="height:160px;"><!-- injected --></div>
+        </div>
+
+        <!-- Répartition par opérateur & OTP -->
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">📱 Transactions par opérateur</div>
+            <div style="text-align:center;padding:32px 16px;color:var(--text-secondary);">
+              <div style="font-size:36px;margin-bottom:10px;">📊</div>
+              <div style="font-size:14px;font-weight:700;color:var(--primary);">Données à venir</div>
+              <div style="font-size:12px;margin-top:6px;line-height:1.6;">La répartition par opérateur sera disponible<br>dès que les premières transactions seront enregistrées.</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">🔐 OTP — Configuration SMS</div>
+            <div style="display:flex;flex-direction:column;gap:12px;margin-top:8px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--divider);">
+                <span style="font-size:13px;color:var(--text-secondary);">Fournisseur GN (+224)</span>
+                <span style="font-weight:700;color:var(--primary);">Infobip</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--divider);">
+                <span style="font-size:13px;color:var(--text-secondary);">Fournisseur BJ/CI</span>
+                <span style="font-weight:700;color:var(--primary);">Africa's Talking</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--divider);">
+                <span style="font-size:13px;color:var(--text-secondary);">Canal email</span>
+                <span style="font-weight:700;color:var(--success);">Resend ✓</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;">
+                <span style="font-size:13px;color:var(--text-secondary);">TTL code OTP</span>
+                <span style="font-weight:700;color:var(--primary);">5 min</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════ USERS ════════ -->
+      <section id="sec-users" style="display:none;">
+        <div class="flex-between mb-6">
+          <div>
+            <h2 style="font-size:22px;font-weight:800;color:var(--primary);">Gestion des Utilisateurs</h2>
+            <p class="text-muted" id="usersCountLabel">Chargement…</p>
+          </div>
+          <div class="flex-gap">
+            <select class="form-input form-select" style="width:auto;" onchange="filterUsers(this.value)">
+              <option value="all">Tous les statuts</option>
+              <option value="active">Actifs</option>
+              <option value="pending">En attente KYC</option>
+              <option value="suspended">Suspendus</option>
+            </select>
+            <button class="btn btn-accent" onclick="openAdminModal('addUser')">+ Ajouter</button>
+          </div>
+        </div>
+
+        <!-- Filtres par pays -->
+        <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+          <button class="btn btn-primary btn-sm" id="userCountryTab-all" onclick="filterUsersByCountry('all')">🌍 Tous</button>
+          <button class="btn btn-outline btn-sm" id="userCountryTab-gn" onclick="filterUsersByCountry('gn')">🇬🇳 Guinée <span style="font-size:10px;opacity:.7;">(GNF)</span></button>
+          <button class="btn btn-outline btn-sm" id="userCountryTab-bj" onclick="filterUsersByCountry('bj')">🇧🇯 Bénin <span style="font-size:10px;opacity:.7;">(FCFA)</span></button>
+          <button class="btn btn-outline btn-sm" id="userCountryTab-ci" onclick="filterUsersByCountry('ci')">🇨🇮 Côte d'Ivoire <span style="font-size:10px;opacity:.7;">(FCFA)</span></button>
+        </div>
+
+        <div class="card">
+          <div class="table-wrap">
+            <table id="usersTable">
+              <thead>
+                <tr>
+                  <th>Utilisateur</th>
+                  <th>Téléphone</th>
+                  <th>Pays</th>
+                  <th>Épargne</th>
+                  <th>Opérateur</th>
+                  <th>Statut KYC</th>
+                  <th>Inscription</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="usersTbody"><!-- injected --></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════ TRANSACTIONS ════════ -->
+      <section id="sec-transactions" style="display:none;">
+        <div class="flex-between mb-6">
+          <div>
+            <h2 style="font-size:22px;font-weight:800;color:var(--primary);">Toutes les Transactions</h2>
+            <p class="text-muted" id="txnTotalLabel">Chargement…</p>
+          </div>
+          <div class="flex-gap">
+            <select class="form-input form-select" style="width:auto;" id="txnStatusFilter" onchange="renderAllTxn()">
+              <option value="Toutes">Toutes</option>
+              <option value="En attente">En attente</option>
+              <option value="Complétées">Complétées</option>
+            </select>
+            <button class="btn btn-outline" onclick="exportCSV()">⬇ Exporter CSV</button>
+          </div>
+        </div>
+
+        <!-- Filtres par pays -->
+        <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+          <button class="btn btn-primary btn-sm" id="txnCountryTab-all" onclick="filterTxnByCountry('all')">🌍 Tous</button>
+          <button class="btn btn-outline btn-sm" id="txnCountryTab-gn" onclick="filterTxnByCountry('gn')">🇬🇳 Guinée <span style="font-size:10px;opacity:.7;">(GNF)</span></button>
+          <button class="btn btn-outline btn-sm" id="txnCountryTab-bj" onclick="filterTxnByCountry('bj')">🇧🇯 Bénin <span style="font-size:10px;opacity:.7;">(FCFA)</span></button>
+          <button class="btn btn-outline btn-sm" id="txnCountryTab-ci" onclick="filterTxnByCountry('ci')">🇨🇮 Côte d'Ivoire <span style="font-size:10px;opacity:.7;">(FCFA)</span></button>
+        </div>
+
+        <div class="stat-cards" style="grid-template-columns:repeat(3,1fr);margin-bottom:24px;">
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#F0FDF4;">💰</div>
+            <div class="stat-card-info">
+              <div class="stat-card-value" id="txnTotalEpargne">—</div>
+              <div class="stat-card-label" id="txnTotalLabel2">Épargne totale gérée</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#FFFBEB;">⏳</div>
+            <div class="stat-card-info">
+              <div class="stat-card-value" id="txnPendingAmount">—</div>
+              <div class="stat-card-label">Dépôts en attente de validation</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#EEF2FF;">👥</div>
+            <div class="stat-card-info">
+              <div class="stat-card-value" id="txnUserCount">—</div>
+              <div class="stat-card-label">Comptes enregistrés</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="table-wrap">
+            <table id="allTxnTable">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Utilisateur</th>
+                  <th>Pays</th>
+                  <th>Type</th>
+                  <th>Montant</th>
+                  <th>Opérateur</th>
+                  <th>Date</th>
+                  <th>Statut</th>
+                </tr>
+              </thead>
+              <tbody id="allTxnTbody"><!-- injected --></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════ PROJETS ════════ -->
+      <section id="sec-projets" style="display:none;">
+        <div class="flex-between mb-6">
+          <div>
+            <h2 style="font-size:22px;font-weight:800;color:var(--primary);">Projets d'Épargne</h2>
+            <p class="text-muted">Vue globale de tous les projets de la plateforme</p>
+          </div>
+        </div>
+        <div class="stat-cards" style="margin-bottom:24px;">
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#EEF2FF;">🎯</div>
+            <div class="stat-card-info"><div class="stat-card-value">0</div><div class="stat-card-label">Projets actifs</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#F0FDF4;">✅</div>
+            <div class="stat-card-info"><div class="stat-card-value">0</div><div class="stat-card-label">Projets complétés</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#FFFBEB;">💰</div>
+            <div class="stat-card-info"><div class="stat-card-value">0</div><div class="stat-card-label">Épargné dans projets (FCFA)</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#FFF1F2;">📅</div>
+            <div class="stat-card-info"><div class="stat-card-value">—</div><div class="stat-card-label">Taux de complétion moyen</div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Top 10 Projets les plus actifs</div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Projet</th><th>Utilisateur</th><th>Objectif</th><th>Épargné</th><th>Progression</th><th>Statut</th></tr></thead>
+              <tbody id="projetsAdminTbody"><!-- injected --></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════ ÉPARGNE COLLECTIVE ════════ -->
+      <section id="sec-tontines" style="display:none;">
+        <div class="flex-between mb-6">
+          <div>
+            <h2 style="font-size:22px;font-weight:800;color:var(--primary);">Gestion de l'Épargne Collective</h2>
+            <p class="text-muted">Supervision de tous les groupes d'épargne actifs</p>
+          </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stat-cards" style="grid-template-columns:repeat(3,1fr);margin-bottom:24px;">
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#EEF2FF;">🤝</div>
+            <div class="stat-card-info"><div class="stat-card-value" id="tontStatActifs">0</div><div class="stat-card-label">Groupes actifs</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#FEF2F2;">🗑️</div>
+            <div class="stat-card-info"><div class="stat-card-value" id="tontStatDelete" style="color:#DC2626;">0</div><div class="stat-card-label">Demandes suppression</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#F0FDF4;">💵</div>
+            <div class="stat-card-info"><div class="stat-card-value" id="tontStatVolume">0</div><div class="stat-card-label">Volume objectifs (GNF)</div></div>
+          </div>
+        </div>
+
+        <!-- ══ Demandes de suppression ══ -->
+        <div id="tontDeleteRequestsSection" style="display:none;margin-bottom:24px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+            <div style="font-size:16px;font-weight:800;color:#DC2626;">🗑️ Demandes de suppression en attente</div>
+            <span class="badge" style="background:#FEE2E2;color:#DC2626;" id="tontDeleteBadge">0</span>
+          </div>
+          <div class="card" style="border-left:4px solid #DC2626;padding:0;">
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Groupe</th><th>Objectif</th><th>Progression</th><th>Propriétaire</th><th>Demandé le</th><th>Actions</th></tr></thead>
+                <tbody id="tontineDeleteTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ Tontines actives ══ -->
+        <div>
+          <div style="font-size:16px;font-weight:800;color:var(--primary);margin-bottom:12px;">✅ Groupes actifs</div>
+          <div class="card" style="padding:0;">
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Groupe d'épargne</th><th>Objectif</th><th>Collecté</th><th>Progression</th><th>Propriétaire</th><th>Actions</th></tr></thead>
+                <tbody id="tontinesTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════ KYC ════════ -->
+      <section id="sec-kyc" style="display:none;">
+        <div class="flex-between mb-6">
+          <div>
+            <h2 style="font-size:22px;font-weight:800;color:var(--primary);">Vérification KYC</h2>
+            <p class="text-muted" id="kycPendingLabel">Chargement…</p>
+          </div>
+          <div class="flex-gap">
+            <span class="badge badge-warning">⚡ Délai cible : 2h</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Utilisateur · N° ID</th>
+                  <th>Document CNI</th>
+                  <th>Selfie</th>
+                  <th>AML / Sanctions</th>
+                  <th>Soumis le</th>
+                  <th>Statut</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="kycTbody"><!-- injected --></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════ SUPPORT ════════ -->
+      <section id="sec-support" style="display:none;">
+        <h2 style="font-size:22px;font-weight:800;color:var(--primary);margin-bottom:6px;">Support Client</h2>
+        <p class="text-muted" style="margin-bottom:24px;">Aucun ticket ouvert pour l'instant</p>
+
+        <div class="card">
+          <div class="card-title">Tickets ouverts</div>
+          <div style="text-align:center;padding:32px 16px;color:var(--text-muted);">
+            <div style="font-size:36px;margin-bottom:8px;">🎫</div>
+            <div style="font-size:14px;font-weight:600;">Aucun ticket ouvert</div>
+            <div style="font-size:12px;margin-top:4px;">Les demandes de support apparaîtront ici</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════ PARAMÈTRES ════════ -->
+      <section id="sec-parametres" style="display:none;">
+        <h2 style="font-size:22px;font-weight:800;color:var(--primary);margin-bottom:6px;">Paramètres Système</h2>
+        <p class="text-muted" style="margin-bottom:24px;">Configuration globale de la plateforme</p>
+
+        <!-- Africa's Talking Integration Card -->
+        <div class="card" style="margin-bottom:24px;border:2px solid #FEF3C7;background:#FFFBEB;">
+          <div class="card-title" style="margin-bottom:16px;">
+            📡 Intégration Africa's Talking — SMS &amp; OTP
+            <span class="badge badge-warning" style="margin-left:8px;">⚠ Non configuré</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px;">
+            <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px;">
+              <div style="font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;letter-spacing:.06em;">STATUT</div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="width:10px;height:10px;border-radius:50%;background:#F59E0B;display:inline-block;flex-shrink:0;"></span>
+                <span style="font-size:14px;font-weight:700;color:#92400E;">Démo — Backend requis</span>
+              </div>
+            </div>
+            <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px;">
+              <div style="font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;letter-spacing:.06em;">OTP CE MOIS</div>
+              <div style="font-size:22px;font-weight:900;color:var(--primary);">—</div>
+              <div style="font-size:11px;color:var(--text-secondary);">données à venir</div>
+            </div>
+            <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px;">
+              <div style="font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;letter-spacing:.06em;">TAUX SUCCÈS</div>
+              <div style="font-size:22px;font-weight:900;color:var(--text-secondary);">—</div>
+              <div style="font-size:11px;color:var(--text-secondary);">données à venir</div>
+            </div>
+          </div>
+          <div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:10px;padding:14px 16px;margin-bottom:16px;font-size:13px;color:#7F1D1D;">
+            <strong>⚠ Configuration requise :</strong> La clé API Africa's Talking ne doit jamais figurer dans le code client. Déployez un endpoint backend <code style="background:rgba(0,0,0,.06);padding:1px 5px;border-radius:4px;">/api/otp/send</code> qui relaye les appels à l'API AT côté serveur, puis activez <code style="background:rgba(0,0,0,.06);padding:1px 5px;border-radius:4px;">AT_SMS.enabled = true</code> dans dashboard.html.
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">Endpoint backend OTP</label>
+              <input class="form-input" type="text" value="/api/otp/send" placeholder="https://..." />
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">Shortcode / Sender ID</label>
+              <input class="form-input" type="text" value="EpargnPlus" />
+            </div>
+          </div>
+          <div style="margin-top:14px;display:flex;gap:10px;">
+            <button class="btn btn-outline" onclick="showToast('Test OTP envoyé (démo)','info')">🧪 Tester l'envoi</button>
+            <button class="btn btn-accent" onclick="showToast('Paramètres AT sauvegardés','success')">Sauvegarder</button>
+            <a href="https://account.africastalking.com/" target="_blank" class="btn btn-outline" style="margin-left:auto;">Compte AT →</a>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">💰 Paramètres financiers</div>
+            <div style="display:flex;flex-direction:column;gap:14px;">
+              <div class="form-group" style="margin:0;">
+                <label class="form-label">Frais de retrait (%)</label>
+                <input class="form-input" type="number" value="1" step="0.1" />
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label class="form-label">Frais minimum de retrait (FCFA)</label>
+                <input class="form-input" type="number" value="500" />
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label class="form-label">Prime de parrainage (FCFA)</label>
+                <input class="form-input" type="number" value="5000" />
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label class="form-label">Dépôt minimum (FCFA)</label>
+                <input class="form-input" type="number" value="1000" />
+              </div>
+              <button class="btn btn-accent" onclick="showToast('Paramètres sauvegardés !','success')">Sauvegarder</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">🔧 Paramètres système</div>
+            <div style="display:flex;flex-direction:column;gap:16px;">
+              <div class="flex-between">
+                <div>
+                  <div style="font-weight:600;font-size:14px;">Mode maintenance</div>
+                  <div class="text-muted" style="font-size:12px;">Désactiver l'accès utilisateur</div>
+                </div>
+                <label class="toggle"><input type="checkbox" /><span class="slider"></span></label>
+              </div>
+              <div class="flex-between">
+                <div>
+                  <div style="font-weight:600;font-size:14px;">Nouvelles inscriptions</div>
+                  <div class="text-muted" style="font-size:12px;">Autoriser les nouveaux comptes</div>
+                </div>
+                <label class="toggle"><input type="checkbox" checked /><span class="slider"></span></label>
+              </div>
+              <div class="flex-between">
+                <div>
+                  <div style="font-weight:600;font-size:14px;">KYC obligatoire</div>
+                  <div class="text-muted" style="font-size:12px;">Pour les retraits > 100 000 FCFA</div>
+                </div>
+                <label class="toggle"><input type="checkbox" checked /><span class="slider"></span></label>
+              </div>
+              <div class="flex-between">
+                <div>
+                  <div style="font-weight:600;font-size:14px;">Alertes SMS</div>
+                  <div class="text-muted" style="font-size:12px;">Notifications par SMS</div>
+                </div>
+                <label class="toggle"><input type="checkbox" checked /><span class="slider"></span></label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════ LOGS ════════ -->
+      <section id="sec-logs" style="display:none;">
+        <div class="flex-between mb-6">
+          <div>
+            <h2 style="font-size:22px;font-weight:800;color:var(--primary);">Logs Système</h2>
+            <p class="text-muted">Journal des événements de la plateforme</p>
+          </div>
+          <button class="btn btn-outline" onclick="exportCSV()">⬇ Exporter</button>
+        </div>
+        <div class="card">
+          <div style="font-family:'Courier New',monospace;font-size:12px;line-height:1.8;color:var(--text-primary);max-height:480px;overflow-y:auto;" id="logsContent">
+            <div style="color:#9CA3AF;">[2026-05-28] ── Epargn+ v2 — Logs en temps réel (à venir) ──</div>
+            <div style="text-align:center;padding:32px 16px;color:var(--text-secondary);font-family:Inter,sans-serif;">
+              <div style="font-size:36px;margin-bottom:10px;">📋</div>
+              <div style="font-size:14px;font-weight:700;color:var(--primary);">Journal vide</div>
+              <div style="font-size:12px;margin-top:6px;line-height:1.6;">Les événements (inscriptions, dépôts, KYC, OTP)<br>seront enregistrés ici en temps réel.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div><!-- /dash-content -->
+  </main>
+</div>
+
+<!-- ══════════ MODALS ══════════ -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Add User -->
+<div class="modal-overlay" id="amodal-addUser" onclick="handleOverlayClick(event,'amodal-addUser')">
+  <div class="modal">
+    <button class="modal-close" onclick="closeAdminModal('amodal-addUser')">✕</button>
+    <div class="modal-title">👤 Ajouter un utilisateur</div>
+    <div class="modal-sub">Créer un compte manuellement</div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Prénom</label><input class="form-input" type="text" placeholder="Mamadou" /></div>
+      <div class="form-group"><label class="form-label">Nom</label><input class="form-input" type="text" placeholder="Diallo" /></div>
+    </div>
+    <div class="form-group"><label class="form-label">Téléphone</label><input class="form-input" type="tel" placeholder="+224 620 00 00 00" /></div>
+    <div class="form-group">
+      <label class="form-label">Rôle</label>
+      <select class="form-input form-select">
+        <option>Client</option>
+        <option>Agent</option>
+        <option>Administrateur</option>
+      </select>
+    </div>
+    <button class="btn btn-accent" style="width:100%;" onclick="showToast('Utilisateur créé !','success');closeAdminModal('amodal-addUser')">Créer le compte →</button>
+  </div>
+</div>
+
+<!-- KYC Review -->
+<div class="modal-overlay" id="amodal-kyc" onclick="handleOverlayClick(event,'amodal-kyc')">
+  <div class="modal" style="max-width:520px;">
+    <button class="modal-close" onclick="closeAdminModal('amodal-kyc')">✕</button>
+    <div class="modal-title">🆔 Vérification KYC</div>
+    <div class="modal-sub" id="kycModalUser">Utilisateur : —</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
+      <div>
+        <div class="form-label" style="margin-bottom:8px;">DOCUMENT D'IDENTITÉ</div>
+        <div style="background:var(--bg-light);border:1px solid var(--border);border-radius:8px;height:120px;display:flex;align-items:center;justify-content:center;font-size:40px;">🪪</div>
+        <div class="text-muted" style="font-size:11px;margin-top:4px;text-align:center;">Carte Nationale d'Identité</div>
+      </div>
+      <div>
+        <div class="form-label" style="margin-bottom:8px;">SELFIE</div>
+        <div style="background:var(--bg-light);border:1px solid var(--border);border-radius:8px;height:120px;display:flex;align-items:center;justify-content:center;font-size:40px;">🤳</div>
+        <div class="text-muted" style="font-size:11px;margin-top:4px;text-align:center;">Photo de vérification</div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Note (optionnel)</label>
+      <input class="form-input" type="text" placeholder="Raison de rejet si applicable..." />
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <button class="btn btn-success" style="width:100%;" onclick="approveKYC()">✅ Approuver</button>
+      <button class="btn btn-danger" style="width:100%;" onclick="rejectKYC()">❌ Rejeter</button>
+    </div>
+  </div>
+</div>
+
+<!-- New Épargne Collective -->
+<div class="modal-overlay" id="amodal-newTontine" onclick="handleOverlayClick(event,'amodal-newTontine')">
+  <div class="modal">
+    <button class="modal-close" onclick="closeAdminModal('amodal-newTontine')">✕</button>
+    <div class="modal-title">🤝 Créer un groupe d'épargne</div>
+    <div class="form-group"><label class="form-label">Nom du groupe</label><input class="form-input" type="text" placeholder="Épargne Premium Mai 2026" /></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Mise mensuelle</label><input class="form-input" type="number" placeholder="50 000" /></div>
+      <div class="form-group"><label class="form-label">Nb. membres max</label><input class="form-input" type="number" placeholder="12" /></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Fréquence</label>
+      <select class="form-input form-select"><option>Mensuelle</option><option>Hebdomadaire</option></select>
+    </div>
+    <button class="btn btn-accent" style="width:100%;" onclick="showToast('Groupe d\'épargne créé !','success');closeAdminModal('amodal-newTontine')">Créer →</button>
+  </div>
+</div>
+
+<style>
+.toggle { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; inset: 0; background: var(--divider); border-radius: 24px; transition: .3s; cursor: pointer; }
+.slider::before { content: ''; position: absolute; width: 18px; height: 18px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: .3s; box-shadow: 0 1px 4px rgba(0,0,0,.2); }
+.toggle input:checked + .slider { background: var(--primary); }
+.toggle input:checked + .slider::before { transform: translateX(20px); }
+</style>
+
+<script>
+/* ── OPERATOR LOGO HELPER ── */
+function opLogo(op) {
+  const ops = {
+    orange: { bg: '#000000', label: 'Orange Money',
+      svg: `<svg viewBox="0 0 32 32" fill="none" style="width:28px;height:28px;"><path d="M7 25 L14 18" stroke="white" stroke-width="3" stroke-linecap="round"/><path d="M9 11 L17 11 L17 19" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M25 7 L18 14" stroke="#FF6A00" stroke-width="3" stroke-linecap="round"/><path d="M23 21 L15 21 L15 13" stroke="#FF6A00" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>` },
+    mtn:  { bg: '#FFD100', label: 'MTN MoMo',
+      svg: `<svg viewBox="0 0 32 32" fill="none" style="width:28px;height:28px;"><text x="16" y="14" text-anchor="middle" fill="#006B7D" font-family="Arial,sans-serif" font-weight="900" font-size="9" letter-spacing="-0.3">MTN</text><text x="16" y="23" text-anchor="middle" fill="#006B7D" font-family="Arial,sans-serif" font-weight="900" font-size="7.5">MoMo</text></svg>` },
+    wave: { bg: '#29ABE2', label: 'Wave',
+      svg: `<svg viewBox="0 0 32 32" fill="none" style="width:28px;height:28px;"><ellipse cx="16" cy="21" rx="5.5" ry="6.5" fill="#111"/><ellipse cx="16" cy="22.5" rx="3.2" ry="4.5" fill="white"/><circle cx="16" cy="10.5" r="5" fill="#111"/><circle cx="14.2" cy="9.5" r="1" fill="white"/><circle cx="17.8" cy="9.5" r="1" fill="white"/><ellipse cx="16" cy="12" rx="1.6" ry="1" fill="#FF8C00"/><ellipse cx="13" cy="28.5" rx="2" ry="1" fill="#FF8C00"/><ellipse cx="19" cy="28.5" rx="2" ry="1" fill="#FF8C00"/></svg>` },
+    // legacy
+    kulu: { bg: '#FFD100', label: 'MTN MoMo',
+      svg: `<svg viewBox="0 0 32 32" fill="none" style="width:28px;height:28px;"><text x="16" y="14" text-anchor="middle" fill="#006B7D" font-family="Arial,sans-serif" font-weight="900" font-size="9">MTN</text><text x="16" y="23" text-anchor="middle" fill="#006B7D" font-family="Arial,sans-serif" font-weight="900" font-size="7.5">MoMo</text></svg>` },
+  };
+  if (!ops[op]) return `<span class="text-muted">${op}</span>`;
+  const o = ops[op];
+  return `<div style="display:flex;align-items:center;gap:7px;">
+    <div style="width:28px;height:28px;border-radius:7px;background:${o.bg};display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;">${o.svg}</div>
+    <span style="font-weight:600;font-size:13px;">${o.label}</span>
+  </div>`;
+}
+
+/* ── ADMIN AUTH ── */
+const ADMIN_TOKEN_KEY = 'epargn_admin_token';
+let _adminToken = sessionStorage.getItem(ADMIN_TOKEN_KEY) || '';
+
+function adminLogin() {
+  var input = document.getElementById('adminTokenInput');
+  var token = (input ? input.value.trim() : '');
+  if (!token) { showAdminError('Entrez votre clé d\'administration.'); return; }
+  var btn = document.querySelector('#adminLoginOverlay button[onclick="adminLogin()"]');
+  if (btn) { btn.textContent = 'Vérification…'; btn.disabled = true; }
+  fetch('/api/admin/data', { headers: { 'Authorization': 'Bearer ' + token } })
+    .then(function(r) {
+      if (r.status === 401) throw new Error('Clé invalide — accès refusé.');
+      if (!r.ok) throw new Error('Erreur serveur ' + r.status);
+      return r.json();
+    })
+    .then(function(data) {
+      sessionStorage.setItem(ADMIN_TOKEN_KEY, token);
+      _adminToken = token;
+      document.getElementById('adminLoginOverlay').style.display = 'none';
+      populateAdminData(data);
+    })
+    .catch(function(err) {
+      showAdminError(err.message || 'Erreur de connexion.');
+      if (btn) { btn.textContent = 'Accéder au tableau de bord →'; btn.disabled = false; }
+    });
+}
+
+function showAdminError(msg) {
+  var el = document.getElementById('adminLoginError');
+  if (el) { el.textContent = msg; el.style.display = ''; }
+}
+
+function adminLogout() {
+  sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+  document.getElementById('adminLoginOverlay').style.display = 'flex';
+  var input = document.getElementById('adminTokenInput');
+  if (input) input.value = '';
+}
+
+/* ── DATA (réel depuis API, fallback démo si pas connecté) ── */
+let USERS = [];
+let ALL_TXNS = [];                /* Transactions complétées */
+let PENDING_TXNS = [];            /* Transactions en attente (table transactions) */
+const KYC_REQUESTS = [];
+const TONTINES = [];
+let PROJETS_TOP = [];             /* Projets de tous les utilisateurs */
+
+const ACTIVITY_LIVE = [];
+
+const BAR_DATA = [
+  { month: "Déc", depot: 0, retrait: 0 },
+  { month: "Jan", depot: 0, retrait: 0 },
+  { month: "Fév", depot: 0, retrait: 0 },
+  { month: "Mar", depot: 0, retrait: 0 },
+  { month: "Avr", depot: 0, retrait: 0 },
+  { month: "Mai", depot: 0, retrait: 0 },
+];
+
+const GROWTH_DATA = [
+  { month: "Déc 25", val: 0 }, { month: "Jan 26", val: 0 }, { month: "Fév", val: 0 },
+  { month: "Mar", val: 0 }, { month: "Avr", val: 0 }, { month: "Mai", val: 1 },
+];
+
+/* ── INIT ── */
+document.addEventListener('DOMContentLoaded', () => {
+  renderBarChart('barChart', BAR_DATA, 850);
+  renderBarChart('growthChart', GROWTH_DATA, 12400, true);
+  renderRecentTxn();
+  renderActivityFeed();
+  renderUsers(USERS);
+  renderAllTxn();
+  renderKYC();
+  renderTontines();
+  renderProjetsAdmin();
+  setupResponsiveSidebar();
+
+  // Auth check — show login if no token, or auto-fetch if token is saved
+  if (_adminToken) {
+    fetch('/api/admin/data', { headers: { 'Authorization': 'Bearer ' + _adminToken } })
+      .then(function(r) {
+        if (r.status === 401) { sessionStorage.removeItem(ADMIN_TOKEN_KEY); return null; }
+        return r.json();
+      })
+      .then(function(data) {
+        if (data) {
+          document.getElementById('adminLoginOverlay').style.display = 'none';
+          populateAdminData(data);
+        }
+      })
+      .catch(function() {
+        /* token invalide ou réseau — montrer l'overlay */
+      });
+  }
+  // If no token, overlay stays visible (it's shown by default)
+});
+
+/* ── POPULATE REAL DATA ── */
+function populateAdminData(data) {
+  var users = data.users || [];
+  var stats = data.stats || {};
+  USERS = users.map(function(u) {
+    var name = ((u.prenom || '') + ' ' + (u.nom || '')).trim() || u.phone;
+    var colors = ['#3B82F6','#10B981','#F59E0B','#8B5CF6','#EF4444','#06B6D4','#F97316'];
+    return {
+      id:            u.id,
+      name:          name,
+      prenom:        u.prenom || '',
+      nom:           u.nom   || '',
+      phone:         u.phone,
+      country:       u.country || 'gn',
+      operator:      u.operator || '—',
+      epargne:       u.epargne || 0,
+      kyc:           u.kyc_status || 'none',
+      kycDocUrl:     u.kyc_document_url  || null,
+      kycselfieUrl:  u.kyc_selfie_url    || null,
+      kycDocNumber:  u.kyc_doc_number    || null,
+      kycDocType:    u.kyc_doc_type      || 'CNI',
+      kycSubmittedAt:u.kyc_submitted_at  || null,
+      amlStatus:     u.aml_status        || 'not_checked',
+      riskScore:     u.risk_score        || 0,
+      role:          u.role || 'user',
+      date:          u.created_at ? new Date(u.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : '—',
+      color:         colors[Math.abs(String(u.id).split('').reduce(function(h,c){return (h*31+c.charCodeAt(0))|0;},0)) % colors.length] || '#3B82F6',
+      pendingDeposit: (function() {
+        try { var pd = JSON.parse(u.pending_deposit || 'null'); return pd && pd.amount ? pd.amount : 0; }
+        catch { return 0; }
+      })(),
+      pendingTxnId: (function() {
+        try { var pd = JSON.parse(u.pending_deposit || 'null'); return pd && pd.txnId ? pd.txnId : ''; }
+        catch { return ''; }
+      })(),
+    };
+  });
+
+  /* ── Transactions en attente (table transactions — source de vérité) ── */
+  var userMap = {};
+  USERS.forEach(function(u) { userMap[u.id] = u; });
+  var rawTxns = data.pendingTransactions || [];
+  PENDING_TXNS = rawTxns.map(function(t) {
+    var u = userMap[t.user_id] || {};
+    return {
+      id:        t.id,
+      userId:    t.user_id,
+      userName:  u.name || t.user_id,
+      userPhone: u.phone || '—',
+      operator:  t.operator || u.operator || '—',
+      montant:   t.amount,
+      projectId: t.project_id || null,
+      date:      t.created_at ? new Date(t.created_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric' }) : '—',
+    };
+  });
+
+  /* ── Projets de tous les utilisateurs ── */
+  var rawProjects = data.allProjects || [];
+  PROJETS_TOP = rawProjects.filter(function(p){ return !String(p.name||'').startsWith('🤝'); }).map(function(p) {
+    var u = userMap[p.user_id] || {};
+    return {
+      id:    p.id,
+      nom:   p.name,
+      cible: p.goal,
+      actuel: p.actuel || 0,
+      user:  u.name || p.user_id,
+      color: p.color || '#0B1566',
+      status: p.status || 'active',
+    };
+  });
+
+  /* ── Tontines (projets collectifs) ── */
+  var TONTINES_ALL = rawProjects.filter(function(p){ return String(p.name||'').startsWith('🤝'); }).map(function(p) {
+    var u = userMap[p.user_id] || {};
+    return {
+      id:      p.id,
+      nom:     p.name,
+      goal:    p.goal || 0,
+      actuel:  p.actuel || 0,
+      user:    u.name || u.phone || p.user_id || '—',
+      userId:  p.user_id,
+      status:  p.status || 'active',
+      date:    p.created_at ? new Date(p.created_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric' }) : '—',
+    };
+  });
+  var TONTINES_DELETE  = TONTINES_ALL.filter(function(t){ return t.status === 'delete_requested'; });
+  var TONTINES_ACTIVES = TONTINES_ALL.filter(function(t){ return t.status !== 'delete_requested' && t.status !== 'closed'; });
+
+  /* Stats */
+  var elA = document.getElementById('tontStatActifs');  if (elA) elA.textContent = TONTINES_ACTIVES.length;
+  var elD = document.getElementById('tontStatDelete');  if (elD) elD.textContent = TONTINES_DELETE.length;
+  var elV = document.getElementById('tontStatVolume');
+  if (elV) elV.textContent = fmt(TONTINES_ALL.reduce(function(s,t){return s+(t.goal||0);},0));
+
+  /* ── Cloche de notifications admin ── */
+  var pendingDep = PENDING_TXNS.length ||
+    USERS.filter(function(u){ return u.pendingDeposit > 0; }).length;
+  var pendingKyc = USERS.filter(function(u){ return u.kyc === 'pending'; }).length;
+  updateAdminBell(pendingDep, pendingKyc, TONTINES_DELETE.length);
+
+  /* Section demandes de suppression */
+  var delSec = document.getElementById('tontDeleteRequestsSection');
+  if (delSec) delSec.style.display = TONTINES_DELETE.length > 0 ? '' : 'none';
+  var delBadge = document.getElementById('tontDeleteBadge');
+  if (delBadge) delBadge.textContent = TONTINES_DELETE.length;
+
+  /* Remplir tableau demandes */
+  var delTbody = document.getElementById('tontineDeleteTbody');
+  if (delTbody) {
+    if (!TONTINES_DELETE.length) {
+      delTbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">Aucune demande en attente</td></tr>';
+    } else {
+      delTbody.innerHTML = TONTINES_DELETE.map(function(t) {
+        var pct      = t.goal > 0 ? Math.min(100, Math.round(t.actuel / t.goal * 100)) : 0;
+        var safeNom  = (t.nom || '').replace(/'/g, "\\'");
+        var safeUser = (t.user || '').replace(/'/g, "\\'");
+        return '<tr>' +
+          '<td style="font-weight:700;color:#DC2626;">' + t.nom + '</td>' +
+          '<td>' + fmt(t.goal) + ' GNF</td>' +
+          '<td>' +
+            '<div style="display:flex;align-items:center;gap:8px;">' +
+              '<div class="progress-bar-track" style="flex:1;"><div class="progress-bar-fill" style="width:' + pct + '%;background:#DC2626;"></div></div>' +
+              '<span style="font-weight:700;font-size:12px;">' + pct + '%</span>' +
+            '</div>' +
+          '</td>' +
+          '<td class="text-muted">' + t.user + '</td>' +
+          '<td class="text-muted">' + t.date + '</td>' +
+          '<td>' +
+            '<div class="action-col">' +
+              '<button class="btn btn-sm" style="background:#DC2626;color:#fff;border:none;padding:6px 12px;border-radius:8px;font-weight:700;cursor:pointer;" ' +
+                'onclick="openDeleteApprovalModal(\'' + t.id + '\',\'' + safeNom + '\',\'' + (t.userId||'') + '\',' + t.actuel + ',\'' + safeUser + '\')">💸 Approuver</button>' +
+              '<button class="btn btn-sm" style="background:#F3F4F6;color:#374151;border:none;padding:6px 12px;border-radius:8px;font-weight:700;cursor:pointer;margin-left:6px;" ' +
+                'onclick="adminRejectTontineDelete(\'' + t.id + '\')">❌ Rejeter</button>' +
+            '</div>' +
+          '</td>' +
+        '</tr>';
+      }).join('');
+    }
+  }
+
+  /* Remplir tableau tontines actives */
+  var actTbody = document.getElementById('tontinesTbody');
+  if (actTbody) {
+    if (!TONTINES_ACTIVES.length) {
+      actTbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted);">Aucune épargne collective active</td></tr>';
+    } else {
+      actTbody.innerHTML = TONTINES_ACTIVES.map(function(t) {
+        var pct = t.goal > 0 ? Math.min(100, Math.round(t.actuel / t.goal * 100)) : 0;
+        var safeNom = (t.nom || '').replace(/'/g, "\\'");
+        return '<tr>' +
+          '<td style="font-weight:600;">' + t.nom + '</td>' +
+          '<td>' + fmt(t.goal) + ' GNF</td>' +
+          '<td style="font-weight:700;color:var(--primary);">' + fmt(t.actuel) + ' GNF</td>' +
+          '<td>' +
+            '<div style="display:flex;align-items:center;gap:8px;">' +
+              '<div class="progress-bar-track" style="flex:1;"><div class="progress-bar-fill" style="width:' + pct + '%;background:#0B1566;"></div></div>' +
+              '<span style="font-weight:700;font-size:12px;">' + pct + '%</span>' +
+            '</div>' +
+          '</td>' +
+          '<td class="text-muted">' + t.user + '</td>' +
+          '<td><div style="display:flex;align-items:center;gap:8px;">' +
+            '<span class="badge badge-success">✅ Active</span>' +
+            '<button class="btn-icon danger" title="Clôturer ce groupe" ' +
+              'onclick="adminForceCloseTontine(\'' + t.id + '\',\'' + safeNom + '\')" ' +
+              'style="font-size:12px;width:auto;padding:0 8px;height:26px;border-radius:6px;background:rgba(220,38,38,.07);border:1px solid rgba(220,38,38,.25);color:#DC2626;font-weight:600;cursor:pointer;">' +
+              '🗑 Clôturer' +
+            '</button>' +
+          '</div></td>' +
+        '</tr>';
+      }).join('');
+    }
+  }
+
+  /* ── ALL_TXNS depuis allTransactions (historique complet) ── */
+  var rawAllTxns = data.allTransactions || [];
+  ALL_TXNS.length = 0;
+  rawAllTxns.forEach(function(t) {
+    var u = userMap[t.user_id] || {};
+    var statutLabel = t.statut === 'completed' || t.status === 'success' ? 'Complété'
+                    : t.statut === 'failed'    || t.status === 'failed'  ? 'Échoué'
+                    : 'En attente';
+    var typeLabel = t.type === 'deposit' || t.type === 'depot' ? 'Dépôt'
+                  : t.type === 'withdrawal' || t.type === 'retrait' ? 'Retrait'
+                  : t.type || 'Transaction';
+    ALL_TXNS.push({
+      id:      String(t.id).substring(0, 8),
+      fullId:  t.id,
+      user:    (u.name || t.user_id || '—'),
+      userId:  t.user_id,
+      country: u.country || 'gn',
+      type:    typeLabel,
+      montant: t.amount || 0,
+      op:      t.operator || '—',
+      date:    t.created_at ? new Date(t.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—',
+      statut:  statutLabel,
+      credit:  t.type === 'deposit' || t.type === 'depot',
+    });
+  });
+
+  // KPI
+  var kpiTotal = document.getElementById('kpi-total-users');
+  var kpiEpargne = document.getElementById('kpi-epargne-total');
+  var kpiKycV = document.getElementById('kpi-kyc-verified');
+  var kpiKycP = document.getElementById('kpi-kyc-pending');
+  var kpiKycVTrend = document.getElementById('kpi-kyc-verified-trend');
+  var kpiKycPTrend = document.getElementById('kpi-kyc-pending-trend');
+  if (kpiTotal)   kpiTotal.textContent   = fmt(stats.total || 0);
+  if (kpiEpargne) kpiEpargne.textContent = fmt(stats.epargneTotal || 0);
+  if (kpiKycV)    kpiKycV.textContent    = fmt(stats.kycVerified || 0);
+  if (kpiKycP)    kpiKycP.textContent    = fmt(stats.kycPending || 0);
+  if (kpiKycVTrend) kpiKycVTrend.textContent = '✅ ' + fmt(stats.kycVerified || 0) + ' vérifiés';
+  if (kpiKycPTrend) {
+    var p = stats.kycPending || 0;
+    kpiKycPTrend.textContent = p > 0 ? '⚠ ' + p + ' à traiter' : '✅ Aucun en attente';
+    kpiKycPTrend.className = 'kpi-trend ' + (p > 0 ? 'down' : 'up');
+  }
+
+  // Libellé et badge utilisateurs
+  var total = stats.total || 0;
+  var usersLabel = document.getElementById('usersCountLabel');
+  if (usersLabel) {
+    var gnCount = USERS.filter(function(u){ return u.country === 'gn'; }).length;
+    var bjCount = USERS.filter(function(u){ return u.country === 'bj'; }).length;
+    var ciCount = USERS.filter(function(u){ return u.country === 'ci'; }).length;
+    var byCountryStr = '';
+    if (gnCount) byCountryStr += ' · 🇬🇳 ' + gnCount;
+    if (bjCount) byCountryStr += ' · 🇧🇯 ' + bjCount;
+    if (ciCount) byCountryStr += ' · 🇨🇮 ' + ciCount;
+    usersLabel.textContent = total + ' compte' + (total > 1 ? 's' : '') + ' enregistré' + (total > 1 ? 's' : '') + byCountryStr;
+  }
+  var navBadge = document.getElementById('navUsersBadge');
+  if (navBadge) { navBadge.textContent = total; navBadge.style.display = total > 0 ? '' : 'none'; }
+
+  // Re-render tables with real data
+  renderUsers(USERS);
+  renderKYCFromUsers(USERS);
+  renderRecentTxn();
+  renderActivityFeed();
+
+  /* ── Analytiques réelles calculées depuis USERS ── */
+  var totalEpargne  = USERS.reduce(function(s,u){ return s + (u.epargne || 0); }, 0);
+  var pendingAmt    = USERS.reduce(function(s,u){ return s + (u.pendingDeposit || 0); }, 0);
+  var kycPendingCnt = USERS.filter(function(u){ return u.kyc === 'pending'; }).length;
+
+  // Transactions section
+  var txnLbl = document.getElementById('txnTotalLabel');
+  if (txnLbl) {
+    var pendingCount2 = ALL_TXNS.filter(function(t){ return t.statut === 'En attente'; }).length;
+    txnLbl.textContent = ALL_TXNS.length + ' transaction' + (ALL_TXNS.length > 1 ? 's' : '') +
+      (pendingCount2 > 0 ? ' · ' + pendingCount2 + ' en attente' : '');
+  }
+
+  var txnEpEl = document.getElementById('txnTotalEpargne');
+  if (txnEpEl) {
+    if (totalEpargne >= 1000000) {
+      txnEpEl.textContent = (totalEpargne / 1000000).toFixed(2).replace(/\.?0+$/, '') + ' M';
+    } else if (totalEpargne >= 1000) {
+      txnEpEl.textContent = Math.round(totalEpargne / 1000) + ' K';
+    } else {
+      txnEpEl.textContent = fmt(totalEpargne);
+    }
+  }
+
+  var txnPendEl = document.getElementById('txnPendingAmount');
+  if (txnPendEl) {
+    /* Montant total en attente depuis PENDING_TXNS (DB) + legacy */
+    var txnUserIds = new Set(PENDING_TXNS.map(function(t){ return t.userId; }));
+    var dbAmt = PENDING_TXNS.reduce(function(s,t){ return s + (t.montant||0); }, 0);
+    var legacyAmt = USERS.filter(function(u){ return u.pendingDeposit > 0 && !txnUserIds.has(u.id); }).reduce(function(s,u){ return s + u.pendingDeposit; }, 0);
+    var totalPending = dbAmt + legacyAmt;
+    var totalCount   = PENDING_TXNS.length + USERS.filter(function(u){ return u.pendingDeposit > 0 && !txnUserIds.has(u.id); }).length;
+    txnPendEl.textContent = totalPending > 0 ? fmt(totalPending) + ' (×' + totalCount + ')' : '—';
+  }
+
+  var txnUcEl = document.getElementById('txnUserCount');
+  if (txnUcEl) txnUcEl.textContent = USERS.length;
+
+  /* ── Table transactions ── */
+  renderAllTxn();
+  renderProjetsAdmin();
+
+  // KYC section header
+  var kycLbl = document.getElementById('kycPendingLabel');
+  if (kycLbl) {
+    kycLbl.textContent = kycPendingCnt === 0
+      ? 'Aucune demande en attente'
+      : kycPendingCnt + ' demande' + (kycPendingCnt > 1 ? 's' : '') + ' en attente de traitement';
+  }
+
+  // Mettre à jour le donut avec la vraie épargne totale
+  var epargneTotal = stats.epargneTotal || 0;
+  var donutTotal = document.getElementById('donutTotal');
+  var donutLabel = document.getElementById('donutEpargneLabel');
+  if (donutTotal) {
+    // Afficher en millions si > 1M, sinon chiffre normal
+    if (epargneTotal >= 1000000) {
+      donutTotal.textContent = (epargneTotal / 1000000).toFixed(1) + 'M';
+    } else if (epargneTotal >= 1000) {
+      donutTotal.textContent = Math.round(epargneTotal / 1000) + 'K';
+    } else {
+      donutTotal.textContent = epargneTotal > 0 ? fmt(epargneTotal) : '0';
+    }
+  }
+  if (donutLabel) {
+    donutLabel.textContent = total + ' compte' + (total > 1 ? 's' : '') + ' · ' + fmt(epargneTotal);
+  }
+
+  showAdminToast('✅ Données Supabase chargées (' + total + ' utilisateur' + (total > 1 ? 's' : '') + ')', 'success');
+
+  /* Démarrer l'auto-refresh si pas encore démarré */
+  if (!_autoRefreshTimer) startAutoRefresh();
+  _lastRefreshTime = new Date();
+  updateLastUpdatedLabel();
+}
+
+function showAdminToast(msg, type) {
+  var c = document.getElementById('toastContainer');
+  if (!c) return;
+  var t = document.createElement('div');
+  t.className = 'toast toast-' + (type || 'info');
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(function() { t.classList.add('show'); }, 10);
+  setTimeout(function() { t.classList.remove('show'); setTimeout(function() { t.remove(); }, 400); }, 3500);
+}
+
+function renderKYCFromUsers(users) {
+  var pendingUsers = users.filter(function(u) { return u.kyc === 'pending'; });
+
+  /* Mettre à jour le libellé KYC section */
+  var kycLbl = document.getElementById('kycPendingLabel');
+  if (kycLbl) {
+    kycLbl.textContent = pendingUsers.length === 0
+      ? 'Aucune demande en attente'
+      : pendingUsers.length + ' demande' + (pendingUsers.length > 1 ? 's' : '') + ' en attente de traitement';
+  }
+
+  /* Mettre à jour le badge nav KYC */
+  var kycNavBadge = document.getElementById('navKycAdminBadge');
+  if (kycNavBadge) {
+    if (pendingUsers.length > 0) {
+      kycNavBadge.textContent = pendingUsers.length;
+      kycNavBadge.style.display = '';
+    } else {
+      kycNavBadge.style.display = 'none';
+    }
+  }
+
+  var box = document.getElementById('kycTbody');
+  if (!box) return;
+  if (pendingUsers.length === 0) {
+    box.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-secondary);">✅ Aucune demande KYC en attente</td></tr>';
+    return;
+  }
+  var colors = ['#3B82F6','#10B981','#F59E0B','#8B5CF6','#EF4444','#06B6D4','#F97316'];
+  box.innerHTML = pendingUsers.map(function(u, idx) {
+    var initials = u.name ? u.name.split(' ').map(function(s){return s[0]||'';}).join('').substring(0,2).toUpperCase() : '?';
+    var avatarColor = u.color || colors[idx % colors.length];
+    var safeId = String(u.id).replace(/'/g, "\\'");
+
+    /* Vignette du document */
+    var docThumb = u.kycDocUrl
+      ? '<img src="' + u.kycDocUrl + '?t=' + Date.now() + '" style="width:56px;height:40px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer;" onclick="openKYCReview(\'' + safeId + '\')" title="Voir le document" onerror="this.outerHTML=\'<span style=&quot;font-size:11px;color:var(--text-secondary);&quot;>Non uploadé</span>\'" />'
+      : '<span style="font-size:11px;color:#EF4444;font-weight:600;">⚠ Absent</span>';
+
+    /* Vignette du selfie */
+    var selfieThumb = u.kycselfieUrl
+      ? '<img src="' + u.kycselfieUrl + '?t=' + Date.now() + '" style="width:40px;height:40px;object-fit:cover;border-radius:50%;border:2px solid var(--border);cursor:pointer;" onclick="openKYCReview(\'' + safeId + '\')" title="Voir le selfie" onerror="this.outerHTML=\'<span style=&quot;font-size:11px;color:var(--text-secondary);&quot;>Non uploadé</span>\'" />'
+      : '<span style="font-size:11px;color:#EF4444;font-weight:600;">⚠ Absent</span>';
+
+    /* Badge AML */
+    var amlBadge = u.amlStatus === 'clear'
+      ? '<span class="badge badge-success" style="font-size:10px;">✅ AML OK</span>'
+      : u.amlStatus === 'flagged'
+        ? '<span class="badge badge-error" style="font-size:10px;">🚨 Signalé</span>'
+        : '<span class="badge badge-neutral" style="font-size:10px;">— Non vérifié</span>';
+
+    return '<tr>' +
+      '<td><div class="kyc-row"><div class="mini-avatar" style="background:' + avatarColor + ';">' + initials + '</div><div><div style="font-weight:600;">' + u.name + '</div><div style="font-size:12px;color:var(--text-secondary);">' + u.phone + '</div>' + (u.kycDocNumber ? '<div style="font-size:11px;color:var(--text-secondary);">' + (u.kycDocType||'CNI') + ' · ' + u.kycDocNumber + '</div>' : '') + '</div></div></td>' +
+      '<td>' + docThumb + '</td>' +
+      '<td>' + selfieThumb + '</td>' +
+      '<td>' + amlBadge + '</td>' +
+      '<td class="text-muted" style="font-size:12px;">' + (u.kycSubmittedAt ? new Date(u.kycSubmittedAt).toLocaleDateString('fr-FR', {day:'numeric',month:'short',year:'numeric'}) : u.date) + '</td>' +
+      '<td><span class="badge badge-warning">⏳ En attente</span></td>' +
+      '<td><div class="action-col" style="flex-wrap:wrap;gap:4px;">' +
+        '<button class="btn-icon" title="Voir les documents" onclick="openKYCReview(\'' + safeId + '\')">🔍</button>' +
+        '<button class="btn-icon" title="Vérification AML/LCB-FT" onclick="runAMLCheck(\'' + safeId + '\',\'' + (u.prenom||u.name.split(' ')[0]||'') + '\',\'' + (u.nom||u.name.split(' ').slice(1).join(' ')||'') + '\')">🛡</button>' +
+        '<button class="btn-icon" title="Valider KYC" onclick="adminApproveKYC(\'' + safeId + '\')" style="background:#D1FAE5;color:#065F46;">✅</button>' +
+        '<button class="btn-icon danger" title="Rejeter KYC" onclick="adminRejectKYC(\'' + safeId + '\')">❌</button>' +
+      '</div></td>' +
+    '</tr>';
+  }).join('');
+}
+
+/* ── Valider un dépôt en attente ── */
+function adminApproveDeposit(userId, amount, txnId, projectId) {
+  var u = USERS.find(function(x){ return x.id === userId; }) || {};
+  var cur = COUNTRY_CURRENCY[u.country] || 'GNF';
+  if (!confirm('Valider le dépôt de ' + fmt(amount) + ' ' + cur + ' pour cet utilisateur ?')) return;
+  fetch('/api/admin/update-balance', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
+    body: JSON.stringify({
+      userId:    userId,
+      amount:    amount,
+      action:    'approve',
+      txnId:     txnId    || null,
+      projectId: projectId || null,   /* ← transmis explicitement */
+    })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.ok) {
+      var projMsg = data.projectUpdated ? ' · Projet mis à jour ✓' : '';
+      showAdminToast('✅ Dépôt de ' + fmt(amount) + ' ' + cur + ' validé. Nouveau solde : ' + fmt(data.epargne) + ' ' + cur + projMsg, 'success');
+      reloadAdminData();
+    } else {
+      showAdminToast('Erreur : ' + (data.error || 'inconnue'), 'error');
+    }
+  })
+  .catch(function() { showAdminToast('Erreur réseau.', 'error'); });
+}
+
+function adminRejectDeposit(userId, txnId) {
+  if (!confirm('Rejeter ce dépôt ? L\'utilisateur ne recevra pas les fonds.')) return;
+  fetch('/api/admin/update-balance', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
+    body: JSON.stringify({ userId: userId, action: 'reject', txnId: txnId || null })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.ok) {
+      showAdminToast('Dépôt rejeté.', 'info');
+      reloadAdminData();
+    } else {
+      showAdminToast('Erreur : ' + (data.error || 'inconnue'), 'error');
+    }
+  })
+  .catch(function() { showAdminToast('Erreur réseau.', 'error'); });
+}
+
+/* ── Modifier manuellement le solde ── */
+function adminEditBalance(userId, userName, currentBalance) {
+  var u = USERS.find(function(x){ return x.id === userId; }) || {};
+  var cur = COUNTRY_CURRENCY[u.country] || 'GNF';
+  var newBalance = prompt('Modifier le solde de ' + userName + '\nSolde actuel : ' + fmt(currentBalance) + ' ' + cur + '\n\nNouveau solde (' + cur + ') :', currentBalance);
+  if (newBalance === null) return;
+  var nb = parseInt(newBalance, 10);
+  if (isNaN(nb) || nb < 0) { alert('Montant invalide.'); return; }
+  if (!confirm('Définir le solde de ' + userName + ' à ' + fmt(nb) + ' ' + cur + ' ?')) return;
+  fetch('/api/admin/update-balance', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
+    body: JSON.stringify({ userId: userId, amount: nb, action: 'set' })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.ok) {
+      showAdminToast('✅ Solde mis à jour : ' + fmtCurrency(data.epargne, u.country), 'success');
+      reloadAdminData();
+    } else {
+      showAdminToast('Erreur : ' + (data.error || 'inconnue'), 'error');
+    }
+  })
+  .catch(function() { showAdminToast('Erreur réseau.', 'error'); });
+}
+
+function adminApproveKYC(userId) {
+  if (!confirm('Valider le KYC de cet utilisateur ?')) return;
+  fetch('/api/admin/update-kyc', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
+    body: JSON.stringify({ userId: userId, status: 'verified' })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function() {
+    showAdminToast('✅ KYC approuvé.', 'success');
+    reloadAdminData();
+  })
+  .catch(function() { showAdminToast('Erreur lors de la mise à jour.', 'error'); });
+}
+
+function adminRejectKYC(userId) {
+  /* Modal de sélection de la raison de rejet */
+  var modal = document.getElementById('rejectReasonModal');
+  if (modal) {
+    document.getElementById('rejectUserId').value = userId;
+    modal.style.display = 'flex';
+    return;
+  }
+  /* Fallback si le modal n'existe pas encore */
+  var reason = prompt('Raison du rejet (obligatoire) :\n\n• Document illisible / flou\n• Mauvais type de document\n• Informations non concordantes\n• Selfie non valide\n• Document expiré\n• Autre…');
+  if (reason === null) return;
+  _doRejectKYC(userId, reason || 'Document non conforme');
+}
+
+function _doRejectKYC(userId, reason) {
+  fetch('/api/admin/update-kyc', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
+    body: JSON.stringify({ userId: userId, status: 'rejected', rejectionReason: reason })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.ok) {
+      showAdminToast('KYC rejeté — le client sera informé.', 'info');
+      closeKYCReview();
+      reloadAdminData();
+    } else {
+      showAdminToast('Erreur : ' + (d.error || 'inconnue'), 'error');
+    }
+  })
+  .catch(function() { showAdminToast('Erreur lors du rejet.', 'error'); });
+}
+
+/* ── Forcer KYC en attente (corriger un utilisateur qui a soumis avant le déploiement de l'API) ── */
+function adminSetKYCPending(userId) {
+  if (!confirm('Passer le KYC de cet utilisateur en « En attente » ?')) return;
+  fetch('/api/admin/update-kyc', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
+    body: JSON.stringify({ userId: userId, status: 'pending' })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.ok) {
+      showAdminToast('📋 KYC passé en attente.', 'info');
+      reloadAdminData();
+    } else {
+      showAdminToast('Erreur : ' + (d.error || 'inconnue'), 'error');
+    }
+  })
+  .catch(function() { showAdminToast('Erreur réseau.', 'error'); });
+}
+
+function reloadAdminData(callback) {
+  if (!_adminToken) return;
+  fetch('/api/admin/data', { headers: { 'Authorization': 'Bearer ' + _adminToken } })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      populateAdminData(data);
+      if (typeof callback === 'function') callback();
+    })
+    .catch(function() {
+      if (typeof callback === 'function') callback();
+    });
+}
+
+/* ── SIDEBAR ── */
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('show');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('show');
+}
+function setupResponsiveSidebar() {
+  const btn = document.getElementById('burgerBtn');
+  const check = () => { btn.style.display = window.innerWidth <= 768 ? 'flex' : 'none'; };
+  check(); window.addEventListener('resize', check);
+}
+
+/* ── SECTION NAV ── */
+const ADMIN_TITLES = {
+  overview: 'Tableau de bord', analytics: 'Analytiques', users: 'Utilisateurs',
+  transactions: 'Transactions', projets: 'Projets', tontines: 'Épargne Collective',
+  kyc: 'KYC en attente', support: 'Support', parametres: 'Paramètres', logs: 'Logs système'
+};
+/* Sections qui déclenchent un rechargement des données à l'ouverture */
+const RELOAD_ON_OPEN = ['users', 'transactions', 'kyc', 'overview', 'projets', 'tontines'];
+
+function showAdminSection(id, btn) {
+  document.querySelectorAll('[id^="sec-"]').forEach(s => s.style.display = 'none');
+  const sec = document.getElementById('sec-' + id);
+  if (sec) sec.style.display = '';
+  document.getElementById('topbarTitle').textContent = ADMIN_TITLES[id] || id;
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  closeSidebar();
+  window.scrollTo(0, 0);
+  /* Recharger les données fraîches si la section le demande */
+  if (_adminToken && RELOAD_ON_OPEN.includes(id)) {
+    reloadAdminData();
+  }
+}
+
+/* ── Refresh manuel (bouton Actualiser) ── */
+let _lastRefreshTime = null;
+let _autoRefreshTimer = null;
+
+function manualRefresh() {
+  var btn = document.getElementById('refreshBtn');
+  var lbl = document.getElementById('refreshLabel');
+  if (btn) btn.disabled = true;
+  if (lbl) lbl.textContent = '…';
+  reloadAdminData(function() {
+    if (btn) btn.disabled = false;
+    if (lbl) lbl.textContent = 'Actualiser';
+    _lastRefreshTime = new Date();
+    updateLastUpdatedLabel();
+  });
+}
+
+function updateLastUpdatedLabel() {
+  var el = document.getElementById('lastUpdatedLabel');
+  if (!el || !_lastRefreshTime) return;
+  var diffSec = Math.round((new Date() - _lastRefreshTime) / 1000);
+  var text = diffSec < 60
+    ? 'Actualisé il y a ' + diffSec + 's'
+    : 'Actualisé il y a ' + Math.round(diffSec / 60) + 'min';
+  el.textContent = text;
+  el.style.display = '';
+}
+
+function startAutoRefresh() {
+  if (_autoRefreshTimer) clearInterval(_autoRefreshTimer);
+  /* Mise à jour du libellé "il y a Xs" toutes les 10s */
+  setInterval(updateLastUpdatedLabel, 10000);
+  /* Rechargement complet toutes les 30 secondes */
+  _autoRefreshTimer = setInterval(function() {
+    if (_adminToken) {
+      reloadAdminData(function() {
+        _lastRefreshTime = new Date();
+        updateLastUpdatedLabel();
+      });
+    }
+  }, 30000);
+}
+
+/* ── BAR CHART ── */
+function renderBarChart(elId, data, maxVal, singleColor = false) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.innerHTML = data.map(d => {
+    const depH = singleColor
+      ? Math.round((d.val / maxVal) * 100)
+      : Math.round((d.depot / maxVal) * 100);
+    const retH = singleColor ? 0 : Math.round((d.retrait / maxVal) * 100);
+    const label = d.month || d.label;
+    const val   = singleColor ? d.val : d.depot;
+
+    return `<div class="chart-bar-col">
+      <div class="chart-val">${singleColor ? val.toLocaleString('fr') : (val/1000 + 'M')}</div>
+      <div style="display:flex;gap:2px;align-items:flex-end;width:100%;height:80px;">
+        <div class="chart-bar" style="background:var(--primary);height:${depH}%;flex:1;" title="${val}"></div>
+        ${!singleColor ? `<div class="chart-bar" style="background:var(--accent);height:${retH}%;flex:1;" title="${d.retrait}M"></div>` : ''}
+      </div>
+      <div class="chart-label">${label}</div>
+    </div>`;
+  }).join('');
+}
+
+/* ── OVERVIEW ── */
+const OP_LABELS = { orange: 'Orange Money', wave: 'Wave', mtn: 'MTN MoMo', kulu: 'MTN MoMo' };
+const EMPTY_STATE = (icon, msg) =>
+  `<div style="text-align:center;padding:28px 16px;color:var(--text-muted);">
+     <div style="font-size:32px;margin-bottom:8px;">${icon}</div>
+     <div style="font-size:13px;">${msg}</div>
+   </div>`;
+
+function renderRecentTxn() {
+  const el = document.getElementById('adminRecentTxn');
+  if (!el) return;
+
+  /* Source 1 : table transactions (PENDING_TXNS) — source de vérité */
+  /* Source 2 : champ pending_deposit sur USERS (rétrocompat) */
+  var dbPending = PENDING_TXNS.slice(0, 10);
+
+  /* Déduplication : retirer les users dont le txn est déjà dans PENDING_TXNS */
+  var txnUserIds = new Set(dbPending.map(function(t){ return t.userId; }));
+  var legacyPending = USERS.filter(function(u){ return u.pendingDeposit > 0 && !txnUserIds.has(u.id); });
+
+  if (dbPending.length === 0 && legacyPending.length === 0) {
+    el.innerHTML = EMPTY_STATE('💳', 'Aucune transaction en attente');
+    return;
+  }
+
+  /* Dépôts depuis table transactions */
+  var dbHtml = dbPending.map(function(t) {
+    var safeTxnId  = String(t.id).replace(/'/g, '');
+    var safeUserId = String(t.userId).replace(/'/g, '');
+    var safeProjId = t.projectId ? String(t.projectId).replace(/'/g, '') : '';
+    return '<div class="txn-item" style="border-left:3px solid #F59E0B;padding-left:10px;">' +
+      '<div class="txn-icon">⏳</div>' +
+      '<div class="txn-info">' +
+        '<div class="txn-label" style="font-weight:700;">' + t.userName + ' — Dépôt en attente</div>' +
+        '<div class="txn-date">' + t.userPhone + ' · ' + t.operator + ' · ' + t.date + (safeProjId ? ' · Projet lié' : '') + '</div>' +
+      '</div>' +
+      '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">' +
+        '<div class="txn-amount txn-credit" style="font-size:14px;">+' + fmtCurrency(t.montant, (USERS.find(function(x){return x.id===t.userId;})||{}).country) + '</div>' +
+        '<div style="display:flex;gap:4px;">' +
+          '<button class="btn btn-success btn-sm" style="font-size:11px;padding:3px 8px;" onclick="adminApproveDeposit(\'' + safeUserId + '\',' + t.montant + ',\'' + safeTxnId + '\',\'' + safeProjId + '\')">✅ Valider</button>' +
+          '<button class="btn btn-sm" style="font-size:11px;padding:3px 8px;background:#FEE2E2;color:#DC2626;" onclick="adminRejectDeposit(\'' + safeUserId + '\',\'' + safeTxnId + '\')">❌ Rejeter</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  /* Dépôts legacy depuis pending_deposit */
+  var legacyHtml = legacyPending.map(function(u) {
+    var safeId = String(u.id).replace(/'/g, '');
+    return '<div class="txn-item" style="border-left:3px solid #F59E0B;padding-left:10px;opacity:.85;">' +
+      '<div class="txn-icon">⏳</div>' +
+      '<div class="txn-info">' +
+        '<div class="txn-label" style="font-weight:700;">' + u.name + ' — Dépôt en attente</div>' +
+        '<div class="txn-date">' + u.phone + ' · ' + (u.operator || '—') + '</div>' +
+      '</div>' +
+      '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">' +
+        '<div class="txn-amount txn-credit" style="font-size:14px;">+' + fmtCurrency(u.pendingDeposit, u.country) + '</div>' +
+        '<div style="display:flex;gap:4px;">' +
+          '<button class="btn btn-success btn-sm" style="font-size:11px;padding:3px 8px;" onclick="adminApproveDeposit(\'' + safeId + '\',' + u.pendingDeposit + ',\'' + (u.pendingTxnId||'') + '\')">✅ Valider</button>' +
+          '<button class="btn btn-sm" style="font-size:11px;padding:3px 8px;background:#FEE2E2;color:#DC2626;" onclick="adminRejectDeposit(\'' + safeId + '\',\'' + (u.pendingTxnId||'') + '\')">❌ Rejeter</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  el.innerHTML = dbHtml + legacyHtml;
+}
+
+function renderActivityFeed() {
+  const el = document.getElementById('activityFeed');
+  if (!el) return;
+
+  /* Générer le feed depuis les données réelles */
+  var entries = [];
+
+  /* Dépôts en attente depuis table transactions (source de vérité) */
+  PENDING_TXNS.forEach(function(t) {
+    var uData = USERS.find(function(x){ return x.id === t.userId; }) || {};
+    entries.push({ dot: '#F59E0B', msg: '⏳ ' + t.userName + ' a demandé un dépôt de ' + fmtCurrency(t.montant, uData.country), time: t.date + ' · ' + t.operator });
+  });
+
+  /* Dépôts legacy depuis pending_deposit (rétrocompat) */
+  var txnUserIds = new Set(PENDING_TXNS.map(function(t){ return t.userId; }));
+  USERS.filter(function(u){ return u.pendingDeposit > 0 && !txnUserIds.has(u.id); }).forEach(function(u) {
+    entries.push({ dot: '#F59E0B', msg: '⏳ ' + u.name + ' a demandé un dépôt de ' + fmtCurrency(u.pendingDeposit, u.country), time: 'En attente de validation' });
+  });
+
+  /* KYC en attente */
+  USERS.filter(function(u){ return u.kyc === 'pending'; }).forEach(function(u) {
+    entries.push({ dot: '#3B82F6', msg: '🪪 ' + u.name + ' a soumis une demande KYC', time: 'En attente de vérification' });
+  });
+
+  /* Comptes récents (derniers 24h) */
+  var oneDayAgo = new Date(Date.now() - 86400000);
+  USERS.forEach(function(u) {
+    if (u.date && new Date(u.date) > oneDayAgo) {
+      entries.push({ dot: '#10B981', msg: '👤 Nouveau compte : ' + u.name + ' (' + u.phone + ')', time: u.date });
+    }
+  });
+
+  if (!entries.length && !ACTIVITY_LIVE.length) {
+    el.innerHTML = EMPTY_STATE('📡', 'Aucune activité récente');
+    return;
+  }
+
+  var allEntries = entries.concat(ACTIVITY_LIVE).slice(0, 8);
+  el.innerHTML = allEntries.map(function(a) {
+    return '<div class="activity-entry">' +
+      '<div class="activity-dot" style="background:' + a.dot + ';"></div>' +
+      '<div>' +
+        '<div class="activity-text">' + a.msg + '</div>' +
+        '<div class="activity-time">' + a.time + '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+/* ── USERS ── */
+let _filteredUsers = [...USERS];
+let _userKycFilter = 'all';
+function renderUsers(list) {
+  const tbody = document.getElementById('usersTbody');
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:28px;color:var(--text-muted);">Aucun utilisateur inscrit</td></tr>`;
+    return;
+  }
+  const kycBadge = {
+    verified: '<span class="badge badge-success">✅ Vérifié</span>',
+    pending:  '<span class="badge badge-warning">⏳ En attente</span>',
+    rejected: '<span class="badge badge-error">❌ Rejeté</span>',
+  };
+  const colors = ['#3B82F6','#10B981','#F59E0B','#8B5CF6','#EF4444','#06B6D4','#F97316'];
+  tbody.innerHTML = list.map((u, idx) => {
+    var flag    = COUNTRY_FLAGS[u.country]  || '🌍';
+    var cName   = COUNTRY_NAMES[u.country]  || u.country.toUpperCase();
+    var cur     = COUNTRY_CURRENCY[u.country] || 'GNF';
+    var epStr   = fmt(u.epargne) + ' ' + cur;
+    var pendStr = u.pendingDeposit ? fmt(u.pendingDeposit) + ' ' + cur : '';
+    return `<tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="mini-avatar" style="background:${colors[idx % colors.length]};">${(u.name || '?')[0].toUpperCase()}</div>
+          <div>
+            <div style="font-weight:600;">${u.name}</div>
+            <div class="text-muted" style="font-size:11px;">#${u.id}</div>
+          </div>
+        </div>
+      </td>
+      <td class="text-muted">${u.phone}</td>
+      <td><span title="${cName}" style="font-size:16px;">${flag}</span> <span class="text-muted" style="font-size:11px;">${cName}</span></td>
+      <td style="font-weight:600;">${epStr} ${u.pendingDeposit ? '<span class="badge badge-warning" title="Dépôt en attente : ' + pendStr + '">⏳ +' + pendStr + '</span>' : ''}</td>
+      <td class="text-muted">${u.operator || '—'}</td>
+      <td>${kycBadge[u.kyc] || '<span class="badge badge-neutral">Non vérifié</span>'}</td>
+      <td class="text-muted">${u.date}</td>
+      <td>
+        <div class="action-col">
+          ${u.pendingDeposit ? `<button class="btn-icon" title="Valider dépôt +${pendStr}" onclick="adminApproveDeposit('${u.id}',${u.pendingDeposit},'${u.pendingTxnId||''}')" style="background:#D1FAE5;color:#065F46;">💰✅</button>` : ''}
+          <button class="btn-icon" title="Modifier solde" onclick="adminEditBalance('${u.id}','${u.name}',${u.epargne})">✏️</button>
+          ${u.kyc === 'none' ? `<button class="btn-icon" title="Marquer KYC en attente" onclick="adminSetKYCPending('${u.id}')" style="background:#FEF3C7;color:#92400E;">📋</button>` : ''}
+          ${u.kyc === 'pending' ? `<button class="btn-icon" title="Approuver KYC" onclick="adminApproveKYC('${u.id}')" style="background:#D1FAE5;color:#065F46;">✅</button>` : ''}
+          <button class="btn-icon danger" title="Supprimer le compte" onclick="openDeleteAccountModal('${u.id}','${u.name}')">🗑️</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+function _applyUserFilters() {
+  var byKyc = {
+    all: USERS, active: USERS.filter(u => u.kyc === 'verified'),
+    pending: USERS.filter(u => u.kyc === 'pending'), suspended: USERS.filter(u => u.kyc === 'rejected')
+  };
+  var list = byKyc[_userKycFilter] || USERS;
+  if (_activeUserCountry !== 'all') list = list.filter(u => u.country === _activeUserCountry);
+  renderUsers(list);
+}
+function filterUsers(val) {
+  _userKycFilter = val;
+  _applyUserFilters();
+}
+function filterUsersByCountry(country) {
+  _activeUserCountry = country;
+  /* Mettre à jour l'apparence des boutons */
+  ['all','gn','bj','ci'].forEach(function(c) {
+    var btn = document.getElementById('userCountryTab-' + c);
+    if (btn) { btn.className = c === country ? 'btn btn-primary btn-sm' : 'btn btn-outline btn-sm'; }
+  });
+  _applyUserFilters();
+}
+
+/* ── ALL TRANSACTIONS — historique complet ── */
+function filterTxnByCountry(country) {
+  _activeTxnCountry = country;
+  /* Mettre à jour l'apparence des boutons */
+  ['all','gn','bj','ci'].forEach(function(c) {
+    var btn = document.getElementById('txnCountryTab-' + c);
+    if (btn) { btn.className = c === country ? 'btn btn-primary btn-sm' : 'btn btn-outline btn-sm'; }
+  });
+  renderAllTxn();
+}
+
+function renderAllTxn() {
+  const tbody = document.getElementById('allTxnTbody');
+  if (!tbody) return;
+
+  /* Lire le filtre statut depuis le select */
+  var statusSel = document.getElementById('txnStatusFilter');
+  var statusVal = statusSel ? statusSel.value : 'Toutes';
+  var filterVal = statusVal === 'En attente' ? 'pending' : statusVal === 'Complétées' ? 'completed' : null;
+
+  /* Filtre statut */
+  var list = ALL_TXNS.slice();
+  if (filterVal === 'pending')   list = list.filter(function(t){ return t.statut === 'En attente'; });
+  if (filterVal === 'completed') list = list.filter(function(t){ return t.statut === 'Complété'; });
+
+  /* Filtre pays */
+  if (_activeTxnCountry !== 'all') list = list.filter(function(t){ return t.country === _activeTxnCountry; });
+
+  /* Mettre à jour le label devise */
+  var label2 = document.getElementById('txnTotalLabel2');
+  if (label2) {
+    var cur = _activeTxnCountry !== 'all' ? (COUNTRY_CURRENCY[_activeTxnCountry] || 'GNF') : 'GNF';
+    var flag = _activeTxnCountry !== 'all' ? (COUNTRY_FLAGS[_activeTxnCountry] + ' ') : '';
+    label2.textContent = flag + 'Épargne totale gérée (' + cur + ')';
+  }
+
+  /* Legacy pending_deposit non présents dans ALL_TXNS */
+  var allIds = new Set(ALL_TXNS.map(function(t){ return t.userId; }));
+  var legacyAll = USERS.filter(function(u){ return u.pendingDeposit > 0 && !allIds.has(u.id); });
+  var legacyRows = _activeTxnCountry !== 'all'
+    ? legacyAll.filter(function(u){ return u.country === _activeTxnCountry; })
+    : legacyAll;
+
+  if (list.length === 0 && legacyRows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:28px;color:var(--text-muted);">Aucune transaction</td></tr>';
+    return;
+  }
+
+  var statutBadge = function(s, fullId, userId, montant) {
+    if (s === 'En attente') {
+      var sid = String(fullId || '').replace(/'/g,'');
+      var uid = String(userId || '').replace(/'/g,'');
+      return '<div style="display:flex;gap:4px;">' +
+        '<span class="badge badge-warning">⏳ En attente</span>' +
+        '<button class="btn-icon" onclick="adminApproveDeposit(\'' + uid + '\',' + montant + ',\'' + sid + '\')" style="background:#D1FAE5;color:#065F46;font-size:11px;padding:2px 6px;">✅</button>' +
+        '<button class="btn-icon" onclick="adminRejectDeposit(\'' + uid + '\',\'' + sid + '\')" style="background:#FEE2E2;color:#DC2626;font-size:11px;padding:2px 6px;">❌</button>' +
+        '</div>';
+    }
+    if (s === 'Complété') return '<span class="badge badge-success">✅ Complété</span>';
+    if (s === 'Échoué')   return '<span class="badge badge-error">❌ Échoué</span>';
+    return '<span class="badge badge-neutral">' + s + '</span>';
+  };
+
+  var dbRows = list.map(function(t) {
+    var flag = COUNTRY_FLAGS[t.country] || '🌍';
+    var cur  = COUNTRY_CURRENCY[t.country] || 'GNF';
+    return '<tr>' +
+      '<td><span class="badge badge-neutral" style="font-size:10px;">' + t.id + '</span></td>' +
+      '<td style="font-weight:600;">' + t.user + '</td>' +
+      '<td><span title="' + (COUNTRY_NAMES[t.country]||t.country) + '">' + flag + '</span></td>' +
+      '<td><span class="badge badge-neutral">' + (t.credit ? '💵 ' : '📤 ') + t.type + '</span></td>' +
+      '<td class="' + (t.credit ? 'txn-credit' : 'txn-debit') + '" style="font-weight:700;">' + (t.credit ? '+ ' : '− ') + fmt(t.montant) + ' ' + cur + '</td>' +
+      '<td>' + t.op + '</td>' +
+      '<td class="text-muted">' + t.date + '</td>' +
+      '<td>' + statutBadge(t.statut, t.fullId, t.userId, t.montant) + '</td>' +
+    '</tr>';
+  }).join('');
+
+  var legacyHtml = legacyRows.map(function(u) {
+    var safeId = String(u.id).replace(/'/g, '');
+    var flag   = COUNTRY_FLAGS[u.country] || '🌍';
+    var cur    = COUNTRY_CURRENCY[u.country] || 'GNF';
+    return '<tr style="opacity:.8;">' +
+      '<td><span class="badge badge-neutral" style="font-size:10px;">LEG-' + String(u.id).substring(0,6) + '</span></td>' +
+      '<td style="font-weight:600;">' + u.name + '</td>' +
+      '<td><span title="' + (COUNTRY_NAMES[u.country]||u.country) + '">' + flag + '</span></td>' +
+      '<td><span class="badge badge-neutral">💵 Dépôt</span></td>' +
+      '<td class="txn-credit" style="font-weight:700;">+ ' + fmt(u.pendingDeposit) + ' ' + cur + '</td>' +
+      '<td>' + (u.operator || '—') + '</td>' +
+      '<td class="text-muted">—</td>' +
+      '<td>' + statutBadge('En attente', '', safeId, u.pendingDeposit) + '</td>' +
+    '</tr>';
+  }).join('');
+
+  tbody.innerHTML = dbRows + legacyHtml;
+}
+
+/* ── KYC ── */
+let currentKYCIdx = null;
+function renderKYC() {
+  document.getElementById('kycTbody').innerHTML = KYC_REQUESTS.map((k, i) => `
+    <tr id="kyc-row-${i}">
+      <td>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="mini-avatar" style="background:var(--primary);">${k.user[0]}</div>
+          <div>
+            <div style="font-weight:600;">${k.user}</div>
+            <div class="text-muted" style="font-size:11px;">${k.phone}</div>
+          </div>
+        </div>
+      </td>
+      <td>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <div class="kyc-img-placeholder">🪪</div>
+          <div>
+            <div style="font-size:12px;font-weight:600;">${k.doc}</div>
+            <div style="font-size:11px;color:var(--success);">✓ reçu</div>
+          </div>
+        </div>
+      </td>
+      <td>
+        <div class="kyc-img-placeholder" style="${k.selfie ? 'border-color:var(--success);background:#F0FDF4;' : ''}">
+          ${k.selfie ? '🤳' : '<span style="font-size:11px;color:var(--error);">⚠</span>'}
+        </div>
+      </td>
+      <td>${opLogo(k.op)}</td>
+      <td class="text-muted">${k.date}</td>
+      <td><span class="badge badge-warning">⏳ En attente</span></td>
+      <td>
+        <div class="action-col">
+          <button class="btn btn-success btn-sm" onclick="quickApproveKYC(${i})">✅</button>
+          <button class="btn btn-danger btn-sm" onclick="quickRejectKYC(${i})">❌</button>
+          <button class="btn-icon" onclick="openKYCModal(${i})">👁</button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+function openKYCModal(i) {
+  currentKYCIdx = i;
+  document.getElementById('kycModalUser').textContent = 'Utilisateur : ' + KYC_REQUESTS[i].user;
+  openAdminModal('kyc');
+}
+function approveKYC() {
+  if (currentKYCIdx !== null) quickApproveKYC(currentKYCIdx);
+  closeAdminModal('amodal-kyc');
+}
+function rejectKYC() {
+  if (currentKYCIdx !== null) quickRejectKYC(currentKYCIdx);
+  closeAdminModal('amodal-kyc');
+}
+function quickApproveKYC(i) {
+  const row = document.getElementById('kyc-row-' + i);
+  if (row) {
+    row.querySelector('td:nth-child(5)').innerHTML = '<span class="badge badge-success">✅ Approuvé</span>';
+    row.querySelector('td:nth-child(6)').innerHTML = '<span class="text-muted" style="font-size:12px;">Traité</span>';
+  }
+  showToast(KYC_REQUESTS[i].user + ' — KYC approuvé !', 'success');
+}
+function quickRejectKYC(i) {
+  const row = document.getElementById('kyc-row-' + i);
+  if (row) {
+    row.querySelector('td:nth-child(5)').innerHTML = '<span class="badge badge-error">❌ Rejeté</span>';
+    row.querySelector('td:nth-child(6)').innerHTML = '<span class="text-muted" style="font-size:12px;">Traité</span>';
+  }
+  showToast(KYC_REQUESTS[i].user + ' — KYC rejeté', 'error');
+}
+
+/* ════════ CLOCHE DE NOTIFICATIONS ADMIN ════════ */
+function updateAdminBell(pendingDeposits, pendingKyc, pendingDeleteTontines) {
+  var total = (pendingDeposits || 0) + (pendingKyc || 0) + (pendingDeleteTontines || 0);
+  var dot = document.getElementById('adminBellDot');
+  if (dot) dot.style.display = total > 0 ? '' : 'none';
+
+  var items = document.getElementById('adminNotifItems');
+  if (!items) return;
+  var html = '';
+  if (pendingDeposits > 0) {
+    html += _adminNotifItem('💰', '#D1FAE5', pendingDeposits + ' dépôt' + (pendingDeposits > 1 ? 's' : '') + ' en attente de validation', 'transactions');
+  }
+  if (pendingKyc > 0) {
+    html += _adminNotifItem('🪪', '#FEF3C7', pendingKyc + ' vérification' + (pendingKyc > 1 ? 's' : '') + ' KYC en attente', 'kyc');
+  }
+  if (pendingDeleteTontines > 0) {
+    html += _adminNotifItem('🗑️', '#FEE2E2', pendingDeleteTontines + ' demande' + (pendingDeleteTontines > 1 ? 's' : '') + ' de suppression d\'épargne collective', 'tontines');
+  }
+  if (!html) {
+    html = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px;">✅ Aucune action en attente</div>';
+  }
+  items.innerHTML = html;
+}
+
+function _adminNotifItem(icon, bg, text, section) {
+  return '<div onclick="closeAdminNotifDropdown();showAdminSection(\'' + section + '\',null)" style="display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--divider);transition:background .15s;" onmouseover="this.style.background=\'#F8FAFF\'" onmouseout="this.style.background=\'\'"><div style="width:36px;height:36px;border-radius:50%;background:' + bg + ';display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">' + icon + '</div><div style="font-size:13px;font-weight:600;color:var(--primary);flex:1;">' + text + '</div><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>';
+}
+
+var _adminNotifOpen = false;
+function toggleAdminNotifDropdown() {
+  _adminNotifOpen = !_adminNotifOpen;
+  var d = document.getElementById('adminNotifDropdown');
+  if (d) d.style.display = _adminNotifOpen ? '' : 'none';
+}
+function closeAdminNotifDropdown() {
+  _adminNotifOpen = false;
+  var d = document.getElementById('adminNotifDropdown');
+  if (d) d.style.display = 'none';
+}
+document.addEventListener('click', function(e) {
+  var btn = document.getElementById('adminBellBtn');
+  var dd  = document.getElementById('adminNotifDropdown');
+  if (dd && !dd.contains(e.target) && btn && !btn.contains(e.target)) closeAdminNotifDropdown();
+});
+
+/* ════════ SUPPRESSION DE COMPTE ════════ */
+function openDeleteAccountModal(userId, name) {
+  document.getElementById('deleteAccountTargetId').value = userId;
+  var lbl = document.getElementById('deleteAccountNameLabel');
+  if (lbl) lbl.textContent = name;
+  var reason = document.getElementById('deleteAccountReason');
+  if (reason) reason.value = '';
+  var modal = document.getElementById('amodal-deleteAccount');
+  if (modal) modal.style.display = 'flex';
+}
+
+function confirmDeleteAccount() {
+  var targetId = document.getElementById('deleteAccountTargetId').value;
+  var reason   = document.getElementById('deleteAccountReason').value;
+  if (!reason) { showToast('Choisissez un motif de suppression.', 'error'); return; }
+  if (!confirm('⚠️ Suppression définitive — cette action est irréversible. Continuer ?')) return;
+
+  fetch('/api/admin/update-balance', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
+    body:    JSON.stringify({ action: 'delete-account', targetUserId: targetId, reason }),
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d) {
+    if (d.ok) {
+      showToast('✅ Compte supprimé définitivement.', 'success');
+      closeAdminModal('amodal-deleteAccount');
+      reloadAdminData();
+    } else {
+      showToast('Erreur : ' + (d.error || 'inconnue'), 'error');
+    }
+  })
+  .catch(function(e){ showToast('Erreur réseau : ' + e.message, 'error'); });
+}
+
+/* ── ÉPARGNE COLLECTIVE ── */
+function renderTontines() {
+  /* Les tontines sont maintenant rendues dans populateAdminData() */
+}
+
+/* Ouvrir le modal de remboursement avant approbation */
+function openDeleteApprovalModal(projectId, nom, userId, actuel, ownerLabel) {
+  /* Remplir les champs du modal */
+  document.getElementById('delApprProjectId').value = projectId;
+  document.getElementById('delApprUserId').value    = userId;
+  document.getElementById('delApprGroupName').textContent = '🤝 ' + nom;
+  document.getElementById('delApprTotal').textContent     = fmt(actuel) + ' GNF';
+  document.getElementById('delApprOwner').textContent     = ownerLabel || '—';
+
+  /* Récupérer les transactions de ce projet pour calculer les parts */
+  var memberTotals = {};
+  ALL_TXNS.forEach(function(tx) {
+    if (tx.projectId === projectId && tx.statut === 'Complété') {
+      var uid = tx.userId || 'inconnu';
+      memberTotals[uid] = (memberTotals[uid] || 0) + (tx.montant || 0);
+    }
+  });
+
+  /* Si aucune transaction trouvée, afficher juste le total propriétaire */
+  var tableHtml = '';
+  var memberKeys = Object.keys(memberTotals);
+  if (memberKeys.length === 0) {
+    /* Pas de détail par participant — afficher le total au propriétaire */
+    tableHtml = '<div style="padding:12px 14px;display:flex;justify-content:space-between;align-items:center;">' +
+      '<span style="font-weight:600;color:#374151;">' + (ownerLabel || 'Propriétaire') + '</span>' +
+      '<span style="font-weight:900;color:#0B1566;">' + fmt(actuel) + ' GNF</span>' +
+    '</div>';
+  } else {
+    var totalCalc = memberKeys.reduce(function(s, k) { return s + memberTotals[k]; }, 0);
+    tableHtml = memberKeys.map(function(uid, i) {
+      /* Résoudre le nom du membre */
+      var u = USERS.find(function(u){ return u.id === uid; });
+      var label = u ? ((u.prenom || '') + ' ' + (u.nom || '')).trim() || u.phone : uid;
+      var share = memberTotals[uid];
+      var pct   = totalCalc > 0 ? Math.round(share / totalCalc * 100) : 0;
+      return '<div style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center;' +
+        (i > 0 ? 'border-top:1px solid #E5E7EB;' : '') + '">' +
+        '<div>' +
+          '<div style="font-weight:700;font-size:13px;color:#374151;">' + label + '</div>' +
+          '<div style="font-size:11px;color:#9CA3AF;">' + pct + '% des versements</div>' +
+        '</div>' +
+        '<span style="font-weight:900;color:#DC2626;font-size:14px;">' + fmt(share) + ' GNF</span>' +
+      '</div>';
+    }).join('');
+  }
+  document.getElementById('delApprMembersTable').innerHTML = tableHtml;
+
+  /* Ouvrir le modal */
+  var m = document.getElementById('amodal-deleteApproval');
+  if (m) { m.style.display = 'flex'; }
+}
+
+/* Approuver la suppression d'une tontine : marquer le projet status='closed' */
+function adminApproveTontineDelete(projectId, userId) {
+  if (!confirm('Approuver la suppression définitive de cette épargne collective ?')) return;
+  fetch('/api/admin/update-balance', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
+    body: JSON.stringify({ action: 'update-project', projectId: projectId, status: 'closed' }),
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d) {
+    if (d.ok) {
+      closeAdminModal('amodal-deleteApproval');
+      showToast('✅ Suppression approuvée — groupe clôturé.', 'success');
+      reloadAdminData();
+    } else {
+      showToast('Erreur : ' + (d.error || 'inconnue'), 'error');
+    }
+  })
+  .catch(function(e){ showToast('Erreur réseau : ' + e.message, 'error'); });
+}
+
+/* Rejeter la demande de suppression : remettre status='active' */
+function adminRejectTontineDelete(projectId) {
+  fetch('/api/admin/update-balance', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
+    body: JSON.stringify({ action: 'update-project', projectId: projectId, status: 'delete_rejected' }),
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d) {
+    if (d.ok) {
+      showToast('Demande rejetée — groupe maintenu actif.', 'info');
+      reloadAdminData();
+    } else {
+      showToast('Erreur : ' + (d.error || 'inconnue'), 'error');
+    }
+  })
+  .catch(function(e){ showToast('Erreur réseau : ' + e.message, 'error'); });
+}
+
+/* Clôturer de force une tontine active (sans demande préalable de l'utilisateur) */
+function adminForceCloseTontine(projectId, nom) {
+  if (!confirm('⚠️ Clôturer définitivement le groupe « ' + nom + ' » ?\n\nCette action est irréversible. Le projet sera marqué comme fermé.')) return;
+  fetch('/api/admin/update-balance', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
+    body: JSON.stringify({ action: 'update-project', projectId: projectId, status: 'closed' }),
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d) {
+    if (d.ok) {
+      showToast('✅ Groupe « ' + nom + ' » clôturé avec succès.', 'success');
+      reloadAdminData();
+    } else {
+      showToast('Erreur : ' + (d.error || 'inconnue'), 'error');
+    }
+  })
+  .catch(function(e){ showToast('Erreur réseau : ' + e.message, 'error'); });
+}
+
+/* ── PROJETS ADMIN ── */
+function renderProjetsAdmin() {
+  const tbody = document.getElementById('projetsAdminTbody');
+  if (!tbody) return;
+  if (!PROJETS_TOP.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--text-muted);">Aucun projet créé par les utilisateurs</td></tr>';
+    return;
+  }
+  tbody.innerHTML = PROJETS_TOP.map(function(p) {
+    var pct = p.cible > 0 ? Math.min(100, Math.round((p.actuel / p.cible) * 100)) : 0;
+    var statusBadge = p.status === 'completed' ? '<span class="badge badge-success">✅ Complété</span>' :
+                     p.status === 'paused'     ? '<span class="badge badge-neutral">⏸ Pause</span>' :
+                                                 '<span class="badge badge-success">Actif</span>';
+    return '<tr>' +
+      '<td style="font-weight:600;"><div style="display:flex;align-items:center;gap:8px;"><div style="width:10px;height:10px;border-radius:50%;background:' + (p.color || '#0B1566') + ';flex-shrink:0;"></div>' + p.nom + '</div></td>' +
+      '<td class="text-muted">' + p.user + '</td>' +
+      '<td>' + fmt(p.cible) + ' GNF</td>' +
+      '<td style="font-weight:600;color:var(--primary);">' + fmt(p.actuel) + ' GNF</td>' +
+      '<td style="min-width:140px;">' +
+        '<div style="display:flex;align-items:center;gap:8px;">' +
+          '<div class="progress-bar-track" style="flex:1;"><div class="progress-bar-fill" style="width:' + pct + '%;background:' + (p.color || '#0B1566') + ';"></div></div>' +
+          '<span style="font-weight:700;font-size:12px;">' + pct + '%</span>' +
+        '</div>' +
+      '</td>' +
+      '<td>' + statusBadge + '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+/* ── GLOBAL SEARCH ── */
+function globalSearch(q) {
+  if (!q) return;
+  if (q.length > 2) showToast(`Recherche : "${q}" — fonctionnalité complète à venir`, 'info');
+}
+
+/* ── EXPORT ── */
+function exportCSV() {
+  const rows = [['ID','Utilisateur','Type','Montant','Opérateur','Date','Statut']];
+  ALL_TXNS.forEach(t => rows.push([t.id, t.user, t.type, t.montant, t.op, t.date, t.statut]));
+  const csv = rows.map(r => r.join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'epargn_transactions.csv';
+  a.click();
+  showToast('Export CSV téléchargé !', 'success');
+}
+
+/* ── MODALS ── */
+function openAdminModal(id) {
+  document.getElementById('amodal-' + id).classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeAdminModal(id) {
+  document.getElementById(id).classList.remove('open');
+  document.body.style.overflow = '';
+}
+function handleOverlayClick(e, id) {
+  if (e.target === e.currentTarget) closeAdminModal(id);
+}
+
+/* ── TOAST ── */
+function showToast(msg, type = 'info') {
+  const c = document.getElementById('toastContainer');
+  const t = document.createElement('div');
+  t.className = `toast toast-${type}`;
+  t.innerHTML = `${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'} ${msg}`;
+  c.appendChild(t);
+  setTimeout(() => t.classList.add('show'), 10);
+  setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 400); }, 3500);
+}
+
+/* ── Rejet KYC avec raison ── */
+function selectRejectReason(label) {
+  document.getElementById('rejectReasonOther').value = '';
+  document.querySelectorAll('#rejectReasonList label').forEach(function(l) {
+    l.style.borderColor = 'var(--border)';
+    l.style.background  = '#fff';
+  });
+  label.style.borderColor = '#DC2626';
+  label.style.background  = '#FEF2F2';
+}
+
+function submitRejectKYC() {
+  var userId  = document.getElementById('rejectUserId').value;
+  var checked = document.querySelector('[name=rejectReason]:checked');
+  var other   = (document.getElementById('rejectReasonOther').value || '').trim();
+  var reason  = checked ? checked.value : other;
+  if (!reason) {
+    alert('Veuillez sélectionner ou saisir une raison de rejet.');
+    return;
+  }
+  document.getElementById('rejectReasonModal').style.display = 'none';
+  /* Réinitialiser le modal */
+  document.querySelectorAll('[name=rejectReason]').forEach(function(r) { r.checked = false; });
+  document.querySelectorAll('#rejectReasonList label').forEach(function(l) {
+    l.style.borderColor = 'var(--border)'; l.style.background = '#fff';
+  });
+  document.getElementById('rejectReasonOther').value = '';
+  _doRejectKYC(userId, reason);
+}
+
+/* ── UTILS ── */
+function fmt(n) { return n.toLocaleString('fr'); }
+
+/* Devise par pays : gn → GNF, bj/ci → FCFA */
+const COUNTRY_FLAGS  = { gn: '🇬🇳', bj: '🇧🇯', ci: '🇨🇮' };
+const COUNTRY_NAMES  = { gn: 'Guinée', bj: 'Bénin', ci: "Côte d'Ivoire" };
+const COUNTRY_CURRENCY = { gn: 'GNF', bj: 'FCFA', ci: 'FCFA' };
+function fmtCurrency(amount, country) {
+  var cur = COUNTRY_CURRENCY[country] || 'GNF';
+  return fmt(amount) + ' ' + cur;
+}
+
+/* ── Filtres pays actifs ── */
+var _activeUserCountry = 'all';
+var _activeTxnCountry  = 'all';
+
+/* ══════════════════════════════════════════════
+   KYC REVIEW MODAL — Document Viewer + Vérification
+   ══════════════════════════════════════════════ */
+
+let _kycReviewUserId = null;
+
+function openKYCReview(userId) {
+  _kycReviewUserId = userId;
+  var u = USERS.find(function(x){ return String(x.id) === String(userId); });
+  if (!u) { showAdminToast('Utilisateur introuvable', 'error'); return; }
+
+  var modal = document.getElementById('kycReviewModal');
+  var content = document.getElementById('kycReviewContent');
+  if (!modal || !content) return;
+
+  var amlBg    = u.amlStatus === 'flagged' ? '#FEF2F2' : u.amlStatus === 'clear' ? '#F0FDF4' : '#FFFBEB';
+  var amlBadge = u.amlStatus === 'clear'
+    ? '<span class="badge badge-success">✅ AML — Aucune correspondance dans les listes de sanctions</span>'
+    : u.amlStatus === 'flagged'
+      ? '<span class="badge badge-error">🚨 AML — Correspondance détectée ! Vérification manuelle requise</span>'
+      : '<span class="badge badge-neutral">— Vérification AML non effectuée</span>';
+
+  content.innerHTML =
+    /* En-tête utilisateur */
+    '<div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;">' +
+      '<div class="mini-avatar" style="width:56px;height:56px;font-size:22px;background:' + u.color + ';">' + (u.name[0]||'?').toUpperCase() + '</div>' +
+      '<div>' +
+        '<div style="font-size:18px;font-weight:800;color:var(--primary);">' + u.name + '</div>' +
+        '<div style="font-size:13px;color:var(--text-secondary);">' + u.phone + ' · ' + (u.country||'gn').toUpperCase() + '</div>' +
+        (u.kycDocNumber ? '<div style="font-size:12px;font-weight:700;color:var(--primary);margin-top:2px;">' + (u.kycDocType||'CNI') + ' : ' + u.kycDocNumber + '</div>' : '') +
+      '</div>' +
+    '</div>' +
+
+    /* Documents */
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">' +
+      /* Document CNI */
+      '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;">' +
+        '<div style="padding:8px 12px;background:var(--bg-light);font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:.06em;">' +
+          (u.kycDocType||'CNI') + ' — RECTO' +
+        '</div>' +
+        (u.kycDocUrl
+          ? '<a href="' + u.kycDocUrl + '" target="_blank" title="Ouvrir en plein écran">' +
+              '<img src="' + u.kycDocUrl + '?t=' + Date.now() + '" style="width:100%;aspect-ratio:16/10;object-fit:cover;display:block;" alt="Document CNI" onerror="this.parentElement.innerHTML=\'<div style=&quot;padding:32px;text-align:center;color:var(--text-secondary);&quot;>🖼 Document non disponible<br><small>Bucket Supabase Storage à créer</small></div>\'"/>' +
+            '</a>'
+          : '<div style="padding:32px;text-align:center;color:var(--text-secondary);">🖼 Document non uploadé<br><small style=\'font-size:11px;\'>' + (u.kyc==='pending' ? 'Client a soumis avant le déploiement du système' : 'En attente de soumission') + '</small></div>'
+        ) +
+      '</div>' +
+      /* Selfie */
+      '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;">' +
+        '<div style="padding:8px 12px;background:var(--bg-light);font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:.06em;">SELFIE</div>' +
+        (u.kycselfieUrl
+          ? '<a href="' + u.kycselfieUrl + '" target="_blank" title="Ouvrir en plein écran">' +
+              '<img src="' + u.kycselfieUrl + '?t=' + Date.now() + '" style="width:100%;aspect-ratio:1;object-fit:cover;display:block;" alt="Selfie" onerror="this.parentElement.innerHTML=\'<div style=&quot;padding:32px;text-align:center;color:var(--text-secondary);&quot;>🤳 Selfie non disponible<br><small>Bucket Supabase Storage à créer</small></div>\'"/>' +
+            '</a>'
+          : '<div style="padding:32px;text-align:center;color:var(--text-secondary);">🤳 Selfie non uploadé</div>'
+        ) +
+      '</div>' +
+    '</div>' +
+
+    /* Statut AML */
+    '<div style="background:' + amlBg + ';border-radius:12px;padding:14px 16px;margin-bottom:16px;">' +
+      '<div style="font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;letter-spacing:.06em;">RÉSULTAT AML / LCB-FT</div>' +
+      amlBadge +
+      (u.riskScore > 0 ? '<div style="font-size:12px;margin-top:6px;color:' + (u.riskScore >= 60 ? '#DC2626' : '#92400E') + ';">Score de risque : ' + u.riskScore + '/100</div>' : '') +
+    '</div>' +
+
+    /* Boutons d'action — les IDs sont passés via data-attributes pour éviter les problèmes d'échappement */
+    '<div style="display:flex;flex-wrap:wrap;gap:10px;" id="kycReviewActions">' +
+      '<button class="btn btn-outline" style="flex:1;min-width:140px;" id="kycBtnAML">🛡 Vérif. AML</button>' +
+      '<button class="btn btn-outline" style="flex:1;min-width:140px;" id="kycBtnSmile">🪪 Vérif. ID Smile</button>' +
+      '<button class="btn btn-success" style="flex:1;min-width:120px;" id="kycBtnApprove">✅ Approuver</button>' +
+      '<button class="btn btn-danger" style="flex:1;min-width:120px;" id="kycBtnReject">❌ Rejeter</button>' +
+    '</div>';
+
+  modal.style.display = 'flex';
+
+  /* Câbler les boutons via addEventListener (évite tout problème d'échappement) */
+  var uid      = u.id;
+  var prenom   = u.prenom || (u.name ? u.name.split(' ')[0] : '') || '';
+  var nom      = u.nom    || (u.name ? u.name.split(' ').slice(1).join(' ') : '') || '';
+  var docNum   = u.kycDocNumber || '';
+  var docType  = u.kycDocType   || 'CNI';
+  var country  = (u.country || 'GN').toUpperCase();
+
+  var btnAML     = document.getElementById('kycBtnAML');
+  var btnSmile   = document.getElementById('kycBtnSmile');
+  var btnApprove = document.getElementById('kycBtnApprove');
+  var btnReject  = document.getElementById('kycBtnReject');
+
+  if (btnAML)     btnAML.onclick     = function() { runAMLCheck(uid, prenom, nom); };
+  if (btnSmile)   btnSmile.onclick   = function() { runSmileVerify(uid, docNum, docType, country, prenom, nom); };
+  if (btnApprove) btnApprove.onclick = function() { adminApproveKYC(uid); };
+  if (btnReject)  btnReject.onclick  = function() { adminRejectKYC(uid); };
+}
+
+function closeKYCReview() {
+  var modal = document.getElementById('kycReviewModal');
+  if (modal) modal.style.display = 'none';
+  _kycReviewUserId = null;
+}
+
+/* ── Vérification AML via OpenSanctions ── */
+function runAMLCheck(userId, firstName, lastName) {
+  if (!firstName || !lastName) {
+    var u = USERS.find(function(x){ return String(x.id) === String(userId); });
+    if (u) { firstName = u.prenom || u.name.split(' ')[0] || ''; lastName = u.nom || u.name.split(' ').slice(1).join(' ') || ''; }
+  }
+  if (!firstName && !lastName) {
+    showAdminToast('Prénom et nom requis pour la vérification AML', 'error');
+    return;
+  }
+  showAdminToast('🛡 Vérification AML en cours pour ' + firstName + ' ' + lastName + '…', 'info');
+  fetch('/api/kyc/verify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
+    body: JSON.stringify({ action: 'aml', userId: userId, firstName: firstName, lastName: lastName })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.amlStatus === 'flagged') {
+      var matchSummary = data.matches && data.matches.length
+        ? '\n\nCorrespondances :\n' + data.matches.map(function(m){ return '• ' + m.name + ' (score ' + m.score + '%) — ' + m.datasets; }).join('\n')
+        : '';
+      alert('🚨 ALERTE AML\n\n' + data.fullName + ' est signalé dans les listes de sanctions.\nScore de risque : ' + data.riskScore + '/100\nSource : ' + data.source + matchSummary);
+      showAdminToast('🚨 ' + data.fullName + ' est signalé dans les listes de sanctions !', 'error');
+    } else if (data.amlStatus === 'clear') {
+      showAdminToast('✅ AML : ' + data.fullName + ' — Aucune correspondance (score ' + data.riskScore + '/100)', 'success');
+    } else {
+      showAdminToast('⚠ Vérification AML échouée : ' + (data.error || 'Erreur inconnue'), 'error');
+    }
+    reloadAdminData();
+  })
+  .catch(function() { showAdminToast('Erreur réseau AML.', 'error'); });
+}
+
+/* ── Vérification ID via Smile Identity ── */
+function runSmileVerify(userId, idNumber, idType, country, firstName, lastName) {
+  if (!idNumber) {
+    idNumber = prompt('Entrez le numéro ' + (idType||'CNI') + ' de l\'utilisateur :');
+    if (!idNumber) return;
+  }
+  if (!confirm('Vérifier l\'identité via Smile Identity ?\n\nN° : ' + idNumber + '\nType : ' + (idType||'CNI') + '\nPays : ' + (country||'GN') + '\nNom : ' + firstName + ' ' + lastName)) return;
+
+  showAdminToast('🪪 Vérification Smile Identity en cours…', 'info');
+  fetch('/api/kyc/verify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
+    body: JSON.stringify({
+      action:    'id',
+      userId:    userId,
+      country:   country || 'GN',
+      idType:    idType  || 'NATIONAL_ID',
+      idNumber:  idNumber,
+      firstName: firstName,
+      lastName:  lastName
+    })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.error && !data.ok) {
+      alert('⚙️ Configuration requise\n\n' + data.error + '\n\n' + (data.setup || ''));
+      return;
+    }
+    if (data.verificationResult && data.verificationResult.isVerified) {
+      showAdminToast('✅ Smile Identity : identité VÉRIFIÉE — ' + data.verificationResult.resultText, 'success');
+    } else {
+      showAdminToast('⚠ Smile Identity : ' + (data.verificationResult && data.verificationResult.resultText || data.error || 'Non trouvé'), 'error');
+    }
+    closeKYCReview();
+    reloadAdminData();
+  })
+  .catch(function() { showAdminToast('Erreur réseau Smile Identity.', 'error'); });
+}
+</script>
+
+<!-- ════════ MODAL REJET KYC ════════ -->
+<div id="rejectReasonModal" style="display:none;position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;padding:16px;">
+  <div style="background:#fff;border-radius:20px;max-width:480px;width:100%;padding:28px;box-shadow:0 16px 48px rgba(0,0,0,.4);">
+    <div style="font-size:18px;font-weight:800;color:#DC2626;margin-bottom:6px;">❌ Rejeter le KYC</div>
+    <div style="font-size:13px;color:var(--text-secondary);margin-bottom:20px;">Sélectionnez la raison du rejet. Le client en sera informé et pourra re-soumettre ses documents.</div>
+    <input type="hidden" id="rejectUserId" value=""/>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;" id="rejectReasonList">
+      <label style="display:flex;align-items:center;gap:10px;padding:12px;border:1.5px solid var(--border);border-radius:10px;cursor:pointer;" onclick="selectRejectReason(this)">
+        <input type="radio" name="rejectReason" value="Document illisible ou flou" style="flex-shrink:0;"/>
+        <span>📷 Document illisible ou flou</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;padding:12px;border:1.5px solid var(--border);border-radius:10px;cursor:pointer;" onclick="selectRejectReason(this)">
+        <input type="radio" name="rejectReason" value="Mauvais type de document présenté" style="flex-shrink:0;"/>
+        <span>📄 Mauvais type de document</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;padding:12px;border:1.5px solid var(--border);border-radius:10px;cursor:pointer;" onclick="selectRejectReason(this)">
+        <input type="radio" name="rejectReason" value="Informations non concordantes avec le profil" style="flex-shrink:0;"/>
+        <span>⚠️ Informations ne correspondent pas au profil</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;padding:12px;border:1.5px solid var(--border);border-radius:10px;cursor:pointer;" onclick="selectRejectReason(this)">
+        <input type="radio" name="rejectReason" value="Selfie non valide (visage non visible)" style="flex-shrink:0;"/>
+        <span>🤳 Selfie non valide — visage non visible</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;padding:12px;border:1.5px solid var(--border);border-radius:10px;cursor:pointer;" onclick="selectRejectReason(this)">
+        <input type="radio" name="rejectReason" value="Document expiré" style="flex-shrink:0;"/>
+        <span>📅 Document expiré</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;padding:12px;border:1.5px solid var(--border);border-radius:10px;cursor:pointer;" onclick="selectRejectReason(this)">
+        <input type="radio" name="rejectReason" value="Suspicion de fraude — dossier transmis à la conformité" style="flex-shrink:0;"/>
+        <span>🚨 Suspicion de fraude</span>
+      </label>
+      <div style="padding:8px 0 0;">
+        <label style="font-size:11px;font-weight:700;color:var(--text-secondary);">AUTRE RAISON</label>
+        <input id="rejectReasonOther" type="text" class="form-input" placeholder="Précisez la raison..." style="margin-top:4px;" oninput="document.querySelectorAll('[name=rejectReason]').forEach(r=>r.checked=false)"/>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-outline" style="flex:1;" onclick="document.getElementById('rejectReasonModal').style.display='none'">Annuler</button>
+      <button class="btn btn-danger" style="flex:1;" onclick="submitRejectKYC()">❌ Confirmer le rejet</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ MODAL KYC REVIEW ════════ -->
+<div id="kycReviewModal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.65);align-items:center;justify-content:center;padding:16px;">
+  <div style="background:#fff;border-radius:20px;max-width:760px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.4);">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px 0;">
+      <div style="font-size:17px;font-weight:800;color:var(--primary);">🔍 Revue KYC — Vérification d'identité</div>
+      <button onclick="closeKYCReview()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--text-secondary);line-height:1;">×</button>
+    </div>
+    <div id="kycReviewContent" style="padding:20px 24px 24px;"><!-- injected --></div>
+  </div>
+</div>
+
+<!-- ══ Modal suppression compte ══ -->
+<div class="modal-overlay" id="amodal-deleteAccount" onclick="handleOverlayClick(event,'amodal-deleteAccount')" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;">
+  <div class="modal" style="max-width:440px;width:100%;margin:20px;background:#fff;border-radius:20px;padding:28px 24px;">
+    <button class="modal-close" onclick="closeAdminModal('amodal-deleteAccount')" style="position:absolute;top:16px;right:16px;background:none;border:none;font-size:20px;cursor:pointer;color:#6B7280;">✕</button>
+    <div style="text-align:center;margin-bottom:16px;">
+      <div style="font-size:48px;margin-bottom:8px;">🗑️</div>
+      <div style="font-size:18px;font-weight:800;color:#DC2626;">Supprimer ce compte</div>
+      <div id="deleteAccountNameLabel" style="font-size:14px;color:var(--text-secondary);margin-top:4px;font-weight:600;"></div>
+    </div>
+    <div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:12px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:#7F1D1D;line-height:1.6;">
+      ⚠️ <strong>Action irréversible.</strong> Toutes les données de cet utilisateur (transactions, projets, solde) seront définitivement supprimées de Supabase.
+    </div>
+    <input type="hidden" id="deleteAccountTargetId" />
+    <div style="margin-bottom:16px;">
+      <label style="font-size:12px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:6px;">MOTIF DE SUPPRESSION <span style="color:#DC2626;">*</span></label>
+      <select id="deleteAccountReason" style="width:100%;padding:10px 12px;border:1.5px solid var(--divider);border-radius:10px;font-family:inherit;font-size:13px;background:#fff;">
+        <option value="">— Choisir un motif —</option>
+        <option value="fraude">Fraude avérée</option>
+        <option value="blanchiment">Soupçon de blanchiment (LCB-FT)</option>
+        <option value="faux_documents">Documents KYC falsifiés</option>
+        <option value="double_compte">Double compte détecté</option>
+        <option value="compte_test">Compte de test / spam</option>
+        <option value="demande_utilisateur">Demande de l'utilisateur</option>
+        <option value="autre">Autre (non-conformité)</option>
+      </select>
+    </div>
+    <button style="width:100%;padding:13px;background:#DC2626;color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;" onclick="confirmDeleteAccount()">Supprimer définitivement →</button>
+    <button style="width:100%;padding:11px;margin-top:8px;background:none;border:1.5px solid var(--divider);border-radius:12px;font-size:13px;cursor:pointer;font-family:inherit;" onclick="closeAdminModal('amodal-deleteAccount')">Annuler</button>
+  </div>
+</div>
+
+<!-- ══ Modal approbation suppression épargne collective ══ -->
+<div class="modal-overlay" id="amodal-deleteApproval" onclick="handleOverlayClick(event,'amodal-deleteApproval')" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1000;align-items:center;justify-content:center;">
+  <div class="modal" style="max-width:460px;width:100%;margin:16px;background:#fff;border-radius:20px;padding:0;overflow:hidden;max-height:92vh;overflow-y:auto;">
+    <!-- En-tête -->
+    <div style="background:linear-gradient(135deg,#7F1D1D,#DC2626);padding:24px 20px 20px;color:#fff;position:relative;">
+      <button onclick="closeAdminModal('amodal-deleteApproval')" style="position:absolute;top:14px;right:14px;background:rgba(255,255,255,.2);border:none;color:#fff;width:30px;height:30px;border-radius:50%;font-size:16px;cursor:pointer;">✕</button>
+      <div style="font-size:32px;margin-bottom:6px;">💸</div>
+      <div style="font-size:18px;font-weight:900;">Remboursements à traiter</div>
+      <div style="font-size:13px;opacity:.85;margin-top:2px;" id="delApprGroupName"></div>
+    </div>
+
+    <div style="padding:20px;">
+      <!-- Alerte -->
+      <div style="background:#FEF9C3;border:1px solid #FDE68A;border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:#92400E;line-height:1.6;">
+        ⚠️ Avant de confirmer, effectuez les remboursements Mobile Money ci-dessous pour chaque participant.
+      </div>
+
+      <!-- Montant collecté -->
+      <div style="display:flex;justify-content:space-between;margin-bottom:14px;background:#F9FAFB;border-radius:10px;padding:12px 14px;">
+        <div>
+          <div style="font-size:11px;color:#6B7280;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Montant total collecté</div>
+          <div style="font-size:22px;font-weight:900;color:#0B1566;" id="delApprTotal">0 GNF</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:11px;color:#6B7280;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Compte propriétaire</div>
+          <div style="font-size:14px;font-weight:700;color:#374151;" id="delApprOwner">—</div>
+        </div>
+      </div>
+
+      <!-- Tableau des remboursements -->
+      <div style="font-size:12px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Répartition par participant</div>
+      <div id="delApprMembersTable" style="background:#F9FAFB;border-radius:10px;overflow:hidden;margin-bottom:16px;"></div>
+
+      <div style="font-size:11px;color:#9CA3AF;margin-bottom:16px;line-height:1.5;">
+        📌 Les montants sont calculés proportionnellement aux versements effectués. Après remboursement, cliquez "Confirmer la clôture".
+      </div>
+
+      <input type="hidden" id="delApprProjectId" />
+      <input type="hidden" id="delApprUserId" />
+
+      <button onclick="adminApproveTontineDelete(document.getElementById('delApprProjectId').value, document.getElementById('delApprUserId').value)"
+        style="width:100%;padding:14px;background:#DC2626;color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:8px;">
+        ✅ Confirmer la clôture définitive →
+      </button>
+      <button onclick="closeAdminModal('amodal-deleteApproval')"
+        style="width:100%;padding:12px;background:none;border:1.5px solid #E5E7EB;border-radius:12px;font-size:13px;cursor:pointer;font-family:inherit;color:#374151;">
+        Annuler
+      </button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

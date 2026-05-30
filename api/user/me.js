@@ -99,8 +99,8 @@ module.exports = async (req, res) => {
       if (!verifyPin(String(body.current_pin), pin_hash)) {
         return res.status(400).json({ error: 'PIN actuel incorrect' });
       }
-      if (!/^\d{6}$/.test(body.new_pin)) {
-        return res.status(400).json({ error: 'Le nouveau PIN doit contenir exactement 6 chiffres' });
+      if (!/^\d{4}$/.test(body.new_pin)) {
+        return res.status(400).json({ error: 'Le nouveau PIN doit contenir exactement 4 chiffres' });
       }
       patch.pin_hash = hashPin(String(body.new_pin));
     }
@@ -173,18 +173,25 @@ async function handleProjects(req, res, payload, resourceId) {
   if (req.method === 'PATCH') {
     if (!resourceId) return res.status(400).json({ error: 'id requis' });
     const body  = await parseBody(req);
-    const patch = { updated_at: new Date().toISOString() };
+    /* Ne pas inclure updated_at automatiquement — la colonne peut ne pas exister */
+    const patch = {};
     if (body.actuel  !== undefined) patch.actuel = parseInt(body.actuel, 10);
     if (body.current !== undefined) patch.actuel = parseInt(body.current, 10);
-    if (body.nom)    patch.name   = String(body.nom).trim();
-    if (body.cible)  patch.goal   = parseInt(body.cible, 10);
-    if (body.status) patch.status = String(body.status);
-    if (body.color)  patch.color  = String(body.color);
+    if (body.nom)                   patch.name   = String(body.nom).trim();
+    if (body.cible)                 patch.goal   = parseInt(body.cible, 10);
+    if (body.status)                patch.status = String(body.status);
+    if (body.color)                 patch.color  = String(body.color);
+    if (Object.keys(patch).length === 0) {
+      return res.status(400).json({ error: 'Aucun champ à mettre à jour' });
+    }
     try {
       await supabaseRequest('PATCH',
-        '/projects?id=eq.' + encodeURIComponent(resourceId) + '&user_id=eq.' + payload.userId, patch);
+        '/projects?id=eq.' + encodeURIComponent(resourceId) +
+        '&user_id=eq.' + encodeURIComponent(payload.userId), patch);
+      console.log('[user/me/projects] PATCH id=' + resourceId + ' patch=' + JSON.stringify(patch));
       return res.status(200).json({ ok: true });
     } catch (e) {
+      console.error('[user/me/projects] PATCH error:', e.message);
       return res.status(500).json({ error: 'Erreur mise à jour projet : ' + e.message });
     }
   }
@@ -204,15 +211,89 @@ async function handleProjects(req, res, payload, resourceId) {
   return res.status(405).json({ error: 'Méthode non autorisée pour /projects' });
 }
 
-/* ── Historique des transactions ── */
+/* ── Historique des transactions + Enregistrement retrait ── */
 async function handleTransactions(req, res, payload) {
-  if (req.method !== 'GET') return res.status(405).json({ error: 'GET uniquement' });
-  try {
-    const rows = await supabaseRequest('GET',
-      '/transactions?user_id=eq.' + payload.userId + '&order=created_at.desc&limit=50');
-    return res.status(200).json(Array.isArray(rows) ? rows : []);
-  } catch (e) {
-    console.warn('[user/me/transactions] GET:', e.message);
-    return res.status(200).json([]); /* table peut ne pas exister */
+
+  /* ── GET : historique ── */
+  if (req.method === 'GET') {
+    try {
+      const rows = await supabaseRequest('GET',
+        '/transactions?user_id=eq.' + encodeURIComponent(payload.userId) +
+        '&select=id,user_id,type,amount,operator,project_id,statut,status,is_credit,label,created_at' +
+        '&order=created_at.desc&limit=100');
+      return res.status(200).json(Array.isArray(rows) ? rows : []);
+    } catch (e) {
+      console.warn('[user/me/transactions] GET:', e.message);
+      return res.status(200).json([]);
+    }
   }
+
+  /* ── POST : enregistrer un retrait validé ── */
+  if (req.method === 'POST') {
+    const body      = await parseBody(req);
+    const amount    = parseInt(body.amount, 10);
+    const projectId = body.projectId || null;
+    const operator  = (body.operator  || 'Mobile Money').trim();
+    const type      = body.type       || 'withdrawal';
+    const isCredit  = body.isCredit   !== undefined ? body.isCredit : false;
+
+    if (!amount || amount < 1) {
+      return res.status(400).json({ error: 'Montant invalide' });
+    }
+
+    const now = new Date().toISOString();
+    const ref = 'RET-' + now.slice(0,10).replace(/-/g,'') + '-' +
+      Math.random().toString(36).substr(2,6).toUpperCase();
+    const label = body.label || (ref + ' · Retrait ' + operator);
+
+    try {
+      /* 1. Insérer la transaction */
+      await supabaseRequest('POST', '/transactions', {
+        user_id:    payload.userId,
+        type,
+        amount,
+        operator,
+        is_credit:  isCredit,
+        label,
+        project_id: projectId,
+        statut:     'completed',
+        status:     'success',
+      });
+
+      /* 2. Pour un retrait : déduire du solde + réinitialiser le projet */
+      if (type === 'withdrawal') {
+        try {
+          const users = await supabaseRequest('GET',
+            '/users?id=eq.' + encodeURIComponent(payload.userId) + '&select=epargne');
+          const currentEpargne = (Array.isArray(users) && users[0] && users[0].epargne) ? Number(users[0].epargne) : 0;
+          const newEpargne     = Math.max(0, currentEpargne - amount);
+          await supabaseRequest('PATCH',
+            '/users?id=eq.' + encodeURIComponent(payload.userId),
+            { epargne: newEpargne, updated_at: now });
+        } catch (e) {
+          console.warn('[user/me/transactions] balance deduction:', e.message);
+        }
+
+        if (projectId) {
+          try {
+            await supabaseRequest('PATCH',
+              '/projects?id=eq.' + encodeURIComponent(projectId) +
+              '&user_id=eq.' + encodeURIComponent(payload.userId),
+              { actuel: 0, updated_at: now });
+          } catch (e) {
+            console.warn('[user/me/transactions] project reset:', e.message);
+          }
+        }
+      }
+
+      console.log('[user/me/transactions] POST type=' + type + ' amount=' + amount + ' user=' + payload.userId);
+      return res.status(201).json({ ok: true, ref });
+
+    } catch (e) {
+      console.error('[user/me/transactions] POST error:', e.message);
+      return res.status(500).json({ error: 'Erreur enregistrement : ' + e.message });
+    }
+  }
+
+  return res.status(405).json({ error: 'Méthode non autorisée' });
 }
