@@ -1,5 +1,31 @@
 {
+  "version": 2,
+  "outputDirectory": ".",
   "functions": {
     "api/**/*.js": { "maxDuration": 10 }
-  }
+  },
+  "rewrites": [
+    { "source": "/",               "destination": "/index.html" },
+    { "source": "/connexion",      "destination": "/login.html" },
+    { "source": "/espace-client",  "destination": "/dashboard.html" },
+    { "source": "/administration", "destination": "/admin.html" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*\\.html)",
+      "headers": [
+        { "key": "Cache-Control",          "value": "no-store, no-cache, must-revalidate" },
+        { "key": "Pragma",                 "value": "no-cache" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options",        "value": "SAMEORIGIN" }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options",        "value": "SAMEORIGIN" }
+      ]
+    }
+  ]
 }
