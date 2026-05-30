@@ -1,14 +1,20 @@
 /**
- * POST /api/invite/send — Epargn+
- * Envoie une invitation SMS à un nouveau membre d'une épargne collective.
+ * POST /api/invite/send  — Envoyer une invitation à un projet collectif
+ * GET  /api/invite/send  — Vérifier/résoudre un lien d'invitation (?code=XXXX ou ?token=XXXX)
  *
- * Body : { phone, tontineName, mise, freq, creatorName }
- * Auth : Bearer token utilisateur (vérifié via Supabase)
+ * POST Body :
+ *   { projectId, phone?, email?, tontineName, mise, freq, creatorName, goal?, deadline? }
+ *   ou { token } pour générer un nouveau lien (si code est absent de l'invitation DB)
+ *
+ * GET Query :
+ *   ?code=XXXX   → résoudre le code court d'invitation
+ *   ?token=XXXX  → résoudre le token long d'invitation
  */
 
 const https  = require('https');
 const { supabaseRequest } = require('../_lib/supabase');
 const { sendEmail }       = require('../_lib/email');
+const crypto = require('crypto');
 
 const INFOBIP_API_KEY  = process.env.INFOBIP_API_KEY;
 const INFOBIP_BASE_URL = process.env.INFOBIP_BASE_URL;
@@ -17,7 +23,7 @@ const AT_API_KEY       = process.env.AT_API_KEY;
 const AT_USERNAME      = process.env.AT_USERNAME;
 const AT_SENDER_ID     = process.env.AT_SENDER_ID;
 
-const APP_URL = 'https://epargnplus.com';
+const APP_URL = process.env.APP_URL || 'https://www.epargnplus.com';
 
 function parseBody(req) {
   if (req.body && typeof req.body === 'object') return Promise.resolve(req.body);
@@ -29,7 +35,6 @@ function parseBody(req) {
   });
 }
 
-/* ── Formater fréquence ── */
 function freqLabel(freq) {
   if (freq === 'journalier')   return 'par jour';
   if (freq === 'hebdomadaire') return 'par semaine';
@@ -37,14 +42,18 @@ function freqLabel(freq) {
   return 'par mois';
 }
 
-/* ── Format montant ── */
 function fmt(n) {
   return String(Math.round(n || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 }
 
+function extractToken(req) {
+  const auth = (req.headers['authorization'] || '').trim();
+  return auth.startsWith('Bearer ') ? auth.slice(7).trim() : null;
+}
+
 /* ════ Infobip SMS ════ */
 function infobipSend(to, text) {
-  if (!INFOBIP_API_KEY || !INFOBIP_BASE_URL) return Promise.resolve({ ok: false, error: 'Infobip non configuré' });
+  if (!INFOBIP_API_KEY || !INFOBIP_BASE_URL) return Promise.resolve({ ok: false });
   const body = JSON.stringify({ to, text });
   return new Promise((resolve) => {
     const req = https.request({
@@ -64,15 +73,11 @@ function infobipSend(to, text) {
         try {
           const j = JSON.parse(data);
           const groupId = j?.messages?.[0]?.status?.groupId;
-          if (res.statusCode < 400 && groupId !== 5 && groupId !== 2) {
-            resolve({ ok: true, provider: 'infobip' });
-          } else {
-            resolve({ ok: false, error: 'Infobip groupId=' + groupId });
-          }
-        } catch { resolve({ ok: false, error: 'Infobip parse error' }); }
+          resolve({ ok: res.statusCode < 400 && groupId !== 5, provider: 'infobip' });
+        } catch { resolve({ ok: false }); }
       });
     });
-    req.on('error', e => resolve({ ok: false, error: e.message }));
+    req.on('error', () => resolve({ ok: false }));
     req.write(body);
     req.end();
   });
@@ -80,7 +85,7 @@ function infobipSend(to, text) {
 
 /* ════ Africa's Talking SMS ════ */
 function atSend(to, text) {
-  if (!AT_API_KEY || !AT_USERNAME) return Promise.resolve({ ok: false, error: "AT non configuré" });
+  if (!AT_API_KEY || !AT_USERNAME) return Promise.resolve({ ok: false });
   const params = new URLSearchParams({ username: AT_USERNAME, to, message: text });
   if (AT_SENDER_ID) params.set('from', AT_SENDER_ID);
   const payload = params.toString();
@@ -102,134 +107,319 @@ function atSend(to, text) {
         try {
           const j = JSON.parse(data);
           const first = j?.SMSMessageData?.Recipients?.[0];
-          if (first && [100, 101, 102].includes(first.statusCode)) {
-            resolve({ ok: true, provider: 'africastalking' });
-          } else {
-            resolve({ ok: false, error: 'AT statusCode=' + (first?.statusCode) });
-          }
-        } catch { resolve({ ok: false, error: 'AT parse error' }); }
+          resolve({ ok: first && [100, 101, 102].includes(first.statusCode), provider: 'africastalking' });
+        } catch { resolve({ ok: false }); }
       });
     });
-    req.on('error', e => resolve({ ok: false, error: e.message }));
+    req.on('error', () => resolve({ ok: false }));
     req.write(payload);
     req.end();
   });
 }
 
+/* ════ Email d'invitation riche ════ */
+function buildInviteEmailHtml(opts) {
+  const {
+    creatorName, nom, mise, freq, goal, deadline, inviteUrl, inviteeName,
+  } = opts;
+  const salut   = inviteeName ? `Bonjour ${inviteeName},` : 'Bonjour,';
+  const fl      = freqLabel(freq || 'mensuelle');
+  const mFmt    = fmt(mise || 0);
+  const gFmt    = fmt(goal || 0);
+  const dlFmt   = deadline ? new Date(deadline).toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric' }) : '';
+
+  return `<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#F0F3FF;font-family:'Segoe UI',Arial,sans-serif;">
+<div style="max-width:520px;margin:32px auto;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 8px 32px rgba(11,21,102,.12);">
+
+  <!-- Header -->
+  <div style="background:linear-gradient(135deg,#0B1566,#1a2a8a);padding:32px 36px;text-align:center;">
+    <div style="font-size:40px;margin-bottom:8px;">🤝</div>
+    <div style="color:#C8E000;font-size:20px;font-weight:800;letter-spacing:.05em;">Invitation Epargn+</div>
+    <div style="color:rgba(255,255,255,.7);font-size:13px;margin-top:4px;">Épargne Collective</div>
+  </div>
+
+  <!-- Body -->
+  <div style="padding:32px 36px;">
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px;">${salut}</p>
+    <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 20px;">
+      <strong>${creatorName || 'Un ami'}</strong> vous invite à rejoindre le groupe d'épargne collective
+      <strong>« ${nom || 'Épargne Collective'} »</strong> sur Epargn+.
+    </p>
+
+    <!-- Récapitulatif -->
+    <div style="background:#F0F3FF;border-radius:14px;padding:20px 24px;margin:20px 0;">
+      ${goal ? `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #E5E7EB;font-size:14px;color:#374151;"><span style="color:#6B7280;">Objectif total</span><strong>${gFmt} GNF</strong></div>` : ''}
+      <div style="display:flex;justify-content:space-between;padding:8px 0;${goal ? 'border-bottom:1px solid #E5E7EB;' : ''}font-size:14px;color:#374151;">
+        <span style="color:#6B7280;">Mise de participation</span>
+        <strong style="color:#0B1566;font-size:17px;">${mFmt} GNF <span style="font-size:12px;font-weight:600;color:#6B7280;">${fl}</span></strong>
+      </div>
+      ${dlFmt ? `<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:14px;color:#374151;"><span style="color:#6B7280;">Date limite</span><strong>${dlFmt}</strong></div>` : ''}
+    </div>
+
+    <a href="${inviteUrl}" style="display:block;background:linear-gradient(135deg,#0B1566,#1a2a8a);color:#fff;padding:16px 24px;border-radius:14px;text-decoration:none;font-weight:800;font-size:16px;text-align:center;margin:24px 0 8px;">
+      Rejoindre le groupe →
+    </a>
+    <div style="text-align:center;font-size:12px;color:#9CA3AF;margin-bottom:8px;">
+      Ce lien est valide 30 jours.
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div style="background:#F8FAFF;padding:20px 36px;border-top:1px solid #E8EDF5;text-align:center;">
+    <p style="color:#9CA3AF;font-size:12px;margin:0;">
+      © 2026 Epargn+ · L'épargne intelligente pour l'Afrique de l'Ouest &amp; la Chine<br>
+      <a href="${APP_URL}" style="color:#9CA3AF;">${APP_URL}</a>
+    </p>
+  </div>
+</div>
+</body>
+</html>`;
+}
+
 /* ════ HANDLER ════ */
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin',  '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST')   return res.status(405).json({ error: 'POST uniquement' });
 
-  /* Auth — vérifier que le créateur est connecté */
-  const auth  = req.headers['authorization'] || '';
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-  if (!token) return res.status(401).json({ error: 'Non authentifié' });
+  /* ════ GET : résoudre un lien d'invitation ════ */
+  if (req.method === 'GET') {
+    try {
+      const url    = new URL(req.url, 'http://localhost');
+      const code   = url.searchParams.get('code')   || '';
+      const token  = url.searchParams.get('token')  || '';
 
-  try {
-    const rows = await supabaseRequest('GET', '/users?token=eq.' + encodeURIComponent(token) + '&select=id,prenom,nom,phone');
-    if (!Array.isArray(rows) || !rows[0]) {
-      return res.status(401).json({ error: 'Token invalide' });
+      if (!code && !token) {
+        return res.status(400).json({ error: 'code ou token requis' });
+      }
+
+      /* Chercher le projet via invite_code ou invite_token */
+      let project = null;
+      if (code) {
+        try {
+          const rows = await supabaseRequest('GET',
+            '/projects?invite_code=eq.' + encodeURIComponent(code) +
+            '&select=id,name,goal,actuel,members_count,status,invite_active,invite_expires_at,user_id');
+          if (Array.isArray(rows) && rows[0]) project = rows[0];
+        } catch (e) {}
+      }
+      if (!project && token) {
+        try {
+          const rows = await supabaseRequest('GET',
+            '/projects?invite_token=eq.' + encodeURIComponent(token) +
+            '&select=id,name,goal,actuel,members_count,status,invite_active,invite_expires_at,user_id');
+          if (Array.isArray(rows) && rows[0]) project = rows[0];
+        } catch (e) {}
+      }
+
+      if (!project) return res.status(404).json({ error: 'Lien d\'invitation introuvable ou invalide' });
+      if (!project.invite_active) return res.status(410).json({ error: 'Ce lien d\'invitation a été désactivé' });
+      if (project.invite_expires_at && new Date(project.invite_expires_at) < new Date()) {
+        return res.status(410).json({ error: 'Ce lien d\'invitation a expiré' });
+      }
+      if (project.status !== 'active') {
+        return res.status(410).json({ error: 'Ce projet n\'est plus actif' });
+      }
+
+      /* Récupérer le nom du créateur */
+      let creatorName = 'Un membre Epargn+';
+      try {
+        const uRows = await supabaseRequest('GET',
+          '/users?id=eq.' + encodeURIComponent(project.user_id) + '&select=prenom,nom');
+        if (Array.isArray(uRows) && uRows[0]) {
+          creatorName = ((uRows[0].prenom || '') + ' ' + (uRows[0].nom || '')).trim();
+        }
+      } catch (e) {}
+
+      return res.status(200).json({
+        ok: true,
+        project: {
+          id:            project.id,
+          name:          project.name,
+          goal:          project.goal,
+          actuel:        project.actuel,
+          members_count: project.members_count || 1,
+          status:        project.status,
+        },
+        creator_name: creatorName,
+        invite_url:   APP_URL + '/join/' + (code || ''),
+      });
+
+    } catch (e) {
+      return res.status(500).json({ error: 'Erreur résolution lien : ' + e.message });
     }
-  } catch (e) {
-    return res.status(500).json({ error: 'Erreur auth : ' + e.message });
   }
+
+  /* ════ POST : envoyer une invitation ════ */
+  if (req.method !== 'POST') return res.status(405).json({ error: 'GET/POST uniquement' });
+
+  /* Auth */
+  const rawToken = extractToken(req);
+  if (!rawToken) return res.status(401).json({ error: 'Non authentifié' });
 
   const body = await parseBody(req);
-  const { phone, tontineName, mise, freq, creatorName } = body;
+  const {
+    projectId, phone, email,
+    tontineName, mise, freq, goal, deadline,
+    creatorName,
+  } = body;
 
-  if (!phone) return res.status(400).json({ error: 'phone requis' });
+  if (!projectId) return res.status(400).json({ error: 'projectId requis' });
+  if (!phone && !email) return res.status(400).json({ error: 'phone ou email requis' });
 
-  const fl   = freqLabel(freq || 'mensuelle');
-  const mFmt = fmt(mise || 0);
-  const nom  = tontineName || 'Épargne Collective';
-  const creator = creatorName || 'Un membre';
-
-  /* ── Chercher l'email du destinataire via son numéro (côté serveur) ── */
-  let inviteeEmail = null;
-  let inviteeName  = null;
+  /* Récupérer le projet pour obtenir l'invite_code */
+  let project = null;
   try {
-    /* Normaliser le numéro : retirer espaces/tirets pour la recherche */
+    const pRows = await supabaseRequest('GET',
+      '/projects?id=eq.' + encodeURIComponent(projectId) +
+      '&select=id,name,invite_code,invite_token,invite_active,goal,user_id,status');
+    if (Array.isArray(pRows) && pRows[0]) project = pRows[0];
+  } catch (e) {}
+
+  if (!project) return res.status(404).json({ error: 'Projet introuvable' });
+  if (project.status !== 'active') return res.status(400).json({ error: 'Ce projet n\'est plus actif' });
+
+  const inviteCode = project.invite_code;
+  const inviteUrl  = inviteCode ? (APP_URL + '/join/' + inviteCode) : (APP_URL + '/connexion');
+  const nom        = tontineName || project.name || 'Épargne Collective';
+  const creator    = creatorName || 'Un membre Epargn+';
+  const fl         = freqLabel(freq || 'mensuelle');
+  const mFmt       = fmt(mise || 0);
+
+  /* Chercher les données de l'invité si connu */
+  let inviteeEmail = email || null;
+  let inviteeName  = null;
+  let inviteeUserId = null;
+
+  if (phone) {
     const phoneClean = phone.replace(/[\s\-]/g, '');
-    const found = await supabaseRequest(
-      'GET',
-      '/users?phone=eq.' + encodeURIComponent(phoneClean) +
-      '&select=email,prenom,nom&limit=1'
-    );
-    if (Array.isArray(found) && found[0]) {
-      inviteeEmail = found[0].email  || null;
-      inviteeName  = found[0].prenom || null;
-    }
-  } catch (e) {
-    console.warn('[invite/send] lookup email:', e.message);
+    try {
+      const found = await supabaseRequest('GET',
+        '/users?phone=eq.' + encodeURIComponent(phoneClean) +
+        '&select=id,email,prenom,nom&limit=1');
+      if (Array.isArray(found) && found[0]) {
+        inviteeEmail  = inviteeEmail || found[0].email || null;
+        inviteeName   = found[0].prenom || null;
+        inviteeUserId = found[0].id     || null;
+      }
+    } catch (e) {}
+  } else if (email) {
+    try {
+      const found = await supabaseRequest('GET',
+        '/users?email=eq.' + encodeURIComponent(email) +
+        '&select=id,prenom&limit=1');
+      if (Array.isArray(found) && found[0]) {
+        inviteeName   = found[0].prenom || null;
+        inviteeUserId = found[0].id     || null;
+      }
+    } catch (e) {}
   }
 
-  /* ── Message SMS ── */
+  /* Vérifier doublon d'invitation */
+  try {
+    const checkQ = inviteeUserId
+      ? '/project_invitations?project_id=eq.' + encodeURIComponent(projectId) +
+        '&invitee_user_id=eq.' + encodeURIComponent(inviteeUserId) +
+        '&status=eq.pending&select=id&limit=1'
+      : null;
+    if (checkQ) {
+      const existing = await supabaseRequest('GET', checkQ);
+      if (Array.isArray(existing) && existing.length > 0) {
+        return res.status(409).json({ error: 'Une invitation est déjà en attente pour cet utilisateur' });
+      }
+    }
+  } catch (e) {}
+
+  /* Créer l'enregistrement d'invitation */
+  const invToken   = crypto.randomBytes(20).toString('hex');
+  const expiresAt  = new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString();
+  let dbInvId = null;
+  try {
+    const invRows = await supabaseRequest('POST', '/project_invitations', {
+      project_id:       projectId,
+      inviter_id:       project.user_id,
+      token:            invToken,
+      status:           'pending',
+      expires_at:       expiresAt,
+      ...(inviteeEmail  ? { invitee_email:   inviteeEmail }   : {}),
+      ...(phone         ? { invitee_phone:   phone }          : {}),
+      ...(inviteeUserId ? { invitee_user_id: inviteeUserId }  : {}),
+    });
+    const created = Array.isArray(invRows) ? invRows[0] : invRows;
+    if (created) dbInvId = created.id;
+  } catch (e) {
+    console.warn('[invite/send] create invitation:', e.message);
+  }
+
+  /* Notification in-app si destinataire connu */
+  if (inviteeUserId) {
+    try {
+      await supabaseRequest('POST', '/notifications', {
+        user_id: inviteeUserId,
+        type:    'invitation',
+        title:   '🤝 Invitation à rejoindre un groupe',
+        body:    `${creator} vous invite à rejoindre "${nom}". Mise : ${mFmt} GNF ${fl}.`,
+        data:    {
+          project_id:    projectId,
+          invitation_id: dbInvId,
+          invite_url:    inviteUrl,
+        },
+        read: false,
+      });
+    } catch (e) {}
+  }
+
+  /* SMS */
   const greeting  = inviteeName ? `Bonjour ${inviteeName},\n` : '';
   const smsText   =
-    `${greeting}${creator} vous a ajouté(e) au groupe d'épargne « ${nom} » sur Epargn+.\n` +
+    `${greeting}${creator} vous invite dans le groupe d'épargne « ${nom} » sur Epargn+.\n` +
     `Mise : ${mFmt} GNF ${fl}.\n` +
-    `Rejoignez l'app : ${APP_URL}/connexion`;
+    `Rejoindre : ${inviteUrl}`;
 
-  /* ── Tentative SMS — Infobip d'abord, AT en fallback ── */
   let smsResult = { ok: false };
-  const hasInfobip = INFOBIP_API_KEY && INFOBIP_BASE_URL;
-  const hasAT      = AT_API_KEY && AT_USERNAME;
-
-  if (hasInfobip) {
-    smsResult = await infobipSend(phone, smsText);
-    if (!smsResult.ok && hasAT) smsResult = await atSend(phone, smsText);
-  } else if (hasAT) {
-    smsResult = await atSend(phone, smsText);
+  if (phone) {
+    const hasInfobip = INFOBIP_API_KEY && INFOBIP_BASE_URL;
+    const hasAT      = AT_API_KEY && AT_USERNAME;
+    if (hasInfobip) {
+      smsResult = await infobipSend(phone, smsText);
+      if (!smsResult.ok && hasAT) smsResult = await atSend(phone, smsText);
+    } else if (hasAT) {
+      smsResult = await atSend(phone, smsText);
+    } else {
+      console.log('[invite/send] DEMO SMS to=' + phone + ' msg=' + smsText);
+      smsResult = { ok: true, provider: 'demo' };
+    }
   }
 
-  const demo = !hasInfobip && !hasAT;
-  if (demo) {
-    console.log('[invite/send] DEMO phone=' + phone + ' email=' + (inviteeEmail || 'none') + ' msg=' + smsText);
-  } else {
-    console.log('[invite/send] phone=' + phone + ' ok=' + smsResult.ok + ' provider=' + (smsResult.provider || smsResult.error) + ' email=' + (inviteeEmail || 'none'));
-  }
-
-  /* ── Email automatique si le compte est trouvé et RESEND configuré ── */
+  /* Email */
   let emailSent = false;
   if (inviteeEmail && process.env.RESEND_API_KEY) {
-    const salut = inviteeName ? `Bonjour ${inviteeName},` : 'Bonjour,';
-    await sendEmail({
+    const emailHtml = buildInviteEmailHtml({
+      creatorName: creator, nom, mise, freq, goal: goal || project.goal,
+      deadline, inviteUrl, inviteeName,
+    });
+    const result = await sendEmail({
       to:      inviteeEmail,
       subject: `${creator} vous invite à rejoindre « ${nom} » sur Epargn+`,
-      html:    `<div style="font-family:sans-serif;max-width:480px;margin:auto;background:#f9fafb;padding:32px 24px;border-radius:16px;">
-        <div style="background:#0B1566;border-radius:12px;padding:24px;text-align:center;margin-bottom:24px;">
-          <div style="font-size:36px;margin-bottom:8px;">🤝</div>
-          <div style="color:#C8E000;font-size:20px;font-weight:800;">Invitation Epargn+</div>
-        </div>
-        <p style="font-size:15px;color:#374151;line-height:1.6;">${salut}</p>
-        <p style="font-size:15px;color:#374151;line-height:1.6;">
-          <strong>${creator}</strong> vous a ajouté(e) au groupe d'épargne collective
-          <strong>« ${nom} »</strong>.
-        </p>
-        <div style="background:#EEF2FF;border-radius:10px;padding:16px;margin:20px 0;">
-          <div style="font-size:13px;color:#6B7280;margin-bottom:4px;">Mise de participation</div>
-          <div style="font-size:22px;font-weight:900;color:#0B1566;">${mFmt} GNF <span style="font-size:14px;font-weight:600;">${fl}</span></div>
-        </div>
-        <a href="${APP_URL}/connexion" style="display:block;background:#0B1566;color:#fff;padding:15px 24px;border-radius:12px;text-decoration:none;font-weight:800;font-size:15px;text-align:center;margin-top:8px;">
-          Rejoindre le groupe →
-        </a>
-        <p style="font-size:12px;color:#9CA3AF;margin-top:24px;text-align:center;">
-          Epargn+ — L'épargne intelligente pour l'Afrique de l'Ouest<br>
-          <a href="${APP_URL}" style="color:#9CA3AF;">${APP_URL}</a>
-        </p>
-      </div>`,
-    }).then(() => { emailSent = true; }).catch(() => {});
+      html:    emailHtml,
+    });
+    emailSent = result.ok;
   }
 
+  console.log('[invite/send] project=' + projectId + ' phone=' + (phone||'—') +
+    ' email=' + (inviteeEmail||'—') + ' sms=' + smsResult.ok + ' emailSent=' + emailSent);
+
   return res.status(200).json({
-    ok:        true,
-    smsSent:   smsResult.ok,
+    ok:         true,
+    smsSent:    smsResult.ok,
     emailSent,
-    provider:  smsResult.provider || null,
-    demo,
+    inviteUrl,
+    inviteCode,
+    invitationId: dbInvId,
+    provider:   smsResult.provider || null,
   });
 };

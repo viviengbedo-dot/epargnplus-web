@@ -61,6 +61,10 @@
         <span class="nav-icon">🛡️</span> Vérification KYC
         <span class="nav-badge" id="navKycBadge" style="background:var(--accent);color:var(--primary);">!</span>
       </button>
+      <button class="nav-item" data-section="invitations" onclick="showSection('invitations', this)">
+        <span class="nav-icon">📨</span> Invitations
+        <span class="nav-badge" id="navInvitBadge" style="display:none;">0</span>
+      </button>
       <button class="nav-item" data-section="notifications" onclick="showSection('notifications', this)">
         <span class="nav-icon">🔔</span> Notifications
         <span class="nav-badge" id="navNotifBadge" style="display:none;">0</span>
@@ -807,6 +811,23 @@
         <div id="suggestionsGrid" style="display:flex;flex-direction:column;gap:14px;"></div>
       </section>
 
+      <!-- ════════ INVITATIONS ════════ -->
+      <section id="sec-invitations" style="display:none;">
+        <div class="flex-between mb-6">
+          <div>
+            <h2 style="font-size:22px;font-weight:800;color:var(--primary);">Invitations reçues</h2>
+            <p class="text-muted">Groupes d'épargne collective auxquels vous avez été invité</p>
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="loadInvitations()">🔄 Actualiser</button>
+        </div>
+        <div id="invitationsList">
+          <div style="text-align:center;padding:48px 20px;color:var(--text-secondary);">
+            <div style="font-size:40px;margin-bottom:12px;">📨</div>
+            <div style="font-size:14px;font-weight:600;">Chargement…</div>
+          </div>
+        </div>
+      </section>
+
       <!-- ════════ NOTIFICATIONS ════════ -->
       <section id="sec-notifications" style="display:none;">
         <h2 style="font-size:22px;font-weight:800;color:var(--primary);margin-bottom:6px;">Notifications</h2>
@@ -1468,6 +1489,120 @@
     </div>
     <button class="btn btn-primary" style="width:100%;padding:14px;font-weight:700;background:#DC2626;" onclick="submitTontineDeleteRequest()">Envoyer la demande →</button>
     <button class="btn btn-outline" style="width:100%;padding:11px;margin-top:8px;font-size:13px;" onclick="closeModal('modal-tontineDelete')">Annuler</button>
+  </div>
+</div>
+
+<!-- ══ Dépôt Alipay (Module 4 — utilisateurs Chine) ══ -->
+<div class="modal-overlay" id="modal-alipay" onclick="handleOverlayClick(event,'modal-alipay')">
+  <div class="modal" style="max-height:90vh;overflow-y:auto;">
+    <button class="modal-close" onclick="closeModal('modal-alipay')">✕</button>
+    <div style="font-size:36px;text-align:center;margin-bottom:6px;">🀄</div>
+    <div class="modal-title" style="text-align:center;">Dépôt via Alipay</div>
+    <div class="modal-sub" style="text-align:center;margin-bottom:16px;">支付宝充值 · Rechargement Alipay</div>
+
+    <!-- Instructions -->
+    <div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:12px;padding:14px 16px;margin-bottom:16px;">
+      <div style="font-size:12px;font-weight:700;color:#92400E;margin-bottom:8px;">📲 Instructions de paiement</div>
+      <div style="font-size:13px;color:#78350F;line-height:1.8;">
+        1. Ouvrez votre application <strong>Alipay</strong><br/>
+        2. Scannez le QR Code ou recherchez : <strong id="alipayAccountId">epargn.plus</strong><br/>
+        3. Envoyez le montant souhaité<br/>
+        4. Notez la <strong>référence de transaction</strong> Alipay<br/>
+        5. Soumettez votre demande ci-dessous
+      </div>
+    </div>
+
+    <div id="alipayStep1">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Montant (CNY) <span style="color:#DC2626;">*</span></label>
+          <input class="form-input" type="number" id="alipayAmount" placeholder="Ex: 500" min="1" step="1" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Devise</label>
+          <select class="form-input form-select" id="alipayCurrency">
+            <option value="CNY">CNY (Yuan)</option>
+            <option value="USD">USD</option>
+            <option value="EUR">EUR</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Référence de transaction Alipay <span style="color:#DC2626;">*</span></label>
+        <input class="form-input" type="text" id="alipayRef" placeholder="Ex: 2026052912345678901234" />
+        <div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">
+          Visible dans votre historique Alipay après le paiement.
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Note (optionnel)</label>
+        <input class="form-input" type="text" id="alipayNote" placeholder="Ex: Rechargement compte Epargn+" />
+      </div>
+      <button class="btn btn-accent" style="width:100%;padding:14px;font-weight:700;" onclick="submitAlipayDeposit()">
+        Soumettre ma demande →
+      </button>
+      <div id="alipayErr" style="display:none;background:#FEE2E2;color:#991B1B;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:13px;"></div>
+    </div>
+
+    <div id="alipayStep2" style="display:none;text-align:center;padding:8px 0;">
+      <div style="font-size:52px;margin-bottom:12px;">⏳</div>
+      <div style="font-size:18px;font-weight:800;color:var(--primary);margin-bottom:8px;">Demande enregistrée !</div>
+      <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin-bottom:20px;">
+        Un administrateur va vérifier votre dépôt Alipay et le valider sous <strong>24–48h</strong>. Votre solde sera mis à jour après confirmation.
+      </div>
+      <button class="btn btn-primary" style="width:100%;padding:14px;"
+        onclick="closeModal('modal-alipay');document.getElementById('alipayStep1').style.display='';document.getElementById('alipayStep2').style.display='none';">
+        Fermer
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Lien d'invitation Tontine (Module 2) ══ -->
+<div class="modal-overlay" id="modal-tontineInviteLink" onclick="handleOverlayClick(event,'modal-tontineInviteLink')">
+  <div class="modal" style="text-align:center;">
+    <button class="modal-close" onclick="closeModal('modal-tontineInviteLink')">✕</button>
+    <div style="font-size:40px;margin-bottom:8px;">🔗</div>
+    <div class="modal-title">Inviter des membres</div>
+    <div class="modal-sub" id="invLinkGroupName" style="margin-bottom:16px;color:var(--primary);font-weight:700;"></div>
+
+    <!-- Lien copiable -->
+    <div style="background:#F0F3FF;border-radius:12px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:8px;text-align:left;">
+      <div style="flex:1;font-size:13px;font-weight:600;color:#0B1566;word-break:break-all;" id="invLinkUrl">—</div>
+      <button onclick="copyInviteLink()" style="flex-shrink:0;background:#0B1566;color:#fff;border:none;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;">📋</button>
+    </div>
+
+    <!-- Boutons de partage -->
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
+      <a id="invLinkWhatsApp" href="#" target="_blank" rel="noopener"
+        style="display:flex;align-items:center;justify-content:center;gap:10px;background:#25D366;color:#fff;border-radius:12px;padding:13px;font-size:14px;font-weight:700;text-decoration:none;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.553 4.116 1.522 5.847L0 24l6.335-1.502A11.95 11.95 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 01-5.027-1.382l-.36-.214-3.732.885.936-3.625-.235-.373A9.773 9.773 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182c5.43 0 9.818 4.388 9.818 9.818 0 5.43-4.388 9.818-9.818 9.818z"/></svg>
+        WhatsApp
+      </a>
+      <a id="invLinkTelegram" href="#" target="_blank" rel="noopener"
+        style="display:flex;align-items:center;justify-content:center;gap:10px;background:#0088cc;color:#fff;border-radius:12px;padding:13px;font-size:14px;font-weight:700;text-decoration:none;">
+        ✈️ Telegram
+      </a>
+      <a id="invLinkFacebook" href="#" target="_blank" rel="noopener"
+        style="display:flex;align-items:center;justify-content:center;gap:10px;background:#1877F2;color:#fff;border-radius:12px;padding:13px;font-size:14px;font-weight:700;text-decoration:none;">
+        📘 Facebook
+      </a>
+      <button onclick="inviteByEmail()" id="invLinkEmailBtn"
+        style="display:flex;align-items:center;justify-content:center;gap:10px;background:#EEF2FF;color:#4338CA;border:1.5px solid #C7D2FE;border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;width:100%;">
+        📧 Inviter par email
+      </button>
+    </div>
+
+    <!-- Invitation par email direct -->
+    <div id="invLinkEmailForm" style="display:none;text-align:left;margin-bottom:12px;">
+      <div class="form-group">
+        <label class="form-label">Adresse email du participant</label>
+        <input class="form-input" type="email" id="invLinkEmailInput" placeholder="exemple@gmail.com" />
+      </div>
+      <button class="btn btn-primary" style="width:100%;padding:12px;font-weight:700;" onclick="sendEmailInvitation()">Envoyer l'invitation →</button>
+    </div>
+
+    <button class="btn btn-outline" style="width:100%;padding:11px;font-size:13px;" onclick="closeModal('modal-tontineInviteLink')">Fermer</button>
   </div>
 </div>
 
@@ -6576,13 +6711,19 @@ function createTontine() {
     .then(function(r){ return r.json(); })
     .then(function(proj) {
       if (proj && proj.id) {
-        tontine.projectId = proj.id;
+        tontine.projectId  = proj.id;
+        tontine.inviteCode = proj.invite_code || null;
+        tontine.inviteUrl  = proj.invite_url  || null;
         /* Mettre à jour en localStorage */
         var idx = TONTINES_USER.findIndex(function(t){ return t.id === tontine.id; });
-        if (idx >= 0) { TONTINES_USER[idx].projectId = proj.id; localStorage.setItem('epargn_tontines', JSON.stringify(TONTINES_USER)); }
+        if (idx >= 0) { TONTINES_USER[idx] = Object.assign({}, TONTINES_USER[idx], { projectId: proj.id, inviteCode: proj.invite_code, inviteUrl: proj.invite_url }); localStorage.setItem('epargn_tontines', JSON.stringify(TONTINES_USER)); }
         /* Rafraîchir projets (fire-and-forget, re-render après 1s) */
         loadProjects();
         setTimeout(function(){ renderProjectCards(); renderHomeProjects(); renderUserTontines(); }, 1200);
+        /* Afficher le modal de partage si un lien a été généré */
+        if (proj.invite_code) {
+          showTontineInviteAfterCreate(proj.id, nom, proj.invite_code);
+        }
       }
     })
     .catch(function(e){ console.warn('[tontine] Projet Supabase non créé :', e.message); });
@@ -6997,6 +7138,427 @@ function saveProfile() {
   localStorage.setItem(KYC_KEY, '1');
   updateKYCProfileAction();
 }
+
+/* ════════════════════════════════════════════════════════════
+   MODULE 1 — GESTION PROJETS COLLECTIFS
+   ════════════════════════════════════════════════════════════ */
+
+/* ════════════════════════════════════════════════════════════
+   MODULE 2 — INVITATIONS PROJETS COLLECTIFS
+   ════════════════════════════════════════════════════════════ */
+
+var _currentInviteProjectId = null;
+var _currentInviteCode      = null;
+
+/* Ouvrir le modal de partage du lien d'invitation */
+function openTontineInviteLink(projectId, projectName, inviteCode) {
+  _currentInviteProjectId = projectId;
+  _currentInviteCode      = inviteCode;
+  var url = 'https://www.epargnplus.com/join/' + inviteCode;
+
+  document.getElementById('invLinkGroupName').textContent = projectName || 'Épargne Collective';
+  document.getElementById('invLinkUrl').textContent = url;
+
+  var waMsg  = encodeURIComponent('🤝 Rejoignez mon groupe d\'épargne « ' + projectName + ' » sur Epargn+ !\n\nCliquez ici : ' + url);
+  var tgMsg  = encodeURIComponent('🤝 Rejoignez mon groupe d\'épargne « ' + projectName + ' » sur Epargn+ ! ' + url);
+  var fbUrl  = encodeURIComponent(url);
+
+  document.getElementById('invLinkWhatsApp').href  = 'https://api.whatsapp.com/send?text=' + waMsg;
+  document.getElementById('invLinkTelegram').href  = 'https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + tgMsg;
+  document.getElementById('invLinkFacebook').href  = 'https://www.facebook.com/sharer/sharer.php?u=' + fbUrl;
+
+  document.getElementById('invLinkEmailForm').style.display = 'none';
+  openModal('modal-tontineInviteLink');
+}
+
+function copyInviteLink() {
+  var url = document.getElementById('invLinkUrl').textContent;
+  navigator.clipboard.writeText(url).then(function() {
+    showToast('🔗 Lien copié !', 'success');
+  }).catch(function() {
+    /* Fallback */
+    var el = document.createElement('textarea');
+    el.value = url;
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand('copy');
+    document.body.removeChild(el);
+    showToast('🔗 Lien copié !', 'success');
+  });
+}
+
+function inviteByEmail() {
+  var form = document.getElementById('invLinkEmailForm');
+  form.style.display = form.style.display === 'none' ? '' : 'none';
+}
+
+function sendEmailInvitation() {
+  if (!_currentInviteProjectId) { showToast('Projet introuvable', 'error'); return; }
+  var email = (document.getElementById('invLinkEmailInput') || {}).value || '';
+  if (!email || !email.includes('@')) { showToast('Adresse email invalide', 'error'); return; }
+
+  var tontine = TONTINES_USER.find(function(t) { return t.projectId === _currentInviteProjectId; });
+  var userName = _currentUser ? ((_currentUser.prenom || '') + ' ' + (_currentUser.nom || '')).trim() : 'Un membre';
+
+  fetch('/api/invite/send', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _jwt },
+    body:    JSON.stringify({
+      projectId:   _currentInviteProjectId,
+      email:       email,
+      tontineName: (tontine && tontine.nom) || 'Épargne Collective',
+      mise:        tontine && tontine.mise,
+      freq:        tontine && tontine.freq,
+      goal:        tontine && tontine.goal,
+      creatorName: userName,
+    }),
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.ok) {
+      showToast('✅ Invitation envoyée à ' + email, 'success');
+      document.getElementById('invLinkEmailInput').value = '';
+      document.getElementById('invLinkEmailForm').style.display = 'none';
+    } else {
+      showToast('❌ ' + (d.error || 'Erreur envoi'), 'error');
+    }
+  })
+  .catch(function() { showToast('Erreur réseau', 'error'); });
+}
+
+/* Charger et afficher les invitations reçues */
+function loadInvitations() {
+  var container = document.getElementById('invitationsList');
+  if (!container) return;
+  container.innerHTML = '<div style="text-align:center;padding:32px;color:var(--text-secondary);"><div style="font-size:32px;margin-bottom:8px;">⏳</div><div>Chargement…</div></div>';
+
+  fetch('/api/user/me?resource=invitations', {
+    headers: { 'Authorization': 'Bearer ' + _jwt },
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(invitations) {
+    if (!Array.isArray(invitations) || invitations.length === 0) {
+      container.innerHTML = '<div style="text-align:center;padding:48px 20px;color:var(--text-secondary);"><div style="font-size:40px;margin-bottom:12px;">📨</div><div style="font-size:14px;font-weight:600;">Aucune invitation reçue</div><div style="font-size:12px;margin-top:6px;">Les invitations à rejoindre un groupe d\'épargne collective apparaîtront ici.</div></div>';
+      return;
+    }
+
+    /* Mettre à jour le badge */
+    var pending = invitations.filter(function(i) { return i.status === 'pending'; }).length;
+    var badge = document.getElementById('navInvitBadge');
+    if (badge) { badge.textContent = pending; badge.style.display = pending > 0 ? '' : 'none'; }
+
+    container.innerHTML = invitations.map(function(inv) {
+      var p = inv.project || {};
+      var statusBadge = inv.status === 'pending'
+        ? '<span style="background:#FFFBEB;color:#92400E;font-size:11px;font-weight:700;padding:2px 8px;border-radius:100px;">⏳ En attente</span>'
+        : inv.status === 'accepted'
+        ? '<span style="background:#D1FAE5;color:#065F46;font-size:11px;font-weight:700;padding:2px 8px;border-radius:100px;">✅ Acceptée</span>'
+        : '<span style="background:#FEE2E2;color:#991B1B;font-size:11px;font-weight:700;padding:2px 8px;border-radius:100px;">❌ Refusée</span>';
+
+      var pct = p.goal ? Math.min(100, Math.round(((p.actuel||0)/p.goal)*100)) : 0;
+      var actionBtns = inv.status === 'pending'
+        ? '<div style="display:flex;gap:8px;margin-top:14px;"><button class="btn btn-primary btn-sm" style="flex:1;" onclick="respondInvitation(\'' + inv.id + '\',true)">✅ Accepter</button><button class="btn btn-outline btn-sm" style="flex:1;" onclick="respondInvitation(\'' + inv.id + '\',false)">Refuser</button></div>'
+        : '';
+
+      return '<div class="card" style="margin-bottom:12px;">' +
+        '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;">' +
+          '<div style="font-weight:800;font-size:15px;color:var(--primary);">' + esc(p.name || '🤝 Épargne Collective') + '</div>' +
+          statusBadge +
+        '</div>' +
+        '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">👥 ' + (p.members_count||1) + ' membre(s) · 🎯 ' + fmtN(p.goal||0) + ' GNF</div>' +
+        (p.goal ? '<div style="background:#E5E7EB;border-radius:100px;height:6px;margin-bottom:4px;overflow:hidden;"><div style="width:' + pct + '%;height:100%;background:linear-gradient(90deg,var(--primary),#3B82F6);border-radius:100px;"></div></div><div style="font-size:11px;color:var(--text-secondary);margin-bottom:6px;">' + fmtN(p.actuel||0) + ' / ' + fmtN(p.goal) + ' GNF (' + pct + '%)</div>' : '') +
+        '<div style="font-size:12px;color:var(--text-secondary);">📅 ' + new Date(inv.created_at).toLocaleDateString('fr-FR') + '</div>' +
+        actionBtns +
+        '</div>';
+    }).join('');
+  })
+  .catch(function() {
+    container.innerHTML = '<div style="text-align:center;padding:32px;color:var(--error);">❌ Erreur chargement. Réessayez.</div>';
+  });
+}
+
+function respondInvitation(invId, accept) {
+  var btn  = event.target;
+  var orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳…';
+
+  fetch('/api/user/me?resource=invitations&id=' + encodeURIComponent(invId), {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _jwt },
+    body:    JSON.stringify({ accept: accept }),
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.ok) {
+      showToast(accept ? '🎉 Vous avez rejoint le groupe !' : '✅ Invitation refusée', accept ? 'success' : 'info');
+      loadInvitations();
+      if (accept) { setTimeout(function() { loadUserData(); }, 1000); }
+    } else {
+      showToast('❌ ' + (d.error || 'Erreur'), 'error');
+      btn.disabled = false; btn.textContent = orig;
+    }
+  })
+  .catch(function() {
+    showToast('Erreur réseau', 'error');
+    btn.disabled = false; btn.textContent = orig;
+  });
+}
+
+/* ════════════════════════════════════════════════════════════
+   MODULE 3+4 — CHINE & ALIPAY
+   ════════════════════════════════════════════════════════════ */
+
+function isChineseUser() {
+  return _currentUser && _currentUser.country === 'cn';
+}
+
+function openAlipayDepositModal() {
+  document.getElementById('alipayStep1').style.display = '';
+  document.getElementById('alipayStep2').style.display = 'none';
+  var errEl = document.getElementById('alipayErr');
+  if (errEl) errEl.style.display = 'none';
+  openModal('modal-alipay');
+}
+
+function submitAlipayDeposit() {
+  var amount    = parseInt((document.getElementById('alipayAmount') || {}).value || '0', 10);
+  var currency  = (document.getElementById('alipayCurrency') || {}).value || 'CNY';
+  var reference = ((document.getElementById('alipayRef') || {}).value || '').trim();
+  var note      = ((document.getElementById('alipayNote') || {}).value || '').trim();
+  var errEl     = document.getElementById('alipayErr');
+
+  if (!amount || amount < 1) {
+    errEl.textContent = '⚠️ Veuillez saisir un montant valide.'; errEl.style.display = '';
+    return;
+  }
+  if (!reference) {
+    errEl.textContent = '⚠️ La référence de transaction Alipay est obligatoire.'; errEl.style.display = '';
+    return;
+  }
+
+  fetch('/api/transactions/deposit', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _jwt },
+    body:    JSON.stringify({
+      type:              'alipay',
+      operator:          'alipay',
+      amount,
+      currency,
+      alipay_reference:  reference,
+      note:              note || undefined,
+    }),
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.ok) {
+      document.getElementById('alipayStep1').style.display = 'none';
+      document.getElementById('alipayStep2').style.display = '';
+    } else {
+      errEl.textContent = '❌ ' + (d.error || 'Erreur. Réessayez.'); errEl.style.display = '';
+    }
+  })
+  .catch(function() {
+    errEl.textContent = '❌ Erreur réseau. Vérifiez votre connexion.'; errEl.style.display = '';
+  });
+}
+
+/* Ajouter le bouton Alipay dans la page d'accueil si utilisateur Chine */
+function initChineseUserUI() {
+  if (!isChineseUser()) return;
+
+  /* Afficher option Alipay dans la balance card */
+  var actionsEl = document.querySelector('.balance-actions');
+  if (actionsEl && !document.getElementById('alipayDepBtn')) {
+    var btn = document.createElement('button');
+    btn.id = 'alipayDepBtn';
+    btn.className = 'balance-action-btn';
+    btn.style.cssText = 'background:#1677FF;color:#fff;';
+    btn.innerHTML = '🀄 Alipay';
+    btn.onclick = openAlipayDepositModal;
+    actionsEl.appendChild(btn);
+  }
+
+  /* Mettre à jour le label de devise */
+  var currencyEl = document.getElementById('balanceCurrencyEl');
+  if (currencyEl) currencyEl.textContent = 'GNF';
+
+  /* Mettre à jour la section tontines : ajouter indication CNY */
+  document.querySelectorAll('[data-currency]').forEach(function(el) {
+    el.setAttribute('data-currency', 'GNF');
+  });
+}
+
+/* Gérer le joinCode dans l'URL (retour depuis /join/CODE après connexion) */
+(function handleJoinCode() {
+  var params  = new URLSearchParams(window.location.search);
+  var joinCode = params.get('joinCode');
+  if (!joinCode) return;
+
+  /* Attendre que _jwt soit disponible */
+  var tries = 0;
+  var interval = setInterval(function() {
+    tries++;
+    if (window._jwt) {
+      clearInterval(interval);
+      /* Résoudre le code */
+      fetch('/api/invite/send?code=' + encodeURIComponent(joinCode))
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (!d.ok || !d.project) return;
+          /* Chercher l'invitation correspondante */
+          fetch('/api/user/me?resource=invitations', {
+            headers: { 'Authorization': 'Bearer ' + window._jwt },
+          })
+          .then(function(r) { return r.json(); })
+          .then(function(invs) {
+            if (!Array.isArray(invs)) return;
+            var inv = invs.find(function(i) {
+              return i.project_id === d.project.id && i.status === 'pending';
+            });
+            if (inv) {
+              showToast('🤝 Invitation trouvée ! Rejoignez le groupe depuis "Invitations".', 'info');
+              showSection('invitations', null);
+              loadInvitations();
+            }
+          });
+        })
+        .catch(function() {});
+    }
+    if (tries > 20) clearInterval(interval);
+  }, 500);
+})();
+
+/* ════════════════════════════════════════════════════════════
+   NOTIFICATIONS — chargement enrichi avec invitations
+   ════════════════════════════════════════════════════════════ */
+
+/* Override de la section invitations dans showSection */
+(function patchShowSection() {
+  var origShow = window.showSection;
+  window.showSection = function(id, btn) {
+    if (origShow) origShow.call(this, id, btn);
+    if (id === 'invitations') {
+      loadInvitations();
+    }
+  };
+})();
+
+/* Charge les notifications depuis l'API */
+function loadNotifications() {
+  var list  = document.getElementById('notifList');
+  var count = document.getElementById('notifCount');
+  if (!list || !_jwt) return;
+
+  fetch('/api/user/me?resource=notifications', {
+    headers: { 'Authorization': 'Bearer ' + _jwt },
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(notifs) {
+    if (!Array.isArray(notifs) || notifs.length === 0) {
+      list.innerHTML = '<div style="text-align:center;padding:32px 16px;color:var(--text-secondary);"><div style="font-size:36px;margin-bottom:10px;">🔔</div><div style="font-size:14px;font-weight:600;">Aucune notification</div></div>';
+      if (count) count.textContent = 'Aucune notification';
+      return;
+    }
+    var unread = notifs.filter(function(n) { return !n.read; }).length;
+    if (count) count.textContent = unread > 0 ? unread + ' non lue' + (unread > 1 ? 's' : '') : notifs.length + ' notification' + (notifs.length > 1 ? 's' : '');
+
+    /* Badge cloche */
+    var bellDot = document.getElementById('bellDot');
+    var navBadge = document.getElementById('navNotifBadge');
+    if (bellDot) bellDot.style.display = unread > 0 ? '' : 'none';
+    if (navBadge) { navBadge.textContent = unread; navBadge.style.display = unread > 0 ? '' : 'none'; }
+
+    list.innerHTML = notifs.map(function(n) {
+      var icon = n.type === 'invitation' ? '📨' : n.type === 'deposit' ? '💰' : n.type === 'withdrawal' ? '💸' : '🔔';
+      var d = new Date(n.created_at);
+      var timeStr = d.toLocaleDateString('fr-FR') + ' ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      return '<div style="display:flex;gap:12px;padding:14px;border-bottom:1px solid var(--divider);' + (!n.read ? 'background:#F0F3FF;' : '') + '">' +
+        '<div style="width:36px;height:36px;border-radius:10px;background:#EEF2FF;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">' + icon + '</div>' +
+        '<div style="flex:1;">' +
+          '<div style="font-weight:' + (!n.read ? '700' : '600') + ';font-size:14px;color:var(--primary);margin-bottom:2px;">' + esc(n.title) + '</div>' +
+          (n.body ? '<div style="font-size:13px;color:var(--text-secondary);line-height:1.5;">' + esc(n.body) + '</div>' : '') +
+          '<div style="font-size:11px;color:var(--text-hint);margin-top:4px;">' + timeStr + '</div>' +
+        '</div>' +
+        (!n.read ? '<button onclick="markNotifRead(\'' + n.id + '\')" style="flex-shrink:0;background:none;border:none;font-size:11px;color:var(--text-secondary);cursor:pointer;padding:2px 6px;">Lu</button>' : '') +
+        '</div>';
+    }).join('');
+
+    /* Marquer tout comme lu en arrière-plan */
+    if (unread > 0) {
+      fetch('/api/user/me?resource=notifications', {
+        method: 'PATCH',
+        headers: { 'Authorization': 'Bearer ' + _jwt },
+      }).catch(function() {});
+    }
+  })
+  .catch(function(e) {
+    list.innerHTML = '<div style="padding:20px;color:var(--text-secondary);">Erreur chargement.</div>';
+  });
+}
+
+function markNotifRead(id) {
+  fetch('/api/user/me?resource=notifications&id=' + encodeURIComponent(id), {
+    method: 'PATCH',
+    headers: { 'Authorization': 'Bearer ' + _jwt },
+  }).then(function() { loadNotifications(); }).catch(function() {});
+}
+
+/* Lien d'invitation après création d'une tontine */
+function showTontineInviteAfterCreate(projectId, projectName, inviteCode) {
+  if (!inviteCode) return;
+  setTimeout(function() {
+    openTontineInviteLink(projectId, projectName, inviteCode);
+  }, 600);
+}
+
+/* Utilitaires */
+function fmtN(n) {
+  return String(Math.round(n || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}
+function esc(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* Appel init Chine après chargement utilisateur */
+(function() {
+  var origInject = window._injectUserData;
+  if (origInject) {
+    window._injectUserData = function(user) {
+      origInject.call(this, user);
+      initChineseUserUI();
+    };
+  }
+  /* Charger les invitations pour le badge */
+  setTimeout(function() {
+    if (window._jwt) {
+      fetch('/api/user/me?resource=invitations', {
+        headers: { 'Authorization': 'Bearer ' + _jwt },
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(invs) {
+        if (!Array.isArray(invs)) return;
+        var pending = invs.filter(function(i) { return i.status === 'pending'; }).length;
+        var badge = document.getElementById('navInvitBadge');
+        if (badge) { badge.textContent = pending; badge.style.display = pending > 0 ? '' : 'none'; }
+      }).catch(function() {});
+
+      /* Charger notifications pour le badge */
+      fetch('/api/user/me?resource=notifications', {
+        headers: { 'Authorization': 'Bearer ' + _jwt },
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(notifs) {
+        if (!Array.isArray(notifs)) return;
+        var unread = notifs.filter(function(n) { return !n.read; }).length;
+        var badge = document.getElementById('navNotifBadge');
+        var dot = document.getElementById('bellDot');
+        if (badge) { badge.textContent = unread; badge.style.display = unread > 0 ? '' : 'none'; }
+        if (dot) dot.style.display = unread > 0 ? '' : 'none';
+      }).catch(function() {});
+    }
+  }, 2000);
+})();
+
 </script>
 
 <!-- ══ ONBOARDING POPUP D'ACCUEIL ══ -->

@@ -1,8 +1,11 @@
 /**
- * POST /api/transactions/deposit — Epargn+
- * Enregistre une DEMANDE de dépôt en attente de validation admin.
+ * POST /api/transactions/deposit — Epargn+ v3
+ * Enregistre une DEMANDE de dépôt (Mobile Money ou Alipay) en attente de validation admin.
  *
- * Corps JSON : { amount, operator, projectId?, note?, senderPhone? }
+ * Corps JSON : { amount, operator, projectId?, note?, senderPhone?, type?, alipay_reference?, proof_url?, currency? }
+ *
+ * type = 'alipay'   → dépôt Alipay (Chine)
+ * type = 'deposit'  → dépôt Mobile Money (défaut)
  */
 
 const { supabaseRequest } = require('../_lib/supabase');
@@ -36,22 +39,27 @@ module.exports = async (req, res) => {
   const jwtPayload = verifyJWT(rawToken);
   if (!jwtPayload) return res.status(401).json({ error: 'Session expirée' });
 
-  const body      = await parseBody(req);
-  const amount      = parseInt(body.amount, 10);
-  const operator    = (body.operator    || 'Mobile Money').trim();
-  const projectId   = body.projectId   || null;
-  const note        = body.note        || null;
-  const senderPhone = (body.senderPhone || '').trim() || null;
+  const body            = await parseBody(req);
+  const amount          = parseInt(body.amount, 10);
+  const depositType     = (body.type || 'deposit').trim();
+  const isAlipay        = depositType === 'alipay';
+  const operator        = (body.operator    || (isAlipay ? 'alipay' : 'Mobile Money')).trim();
+  const projectId       = body.projectId   || null;
+  const note            = body.note        || null;
+  const senderPhone     = (body.senderPhone || '').trim() || null;
+  const alipayReference = (body.alipay_reference || '').trim() || null;
+  const proofUrl        = (body.proof_url  || '').trim() || null;
+  const currency        = (body.currency   || 'GNF').trim();
 
-  if (!amount || amount < 1000) {
-    return res.status(400).json({ error: 'Montant minimum : 1 000 GNF' });
+  const minAmount = isAlipay ? 1 : 1000;
+  if (!amount || amount < minAmount) {
+    return res.status(400).json({ error: 'Montant minimum : ' + minAmount + (isAlipay ? ' CNY' : ' GNF') });
   }
 
-  /* Vérifier que le compte existe */
   let user;
   try {
     const rows = await supabaseRequest('GET',
-      '/users?id=eq.' + encodeURIComponent(jwtPayload.userId) + '&select=id,phone,prenom,country');
+      '/users?id=eq.' + encodeURIComponent(jwtPayload.userId) + '&select=id,phone,prenom,country,currency');
     if (!Array.isArray(rows) || rows.length === 0) {
       return res.status(404).json({ error: 'Compte introuvable' });
     }
@@ -60,58 +68,63 @@ module.exports = async (req, res) => {
     return res.status(500).json({ error: 'Erreur serveur : ' + err.message });
   }
 
-  const now = new Date().toISOString();
-  let txnId = null;
-  let usedFallback = false;
-
-  /* ── Référence unique internationale : DEP-YYYYMMDD-XXXXXX ── */
-  const ref = 'DEP-' + now.slice(0,10).replace(/-/g,'') + '-' +
+  const now    = new Date().toISOString();
+  const prefix = isAlipay ? 'ALI' : 'DEP';
+  const ref    = prefix + '-' + now.slice(0,10).replace(/-/g,'') + '-' +
     Math.random().toString(36).substr(2,6).toUpperCase();
+  const txnType = isAlipay ? 'depot_alipay' : 'deposit';
+  const label   = ref + ' · ' + (isAlipay ? 'Dépôt Alipay' : 'Dépôt ' + operator);
 
-  if (!senderPhone) {
-    console.warn('[deposit] senderPhone absent — dépôt accepté sans N° expéditeur (compatibilité)');
-  }
+  let txnId = null;
 
-  /* ── 1. Écriture dans la table transactions ── */
+  /* ── 1. Écriture transaction ── */
   try {
-    const txnRows = await supabaseRequest('POST', '/transactions', {
+    const txnBody = {
       user_id:    jwtPayload.userId,
-      type:       'deposit',
-      amount:     amount,
-      operator:   operator,
+      type:       txnType,
+      amount,
+      operator,
       is_credit:  true,
-      label:        ref + ' · Dépôt ' + operator,
-      note:         note || (senderPhone ? 'Expéditeur : ' + senderPhone : null),
+      label,
+      note:       note || (senderPhone ? 'Expéditeur : ' + senderPhone : null) || (alipayReference ? 'Réf Alipay : ' + alipayReference : null),
       sender_phone: senderPhone,
-      project_id:   projectId,
-      statut:       'pending',
-      status:       'pending',
-    });
+      project_id: projectId,
+      statut:     'pending',
+      status:     'pending',
+      currency,
+      ...(alipayReference ? { reference: alipayReference } : {}),
+      ...(proofUrl        ? { proof_url: proofUrl }        : {}),
+    };
+
+    const txnRows = await supabaseRequest('POST', '/transactions', txnBody);
     const created = Array.isArray(txnRows) ? txnRows[0] : txnRows;
     if (created) txnId = created.id;
-    console.log('[deposit] txn id=' + txnId + ' user=' + jwtPayload.userId + ' amount=' + amount);
+    console.log('[deposit] txn=' + txnId + ' type=' + txnType + ' user=' + jwtPayload.userId + ' amount=' + amount);
   } catch (txnErr) {
     console.warn('[deposit] transactions table:', txnErr.message);
-    usedFallback = true;
   }
 
-  /* ── 2. Mise à jour pending_deposit (rétrocompat) ── */
-  const pendingData = JSON.stringify({ amount, operator, requestedAt: now, txnId, projectId, senderPhone });
+  /* ── 2. pending_deposit (rétrocompat) ── */
+  const pendingData = JSON.stringify({
+    amount, operator, requestedAt: now, txnId, projectId, senderPhone,
+    type: txnType, alipayReference, currency,
+  });
   try {
     await supabaseRequest('PATCH',
       '/users?id=eq.' + encodeURIComponent(jwtPayload.userId),
-      { pending_deposit: pendingData, updated_at: now }
-    );
+      { pending_deposit: pendingData, updated_at: now });
   } catch (pdErr) {
-    if (usedFallback) {
-      console.error('[deposit] Échec total:', pdErr.message);
+    if (!txnId) {
       return res.status(500).json({ error: 'Erreur enregistrement. Réessayez.' });
     }
-    console.warn('[deposit] pending_deposit non mis à jour:', pdErr.message);
+    console.warn('[deposit] pending_deposit:', pdErr.message);
   }
 
+  const msg = isAlipay
+    ? 'Demande Alipay enregistrée. Un administrateur validera votre dépôt sous 24-48h.'
+    : 'Demande enregistrée. Un administrateur validera votre dépôt sous 24h.';
+
   return res.status(200).json({
-    ok: true, status: 'pending', amount, operator, txnId,
-    message: 'Demande enregistrée. Un administrateur validera votre dépôt sous 24h.',
+    ok: true, status: 'pending', amount, operator, txnId, ref, currency, message: msg,
   });
 };

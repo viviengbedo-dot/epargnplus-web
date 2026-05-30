@@ -211,6 +211,17 @@
       <button class="nav-item" onclick="showAdminSection('tontines', this)">
         <span class="nav-icon">🤝</span> Épargne Coll.
       </button>
+      <button class="nav-item" onclick="showAdminSection('withdrawals', this)">
+        <span class="nav-icon">💸</span> Retraits Coll.
+        <span class="nav-badge" id="navWithdrawalsBadge" style="display:none;">0</span>
+      </button>
+      <button class="nav-item" onclick="showAdminSection('alipay', this)">
+        <span class="nav-icon">🀄</span> Alipay
+        <span class="nav-badge" id="navAlipayBadge" style="display:none;">0</span>
+      </button>
+      <button class="nav-item" onclick="showAdminSection('chine', this)">
+        <span class="nav-icon">🇨🇳</span> Chine
+      </button>
 
       <div class="nav-section-title">VÉRIFICATION</div>
       <button class="nav-item" onclick="showAdminSection('kyc', this)">
@@ -660,6 +671,129 @@
                 <tbody id="tontinesTbody"></tbody>
               </table>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════ RETRAITS COLLECTIFS ════════ -->
+      <section id="sec-withdrawals" style="display:none;">
+        <div class="flex-between mb-6">
+          <div>
+            <h2 style="font-size:22px;font-weight:800;color:var(--primary);">Retraits Collectifs en attente</h2>
+            <p class="text-muted">Validez ou rejetez les remboursements suite à la clôture de groupes d'épargne collective</p>
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="reloadAdminData()">🔄 Actualiser</button>
+        </div>
+
+        <!-- Stats -->
+        <div class="stat-cards" style="grid-template-columns:repeat(3,1fr);margin-bottom:24px;">
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#FFFBEB;">⏳</div>
+            <div class="stat-card-info"><div class="stat-card-value" id="wdStatPending">0</div><div class="stat-card-label">En attente</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#D1FAE5;">✅</div>
+            <div class="stat-card-info"><div class="stat-card-value" id="wdStatDone">0</div><div class="stat-card-label">Confirmés</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#FEE2E2;">❌</div>
+            <div class="stat-card-info"><div class="stat-card-value" id="wdStatFailed">0</div><div class="stat-card-label">Rejetés</div></div>
+          </div>
+        </div>
+
+        <div class="card" style="padding:0;">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Participant</th><th>Projet</th><th>Montant</th><th>Date</th><th>Statut</th><th>Actions</th></tr></thead>
+              <tbody id="withdrawalsTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════ ALIPAY ════════ -->
+      <section id="sec-alipay" style="display:none;">
+        <div class="flex-between mb-6">
+          <div>
+            <h2 style="font-size:22px;font-weight:800;color:var(--primary);">🀄 Dépôts Alipay</h2>
+            <p class="text-muted">Gérez les dépôts depuis la Chine via Alipay</p>
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="reloadAdminData()">🔄 Actualiser</button>
+        </div>
+
+        <!-- Stats -->
+        <div class="stat-cards" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px;">
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#FFFBEB;">⏳</div>
+            <div class="stat-card-info"><div class="stat-card-value" id="aliStatPending">0</div><div class="stat-card-label">En attente</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#D1FAE5;">✅</div>
+            <div class="stat-card-info"><div class="stat-card-value" id="aliStatConfirmed">0</div><div class="stat-card-label">Confirmés</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#FEE2E2;">❌</div>
+            <div class="stat-card-info"><div class="stat-card-value" id="aliStatFailed">0</div><div class="stat-card-label">Rejetés</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#EEF2FF;">💰</div>
+            <div class="stat-card-info"><div class="stat-card-value" id="aliStatTotal">0</div><div class="stat-card-label">Total confirmé</div></div>
+          </div>
+        </div>
+
+        <!-- Filtres -->
+        <div class="card" style="padding:16px;margin-bottom:16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <select class="form-input form-select" style="width:160px;" id="alipayFilterStatus" onchange="renderAlipayDeposits()">
+            <option value="">Tous les statuts</option>
+            <option value="pending">En attente</option>
+            <option value="completed">Confirmés</option>
+            <option value="failed">Rejetés</option>
+          </select>
+          <input class="form-input" style="flex:1;min-width:160px;" type="text" id="alipayFilterSearch" placeholder="Rechercher client ou référence…" oninput="renderAlipayDeposits()" />
+        </div>
+
+        <div class="card" style="padding:0;">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Client</th><th>Montant</th><th>Devise</th><th>Référence Alipay</th><th>Date</th><th>Statut</th><th>Actions</th></tr></thead>
+              <tbody id="alipayTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════ CHINE ════════ -->
+      <section id="sec-chine" style="display:none;">
+        <div class="flex-between mb-6">
+          <div>
+            <h2 style="font-size:22px;font-weight:800;color:var(--primary);">🇨🇳 Utilisateurs Chine</h2>
+            <p class="text-muted">Comptes enregistrés depuis la Chine (+86)</p>
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="reloadAdminData()">🔄 Actualiser</button>
+        </div>
+
+        <!-- Stats -->
+        <div class="stat-cards" style="grid-template-columns:repeat(3,1fr);margin-bottom:24px;">
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#EEF2FF;">👥</div>
+            <div class="stat-card-info"><div class="stat-card-value" id="cnStatUsers">0</div><div class="stat-card-label">Comptes Chine</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#D1FAE5;">💰</div>
+            <div class="stat-card-info"><div class="stat-card-value" id="cnStatEpargne">0 GNF</div><div class="stat-card-label">Épargne totale</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#FFFBEB;">🀄</div>
+            <div class="stat-card-info"><div class="stat-card-value" id="cnStatAlipay">0</div><div class="stat-card-label">Dépôts Alipay totaux</div></div>
+          </div>
+        </div>
+
+        <div class="card" style="padding:0;">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Nom</th><th>Téléphone</th><th>Alipay ID</th><th>Épargne</th><th>KYC</th><th>Inscription</th></tr></thead>
+              <tbody id="chineTbody"></tbody>
+            </table>
           </div>
         </div>
       </section>
@@ -2578,6 +2712,290 @@ function runSmileVerify(userId, idNumber, idType, country, firstName, lastName) 
     reloadAdminData();
   })
   .catch(function() { showAdminToast('Erreur réseau Smile Identity.', 'error'); });
+}
+
+/* ════════════════════════════════════════════════════════════
+   MODULE 1 — RETRAITS COLLECTIFS
+   ════════════════════════════════════════════════════════════ */
+
+var _pendingWithdrawals = [];
+var _alipayDeposits     = [];
+
+/* Patch du chargement admin pour intégrer les nouvelles données */
+(function patchAdminLoad() {
+  var origLoad = window.loadAdminDashboard;
+  if (origLoad) {
+    window.loadAdminDashboard = function(data) {
+      origLoad.call(this, data);
+      _pendingWithdrawals = data.pendingWithdrawals || [];
+      _alipayDeposits     = data.alipayDeposits     || [];
+      renderWithdrawals();
+      renderAlipayDeposits();
+      renderChineUsers(data.users || []);
+      updateNewBadges(data.stats || {});
+    };
+  }
+})();
+
+function updateNewBadges(stats) {
+  var wBadge = document.getElementById('navWithdrawalsBadge');
+  if (wBadge) {
+    var cnt = (stats.collectif && stats.collectif.withdrawalsPending) || _pendingWithdrawals.filter(function(t){ return t.statut === 'pending'; }).length;
+    wBadge.textContent = cnt; wBadge.style.display = cnt > 0 ? '' : 'none';
+  }
+  var aBadge = document.getElementById('navAlipayBadge');
+  if (aBadge) {
+    var acnt = (stats.alipay && stats.alipay.pending) || _alipayDeposits.filter(function(t){ return t.statut === 'pending'; }).length;
+    aBadge.textContent = acnt; aBadge.style.display = acnt > 0 ? '' : 'none';
+  }
+}
+
+function renderWithdrawals() {
+  var tbody = document.getElementById('withdrawalsTbody');
+  if (!tbody) return;
+  var ALL_USERS = window.ALL_USERS || [];
+
+  var pending   = _pendingWithdrawals.filter(function(t){ return t.statut === 'pending'; }).length;
+  var done      = _pendingWithdrawals.filter(function(t){ return t.statut === 'completed'; }).length;
+  var failed    = _pendingWithdrawals.filter(function(t){ return t.statut === 'failed'; }).length;
+  var sdP = document.getElementById('wdStatPending'); if (sdP) sdP.textContent = pending;
+  var sdD = document.getElementById('wdStatDone');    if (sdD) sdD.textContent = done;
+  var sdF = document.getElementById('wdStatFailed');  if (sdF) sdF.textContent = failed;
+
+  if (!_pendingWithdrawals.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:32px;color:#9CA3AF;">✅ Aucun retrait collectif pour le moment</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = _pendingWithdrawals.map(function(t) {
+    var user = ALL_USERS.find(function(u){ return u.id === t.user_id; }) || {};
+    var name = ((user.prenom||'') + ' ' + (user.nom||'')).trim() || t.user_id.slice(0,8);
+    var projectName = t.label ? (t.label.replace(/^[A-Z\-0-9]+ · /, '').replace('Retrait — Clôture ', '')) : '—';
+    var dateStr = t.created_at ? new Date(t.created_at).toLocaleDateString('fr-FR') : '—';
+    var statusHtml = t.statut === 'pending'
+      ? '<span class="badge" style="background:#FFFBEB;color:#92400E;">⏳ En attente</span>'
+      : t.statut === 'completed'
+      ? '<span class="badge" style="background:#D1FAE5;color:#065F46;">✅ Confirmé</span>'
+      : '<span class="badge" style="background:#FEE2E2;color:#991B1B;">❌ Rejeté</span>';
+    var actions = t.statut === 'pending'
+      ? '<div class="action-col"><button class="btn btn-sm" style="background:#D1FAE5;color:#065F46;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;" onclick="confirmWithdrawal(\'' + t.id + '\')">✅ Confirmer</button><button class="btn btn-sm" style="background:#FEE2E2;color:#991B1B;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;" onclick="rejectWithdrawal(\'' + t.id + '\')">❌ Rejeter</button></div>'
+      : '—';
+
+    return '<tr data-txn-id="' + t.id + '">' +
+      '<td><div style="font-weight:600;">' + esc(name) + '</div><div style="font-size:11px;color:#9CA3AF;">' + (user.phone||'—') + '</div></td>' +
+      '<td style="font-size:12px;max-width:180px;word-break:break-all;">' + esc(projectName) + '</td>' +
+      '<td style="font-weight:700;">' + fmtAdmin(t.amount) + ' GNF</td>' +
+      '<td style="font-size:12px;">' + dateStr + '</td>' +
+      '<td>' + statusHtml + '</td>' +
+      '<td>' + actions + '</td>' +
+      '</tr>';
+  }).join('');
+}
+
+function confirmWithdrawal(txnId) {
+  if (!confirm('Confirmer ce remboursement ? Cela signifie que vous avez déjà envoyé le paiement Mobile Money.')) return;
+  fetch('/api/admin/update-balance', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
+    body:    JSON.stringify({ action: 'confirm-withdrawal', txnId }),
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d) {
+    if (d.ok) {
+      showAdminToast('✅ Remboursement confirmé', 'success');
+      var row = document.querySelector('tr[data-txn-id="' + txnId + '"]');
+      if (row) { row.style.opacity = '0'; row.style.transition = 'opacity .3s'; setTimeout(function(){ if (row.parentNode) row.parentNode.removeChild(row); }, 320); }
+      setTimeout(function(){ reloadAdminData(); }, 800);
+    } else {
+      showAdminToast('❌ ' + (d.error || 'Erreur'), 'error');
+    }
+  })
+  .catch(function(){ showAdminToast('Erreur réseau', 'error'); });
+}
+
+function rejectWithdrawal(txnId) {
+  var reason = prompt('Motif du rejet (optionnel) :') || '';
+  fetch('/api/admin/update-balance', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
+    body:    JSON.stringify({ action: 'reject-withdrawal', txnId, reason }),
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d) {
+    if (d.ok) {
+      showAdminToast('✅ Retrait rejeté — Solde recrédité : ' + fmtAdmin(d.recredited) + ' GNF', 'success');
+      var row = document.querySelector('tr[data-txn-id="' + txnId + '"]');
+      if (row) { row.style.opacity = '0'; row.style.transition = 'opacity .3s'; setTimeout(function(){ if (row.parentNode) row.parentNode.removeChild(row); }, 320); }
+      setTimeout(function(){ reloadAdminData(); }, 800);
+    } else {
+      showAdminToast('❌ ' + (d.error || 'Erreur'), 'error');
+    }
+  })
+  .catch(function(){ showAdminToast('Erreur réseau', 'error'); });
+}
+
+/* ════════════════════════════════════════════════════════════
+   MODULE 4 — ALIPAY
+   ════════════════════════════════════════════════════════════ */
+
+function renderAlipayDeposits() {
+  var tbody = document.getElementById('alipayTbody');
+  if (!tbody) return;
+  var ALL_USERS = window.ALL_USERS || [];
+
+  var filterStatus = (document.getElementById('alipayFilterStatus') || {}).value || '';
+  var filterSearch = ((document.getElementById('alipayFilterSearch') || {}).value || '').toLowerCase();
+
+  var pending   = _alipayDeposits.filter(function(t){ return t.statut === 'pending'; }).length;
+  var confirmed = _alipayDeposits.filter(function(t){ return t.statut === 'completed'; }).length;
+  var failed2   = _alipayDeposits.filter(function(t){ return t.statut === 'failed'; }).length;
+  var totalConf = _alipayDeposits.filter(function(t){ return t.statut === 'completed'; }).reduce(function(s,t){ return s + (t.amount||0); }, 0);
+
+  var p = document.getElementById('aliStatPending');   if (p) p.textContent = pending;
+  var c = document.getElementById('aliStatConfirmed'); if (c) c.textContent = confirmed;
+  var f = document.getElementById('aliStatFailed');    if (f) f.textContent = failed2;
+  var tot = document.getElementById('aliStatTotal');   if (tot) tot.textContent = fmtAdmin(totalConf);
+
+  var filtered = _alipayDeposits.filter(function(t) {
+    if (filterStatus && t.statut !== filterStatus) return false;
+    if (filterSearch) {
+      var user = ALL_USERS.find(function(u){ return u.id === t.user_id; }) || {};
+      var hay = ((user.prenom||'') + ' ' + (user.nom||'') + ' ' + (user.phone||'') + ' ' + (t.reference||'')).toLowerCase();
+      if (!hay.includes(filterSearch)) return false;
+    }
+    return true;
+  });
+
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:#9CA3AF;">🀄 Aucun dépôt Alipay trouvé</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(function(t) {
+    var user = ALL_USERS.find(function(u){ return u.id === t.user_id; }) || {};
+    var name = ((user.prenom||'') + ' ' + (user.nom||'')).trim() || t.user_id.slice(0,8);
+    var dateStr = t.created_at ? new Date(t.created_at).toLocaleDateString('fr-FR') : '—';
+    var statusHtml = t.statut === 'pending'
+      ? '<span class="badge" style="background:#FFFBEB;color:#92400E;">⏳ En attente</span>'
+      : t.statut === 'completed'
+      ? '<span class="badge" style="background:#D1FAE5;color:#065F46;">✅ Confirmé</span>'
+      : '<span class="badge" style="background:#FEE2E2;color:#991B1B;">❌ Rejeté</span>';
+    var actions = t.statut === 'pending'
+      ? '<div class="action-col">' +
+        '<button class="btn btn-sm" style="background:#D1FAE5;color:#065F46;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;" onclick="confirmAlipay(\'' + t.id + '\')">✅ Valider</button>' +
+        '<button class="btn btn-sm" style="background:#FEE2E2;color:#991B1B;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;" onclick="rejectAlipay(\'' + t.id + '\')">❌ Rejeter</button>' +
+        '</div>'
+      : '<span style="font-size:11px;color:#9CA3AF;">' + (t.validated_by ? 'par ' + t.validated_by : '—') + '</span>';
+
+    return '<tr data-txn-id="' + t.id + '">' +
+      '<td><div style="font-weight:600;">' + esc(name) + '</div><div style="font-size:11px;color:#9CA3AF;">' + (user.phone||'—') + '</div></td>' +
+      '<td style="font-weight:700;">' + fmtAdmin(t.amount) + '</td>' +
+      '<td><span class="badge" style="background:#EEF2FF;color:#4338CA;">' + (t.currency||'CNY') + '</span></td>' +
+      '<td style="font-size:11px;font-family:monospace;">' + esc((t.reference||'—').slice(0,20)) + '</td>' +
+      '<td style="font-size:12px;">' + dateStr + '</td>' +
+      '<td>' + statusHtml + '</td>' +
+      '<td>' + actions + '</td>' +
+      '</tr>';
+  }).join('');
+}
+
+function confirmAlipay(txnId) {
+  if (!confirm('Valider ce dépôt Alipay ? Le solde de l\'utilisateur sera crédité.')) return;
+  fetch('/api/admin/update-balance', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
+    body:    JSON.stringify({ action: 'confirm-alipay', txnId }),
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d) {
+    if (d.ok) {
+      showAdminToast('✅ Dépôt Alipay validé — solde crédité', 'success');
+      var row = document.querySelector('tr[data-txn-id="' + txnId + '"]');
+      if (row) { row.style.opacity='0'; row.style.transition='opacity .3s'; setTimeout(function(){ if(row.parentNode) row.parentNode.removeChild(row); }, 320); }
+      setTimeout(function(){ reloadAdminData(); }, 800);
+    } else {
+      showAdminToast('❌ ' + (d.error || 'Erreur'), 'error');
+    }
+  })
+  .catch(function(){ showAdminToast('Erreur réseau', 'error'); });
+}
+
+function rejectAlipay(txnId) {
+  var reason = prompt('Motif du rejet :') || 'Dépôt non vérifié';
+  fetch('/api/admin/update-balance', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
+    body:    JSON.stringify({ action: 'reject-alipay', txnId, reason }),
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d) {
+    if (d.ok) {
+      showAdminToast('✅ Dépôt Alipay rejeté', 'info');
+      setTimeout(function(){ reloadAdminData(); }, 600);
+    } else {
+      showAdminToast('❌ ' + (d.error || 'Erreur'), 'error');
+    }
+  })
+  .catch(function(){ showAdminToast('Erreur réseau', 'error'); });
+}
+
+/* ════════════════════════════════════════════════════════════
+   MODULE 3 — CHINE
+   ════════════════════════════════════════════════════════════ */
+
+function renderChineUsers(users) {
+  var tbody = document.getElementById('chineTbody');
+  if (!tbody) return;
+
+  var cnUsers = users.filter(function(u){ return u.country === 'cn'; });
+
+  var uEl = document.getElementById('cnStatUsers');   if (uEl) uEl.textContent = cnUsers.length;
+  var eEl = document.getElementById('cnStatEpargne'); if (eEl) eEl.textContent = fmtAdmin(cnUsers.reduce(function(s,u){ return s + (u.epargne||0); }, 0)) + ' GNF';
+  var aEl = document.getElementById('cnStatAlipay');  if (aEl) aEl.textContent = _alipayDeposits.length;
+
+  if (!cnUsers.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:32px;color:#9CA3AF;">🇨🇳 Aucun utilisateur Chine pour le moment</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = cnUsers.map(function(u) {
+    var name    = ((u.prenom||'') + ' ' + (u.nom||'')).trim() || '—';
+    var kycHtml = u.kyc_status === 'verified'
+      ? '<span class="badge badge-verified">✅ Vérifié</span>'
+      : u.kyc_status === 'pending'
+      ? '<span class="badge badge-pending">⏳ En cours</span>'
+      : '<span class="badge" style="background:#F3F4F6;color:#6B7280;">Aucun</span>';
+    var dateStr = u.created_at ? new Date(u.created_at).toLocaleDateString('fr-FR') : '—';
+    return '<tr>' +
+      '<td><div style="font-weight:700;">' + esc(name) + '</div></td>' +
+      '<td style="font-size:12px;">' + esc(u.phone||'—') + '</td>' +
+      '<td style="font-size:12px;font-family:monospace;">' + esc(u.alipay_id||'—') + '</td>' +
+      '<td style="font-weight:700;">' + fmtAdmin(u.epargne||0) + ' GNF</td>' +
+      '<td>' + kycHtml + '</td>' +
+      '<td style="font-size:12px;">' + dateStr + '</td>' +
+      '</tr>';
+  }).join('');
+}
+
+/* ── Mise à jour du loadAdminDashboard existant ── */
+/* On patche la fonction existante pour injecter les nouvelles données */
+var _origLoadDash = window.loadAdminDashboard;
+window.loadAdminDashboard = function(data) {
+  if (_origLoadDash) _origLoadDash.call(this, data);
+  _pendingWithdrawals = data.pendingWithdrawals || [];
+  _alipayDeposits     = data.alipayDeposits     || [];
+  /* Rendre les nouvelles sections si elles sont actives */
+  renderWithdrawals();
+  renderAlipayDeposits();
+  renderChineUsers(data.users || []);
+  updateNewBadges(data.stats || {});
+};
+
+function esc(str) {
+  return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function fmtAdmin(n) {
+  return String(Math.round(n||0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 }
 </script>
 

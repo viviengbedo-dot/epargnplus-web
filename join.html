@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rejoindre un groupe — Epargn+</title>
+  <meta name="description" content="Vous avez été invité à rejoindre un groupe d'épargne collective sur Epargn+" />
+  <meta name="robots" content="noindex" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#0B1566" />
+  <link rel="apple-touch-icon" href="/icon-180.png" />
+  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+  <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      background: var(--bg, #F4F6FF);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .join-card {
+      background: #fff;
+      border-radius: 24px;
+      width: 100%;
+      max-width: 420px;
+      overflow: hidden;
+      box-shadow: 0 12px 48px rgba(11,21,102,.14);
+    }
+    .join-header {
+      background: linear-gradient(135deg, #0B1566, #1a2a8a);
+      padding: 32px 28px 24px;
+      text-align: center;
+    }
+    .join-body { padding: 28px; }
+    .join-project-name {
+      font-size: 22px;
+      font-weight: 900;
+      color: #0B1566;
+      margin: 0 0 6px;
+    }
+    .join-creator {
+      font-size: 14px;
+      color: #6B7280;
+      margin-bottom: 20px;
+    }
+    .join-stat {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid #E5E7EB;
+      font-size: 14px;
+    }
+    .join-stat:last-child { border-bottom: none; }
+    .join-stat-label { color: #6B7280; }
+    .join-stat-value { font-weight: 700; color: #0B1566; }
+    .join-actions { display: flex; gap: 10px; margin-top: 24px; }
+    .join-actions .btn { flex: 1; padding: 14px; font-size: 15px; font-weight: 700; }
+    .expired-msg {
+      text-align: center;
+      padding: 32px 20px;
+      color: #6B7280;
+    }
+    .expired-msg .icon { font-size: 48px; margin-bottom: 12px; }
+    .progress-bar-outer {
+      background: #E5E7EB;
+      border-radius: 100px;
+      height: 8px;
+      margin: 8px 0 4px;
+      overflow: hidden;
+    }
+    .progress-bar-inner {
+      height: 100%;
+      border-radius: 100px;
+      background: linear-gradient(90deg, #0B1566, #3B82F6);
+      transition: width .6s ease;
+    }
+  </style>
+</head>
+<body>
+
+<div class="join-card" id="joinCard">
+  <!-- État chargement -->
+  <div class="join-header">
+    <img src="/logo.svg" alt="Epargn+" style="width:48px;height:48px;border-radius:12px;margin-bottom:12px;background:rgba(255,255,255,.15);padding:6px;" />
+    <div style="font-size:22px;font-weight:900;color:#fff;">Epargn+</div>
+    <div style="font-size:12px;color:rgba(255,255,255,.6);margin-top:2px;">Épargne Collective</div>
+  </div>
+  <div class="join-body" id="joinBody">
+    <div style="text-align:center;padding:32px 0;color:#6B7280;">
+      <div style="font-size:32px;margin-bottom:12px;">⏳</div>
+      <div style="font-size:14px;">Chargement de l'invitation…</div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="joinToast" style="display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#0B1566;color:#fff;padding:12px 24px;border-radius:100px;font-size:14px;font-weight:600;z-index:999;box-shadow:0 4px 24px rgba(0,0,0,.2);white-space:nowrap;"></div>
+
+<script>
+  /* ── Lecture du code depuis l'URL ── */
+  (function() {
+    const path  = window.location.pathname;     /* /join/ABCD1234 */
+    const parts = path.split('/').filter(Boolean);
+    const code  = parts[parts.length - 1] || '';
+
+    if (!code || code === 'join') {
+      showError('Lien d\'invitation invalide', 'Le lien que vous avez utilisé est incomplet ou incorrect.');
+      return;
+    }
+
+    /* Appel API */
+    fetch('/api/invite/send?code=' + encodeURIComponent(code))
+      .then(r => r.json())
+      .then(data => {
+        if (!data.ok) {
+          showError(
+            data.error || 'Lien invalide',
+            data.error && data.error.includes('expiré')
+              ? 'Demandez un nouveau lien au créateur du groupe.'
+              : 'Ce lien n\'est plus valide.'
+          );
+          return;
+        }
+        renderInvitation(data, code);
+      })
+      .catch(() => {
+        showError('Erreur réseau', 'Impossible de charger les informations. Vérifiez votre connexion.');
+      });
+  })();
+
+  function fmt(n) {
+    return String(Math.round(n || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  }
+
+  function pct(actuel, goal) {
+    if (!goal) return 0;
+    return Math.min(100, Math.round((actuel / goal) * 100));
+  }
+
+  function renderInvitation(data, code) {
+    const p  = data.project || {};
+    const pc = pct(p.actuel, p.goal);
+
+    const joinUrl = '/connexion?redirect=' + encodeURIComponent('/espace-client?joinCode=' + code);
+
+    document.getElementById('joinBody').innerHTML = `
+      <div style="font-size:36px;text-align:center;margin-bottom:8px;">🤝</div>
+      <div class="join-project-name" style="text-align:center;">${esc(p.name || 'Épargne Collective')}</div>
+      <div class="join-creator">Créé par <strong>${esc(data.creator_name || 'Un membre Epargn+')}</strong></div>
+
+      <div style="background:#F0F3FF;border-radius:14px;padding:16px 18px;margin-bottom:20px;">
+        <div class="join-stat">
+          <span class="join-stat-label">🎯 Objectif</span>
+          <span class="join-stat-value">${fmt(p.goal)} GNF</span>
+        </div>
+        <div class="join-stat">
+          <span class="join-stat-label">👥 Membres</span>
+          <span class="join-stat-value">${p.members_count || 1} participant${(p.members_count || 1) > 1 ? 's' : ''}</span>
+        </div>
+        <div class="join-stat" style="border-bottom:none;flex-direction:column;align-items:flex-start;gap:6px;">
+          <span class="join-stat-label">📊 Progression</span>
+          <div style="width:100%;">
+            <div class="progress-bar-outer">
+              <div class="progress-bar-inner" style="width:${pc}%;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:#6B7280;">
+              <span>${fmt(p.actuel || 0)} GNF collectés</span>
+              <span>${pc}%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:#FFFBEB;border-left:3px solid #F59E0B;border-radius:8px;padding:10px 14px;font-size:13px;color:#92400E;margin-bottom:20px;line-height:1.5;">
+        💡 Pour rejoindre ce groupe, connectez-vous à votre compte Epargn+. Vous n'en avez pas ? Créez-en un gratuitement.
+      </div>
+
+      <div class="join-actions">
+        <a href="${joinUrl}" class="btn btn-primary" style="text-decoration:none;text-align:center;display:flex;align-items:center;justify-content:center;">
+          Se connecter →
+        </a>
+        <a href="/connexion?mode=register&redirect=${encodeURIComponent('/espace-client?joinCode=' + code)}" class="btn btn-outline" style="text-decoration:none;text-align:center;display:flex;align-items:center;justify-content:center;">
+          Créer un compte
+        </a>
+      </div>
+
+      <div style="text-align:center;margin-top:16px;">
+        <a href="/" style="font-size:12px;color:#9CA3AF;text-decoration:none;">← Retour à l'accueil Epargn+</a>
+      </div>
+    `;
+  }
+
+  function showError(title, msg) {
+    document.getElementById('joinBody').innerHTML = `
+      <div class="expired-msg">
+        <div class="icon">🔗</div>
+        <div style="font-size:17px;font-weight:800;color:#374151;margin-bottom:8px;">${esc(title)}</div>
+        <div style="font-size:14px;line-height:1.6;">${esc(msg)}</div>
+        <a href="/" class="btn btn-primary" style="display:inline-flex;margin-top:24px;padding:12px 28px;text-decoration:none;">
+          Retour à l'accueil
+        </a>
+      </div>
+    `;
+  }
+
+  function esc(str) {
+    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('joinToast');
+    t.textContent = msg;
+    t.style.display = 'block';
+    setTimeout(() => { t.style.display = 'none'; }, 3000);
+  }
+</script>
+</body>
+</html>

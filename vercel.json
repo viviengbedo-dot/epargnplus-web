@@ -7,12 +7,15 @@
     "api/**/*.js": { "maxDuration": 10 }
   },
   "rewrites": [
-    { "source": "/api/otp/send",   "destination": "/api/otp" },
-    { "source": "/api/otp/verify", "destination": "/api/otp" },
-    { "source": "/",               "destination": "/index.html" },
-    { "source": "/connexion",      "destination": "/login.html" },
-    { "source": "/espace-client",  "destination": "/dashboard.html" },
-    { "source": "/administration", "destination": "/admin.html" }
+    { "source": "/api/otp/send",       "destination": "/api/otp" },
+    { "source": "/api/otp/verify",     "destination": "/api/otp" },
+    { "source": "/api/invite/join",    "destination": "/api/invite/send" },
+    { "source": "/",                   "destination": "/index.html" },
+    { "source": "/connexion",          "destination": "/login.html" },
+    { "source": "/espace-client",      "destination": "/dashboard.html" },
+    { "source": "/administration",     "destination": "/admin.html" },
+    { "source": "/join/:code",         "destination": "/join.html" },
+    { "source": "/join/:code/(.*)",    "destination": "/join.html" }
   ],
   "headers": [
     {
