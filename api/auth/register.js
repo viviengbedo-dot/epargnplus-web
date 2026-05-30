@@ -165,13 +165,23 @@ module.exports = async (req, res) => {
       result = await supabaseRequest('POST', '/users', payloadFull);
     } catch (insertErr) {
       const msg = insertErr.message || '';
-      if (msg.includes('column') || msg.includes('Could not find')) {
-        /* Fallback minimal */
+      console.warn('[register] insert full échoué :', msg);
+      if (msg.includes('column') || msg.includes('Could not find') ||
+          msg.includes('schema cache') || msg.includes('does not exist')) {
+        /* Fallback minimal — inclut les champs NOT NULL obligatoires */
         const payloadMin = {
           phone: fullPhone, prenom: prenom.trim(), nom: nom.trim(),
-          pin_hash, epargne: 0, kyc_status: 'none', role: 'user', country,
+          pin_hash, epargne: 0, kyc_status: 'none', role: 'user',
+          country, operator: resolvedOperator,
         };
         result = await supabaseRequest('POST', '/users', payloadMin);
+      } else if (msg.includes('duplicate') || msg.includes('unique')) {
+        /* Collision code_parrain — regénérer et réessayer */
+        const payloadRetry = {
+          ...payloadFull,
+          code_parrain: generateReferralCode(prenom) + Math.random().toString(36).slice(2,4).toUpperCase(),
+        };
+        result = await supabaseRequest('POST', '/users', payloadRetry);
       } else {
         throw insertErr;
       }
@@ -198,6 +208,7 @@ module.exports = async (req, res) => {
 
   } catch (err) {
     console.error('[register] Erreur :', err.message);
-    return res.status(500).json({ error: 'Erreur serveur. Réessayez dans quelques instants.' });
+    /* DEBUG temporaire — retirer après diagnostic */
+    return res.status(500).json({ error: 'Erreur serveur : ' + err.message });
   }
 };
