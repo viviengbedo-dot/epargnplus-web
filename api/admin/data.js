@@ -166,6 +166,39 @@ module.exports = async (req, res) => {
       console.warn('[admin/data] invitations:', e.message);
     }
 
+    /* ── 6b. Support Tickets ── */
+    let supportTickets = [];
+    try {
+      supportTickets = await supabaseRequest('GET',
+        '/support_tickets?select=id,user_id,subject,message,status,priority,category,' +
+        'admin_reply,resolved_at,created_at,updated_at&order=created_at.desc&limit=200');
+      if (!Array.isArray(supportTickets)) supportTickets = [];
+    } catch (e) {
+      console.warn('[admin/data] support_tickets:', e.message);
+    }
+
+    /* ── 6c. Promo codes ── */
+    let promoCodes = [];
+    try {
+      promoCodes = await supabaseRequest('GET',
+        '/promo_codes?select=id,code,description,type,value,currency,max_uses,' +
+        'uses_count,target_country,active,expires_at,created_at&order=created_at.desc&limit=100');
+      if (!Array.isArray(promoCodes)) promoCodes = [];
+    } catch (e) {
+      console.warn('[admin/data] promo_codes:', e.message);
+    }
+
+    /* ── 6d. Broadcasts ── */
+    let broadcasts = [];
+    try {
+      broadcasts = await supabaseRequest('GET',
+        '/broadcasts?select=id,title,message,target,sent_count,created_by,created_at' +
+        '&order=created_at.desc&limit=50');
+      if (!Array.isArray(broadcasts)) broadcasts = [];
+    } catch (e) {
+      console.warn('[admin/data] broadcasts:', e.message);
+    }
+
     /* ── 6. Statistiques ── */
     const total        = users.length;
     const epargneTotal = users.reduce((s, u) => s + (u.epargne || 0), 0);
@@ -203,6 +236,16 @@ module.exports = async (req, res) => {
     const invitePending  = allInvitations.filter(i => i.status === 'pending').length;
     const inviteRejected = allInvitations.filter(i => i.status === 'rejected').length;
 
+    /* Support stats */
+    const ticketsOpen       = supportTickets.filter(t => t.status === 'open').length;
+    const ticketsInProgress = supportTickets.filter(t => t.status === 'in_progress').length;
+    const ticketsResolved   = supportTickets.filter(t => t.status === 'resolved' || t.status === 'closed').length;
+    const ticketsUrgent     = supportTickets.filter(t => t.priority === 'urgent' || t.priority === 'high').length;
+
+    /* Promo stats */
+    const promoActive  = promoCodes.filter(p => p.active).length;
+    const promoExpired = promoCodes.filter(p => p.expires_at && new Date(p.expires_at) < new Date()).length;
+
     return res.status(200).json({
       users,
       pendingTransactions,
@@ -213,11 +256,16 @@ module.exports = async (req, res) => {
       projectMembers,
       allInvitations,
       merchantConfig,
+      supportTickets,
+      promoCodes,
+      broadcasts,
       stats: {
         total, epargneTotal, kycPending, kycVerified, pendingCount, byCountry,
         alipay: { pending: alipayPending, confirmed: alipayConfirmed, total: alipayTotal },
         collectif: { active: collectifActive, closed: collectifClosed, withdrawalsPending },
         invitations: { accepted: inviteAccepted, pending: invitePending, rejected: inviteRejected },
+        support: { open: ticketsOpen, inProgress: ticketsInProgress, resolved: ticketsResolved, urgent: ticketsUrgent },
+        promos: { active: promoActive, expired: promoExpired, total: promoCodes.length },
       },
     });
 

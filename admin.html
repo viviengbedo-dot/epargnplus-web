@@ -230,6 +230,7 @@
       </button>
       <button class="nav-item" onclick="showAdminSection('support', this)">
         <span class="nav-icon">🎧</span> Support
+        <span class="nav-badge" id="navSupportBadge" style="display:none;">0</span>
       </button>
 
       <div class="nav-section-title">SYSTÈME</div>
@@ -384,6 +385,21 @@
           </div>
 
         </div>
+
+        <!-- Checklist pilote -->
+        <div class="card" style="margin-top:24px;border:2px solid #C8E600;background:#FAFFF0;">
+          <div class="flex-between" style="margin-bottom:16px;">
+            <div>
+              <div class="card-title" style="margin-bottom:2px;">🚀 Checklist Lancement Pilote</div>
+              <p style="font-size:12px;color:var(--text-secondary);margin:0;" id="pilotCheckProgress">Chargement…</p>
+            </div>
+            <span class="badge" id="pilotCheckBadge" style="background:#0B1566;color:#fff;padding:4px 12px;font-size:12px;border-radius:100px;font-weight:700;">0/10</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;" id="pilotChecklist">
+            <!-- injected by JS -->
+          </div>
+        </div>
+
       </section>
 
       <!-- ════════ ANALYTICS ════════ -->
@@ -832,15 +848,71 @@
 
       <!-- ════════ SUPPORT ════════ -->
       <section id="sec-support" style="display:none;">
-        <h2 style="font-size:22px;font-weight:800;color:var(--primary);margin-bottom:6px;">Support Client</h2>
-        <p class="text-muted" style="margin-bottom:24px;">Aucun ticket ouvert pour l'instant</p>
+        <div class="flex-between mb-6">
+          <div>
+            <h2 style="font-size:22px;font-weight:800;color:var(--primary);">🎧 Support Client</h2>
+            <p class="text-muted" id="supportSubtitle">Chargement…</p>
+          </div>
+          <div class="flex-gap">
+            <select id="supportFilterStatus" class="form-input form-select" style="width:140px;padding:8px 12px;font-size:13px;" onchange="filterSupportTickets()">
+              <option value="">Tous les statuts</option>
+              <option value="open">🔴 Ouverts</option>
+              <option value="in_progress">🟡 En cours</option>
+              <option value="resolved">🟢 Résolus</option>
+              <option value="closed">⚫ Fermés</option>
+            </select>
+            <select id="supportFilterPriority" class="form-input form-select" style="width:130px;padding:8px 12px;font-size:13px;" onchange="filterSupportTickets()">
+              <option value="">Toutes priorités</option>
+              <option value="urgent">🚨 Urgente</option>
+              <option value="high">🔴 Haute</option>
+              <option value="normal">🟡 Normale</option>
+              <option value="low">⚪ Faible</option>
+            </select>
+            <button class="btn btn-outline btn-sm" onclick="reloadAdminData()">🔄 Actualiser</button>
+          </div>
+        </div>
 
-        <div class="card">
-          <div class="card-title">Tickets ouverts</div>
-          <div style="text-align:center;padding:32px 16px;color:var(--text-muted);">
-            <div style="font-size:36px;margin-bottom:8px;">🎫</div>
-            <div style="font-size:14px;font-weight:600;">Aucun ticket ouvert</div>
-            <div style="font-size:12px;margin-top:4px;">Les demandes de support apparaîtront ici</div>
+        <!-- KPIs -->
+        <div class="stat-cards" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px;">
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#FEE2E2;">🔴</div>
+            <div class="stat-card-info"><div class="stat-card-value" id="spStatOpen">0</div><div class="stat-card-label">Ouverts</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#FEF9C3;">🟡</div>
+            <div class="stat-card-info"><div class="stat-card-value" id="spStatInProgress">0</div><div class="stat-card-label">En cours</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#D1FAE5;">🟢</div>
+            <div class="stat-card-info"><div class="stat-card-value" id="spStatResolved">0</div><div class="stat-card-label">Résolus</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#FEE2E2;">🚨</div>
+            <div class="stat-card-info"><div class="stat-card-value" id="spStatUrgent">0</div><div class="stat-card-label">Urgents</div></div>
+          </div>
+        </div>
+
+        <div class="card" style="padding:0;">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Utilisateur</th>
+                  <th>Sujet</th>
+                  <th>Catégorie</th>
+                  <th>Priorité</th>
+                  <th>Statut</th>
+                  <th>Date</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="supportTbody">
+                <tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted);">
+                  <div style="font-size:32px;margin-bottom:8px;">🎫</div>
+                  <div>Aucun ticket pour l'instant</div>
+                </td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
@@ -1064,25 +1136,106 @@
             </div>
           </div>
         </div>
+
+        <!-- ══ Codes Promo ══ -->
+        <div class="card" style="margin-top:24px;border:2px solid #D1FAE5;background:#F0FDF4;">
+          <div class="flex-between" style="margin-bottom:16px;">
+            <div>
+              <div class="card-title" style="margin-bottom:2px;">🎁 Codes Promo</div>
+              <p style="font-size:13px;color:var(--text-secondary);margin:0;" id="promoSubtitle">Chargement…</p>
+            </div>
+            <button class="btn btn-accent btn-sm" onclick="openAdminModal('amodal-createPromo')">+ Nouveau code</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Code</th><th>Type</th><th>Valeur</th><th>Utilisations</th><th>Pays</th><th>Expire</th><th>Actif</th><th></th></tr></thead>
+              <tbody id="promoTbody">
+                <tr><td colspan="8" style="text-align:center;padding:20px;color:var(--text-muted);">Aucun code promo</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ══ Broadcast ══ -->
+        <div class="card" style="margin-top:24px;border:2px solid #E0E7FF;background:#EEF2FF;">
+          <div class="card-title" style="margin-bottom:4px;">📢 Notification groupée</div>
+          <p style="font-size:13px;color:var(--text-secondary);margin-bottom:18px;">Envoyez une notification in-app à tous vos utilisateurs ou à un segment.</p>
+          <div class="form-row">
+            <div class="form-group" style="flex:1;">
+              <label class="form-label">Titre</label>
+              <input class="form-input" type="text" id="broadcastTitle" placeholder="🎉 Nouvelle fonctionnalité disponible" maxlength="100" />
+            </div>
+            <div class="form-group" style="width:160px;">
+              <label class="form-label">Cible</label>
+              <select class="form-input form-select" id="broadcastTarget">
+                <option value="all">🌍 Tous les pays</option>
+                <option value="gn">🇬🇳 Guinée seulement</option>
+                <option value="bj">🇧🇯 Bénin seulement</option>
+                <option value="ci">🇨🇮 Côte d'Ivoire</option>
+                <option value="cn">🇨🇳 Chine seulement</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Message</label>
+            <textarea class="form-input" id="broadcastMessage" rows="3" placeholder="Texte de la notification qui apparaîtra dans l'app des utilisateurs…" maxlength="500" style="resize:vertical;font-family:inherit;"></textarea>
+          </div>
+          <div style="display:flex;gap:12px;align-items:center;">
+            <button class="btn btn-primary" onclick="sendBroadcast()" id="broadcastBtn">📤 Envoyer la notification</button>
+            <span id="broadcastResult" style="font-size:13px;font-weight:600;"></span>
+          </div>
+          <!-- Historique -->
+          <div id="broadcastHistory" style="margin-top:16px;display:none;">
+            <div style="font-size:12px;font-weight:700;color:var(--text-secondary);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em;">Historique des envois</div>
+            <div id="broadcastHistoryList" style="display:flex;flex-direction:column;gap:6px;"></div>
+          </div>
+        </div>
+
       </section>
 
       <!-- ════════ LOGS ════════ -->
       <section id="sec-logs" style="display:none;">
         <div class="flex-between mb-6">
           <div>
-            <h2 style="font-size:22px;font-weight:800;color:var(--primary);">Logs Système</h2>
-            <p class="text-muted">Journal des événements de la plateforme</p>
+            <h2 style="font-size:22px;font-weight:800;color:var(--primary);">📋 Logs Système</h2>
+            <p class="text-muted">Journal des événements de la plateforme (depuis les données Supabase)</p>
           </div>
-          <button class="btn btn-outline" onclick="exportCSV()">⬇ Exporter</button>
+          <div class="flex-gap">
+            <select id="logsFilter" class="form-input form-select" style="width:160px;padding:8px 12px;font-size:13px;" onchange="renderLogs()">
+              <option value="">Tous les types</option>
+              <option value="depot">💳 Dépôts</option>
+              <option value="retrait">💸 Retraits</option>
+              <option value="inscription">👤 Inscriptions</option>
+              <option value="kyc">🆔 KYC</option>
+              <option value="bonus">🎁 Bonus</option>
+            </select>
+            <button class="btn btn-outline btn-sm" onclick="exportCSV()">⬇ Exporter CSV</button>
+          </div>
         </div>
+
+        <!-- Audit rapide -->
+        <div class="stat-cards" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px;">
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#EEF2FF;">👤</div>
+            <div class="stat-card-info"><div class="stat-card-value" id="logStatUsers">0</div><div class="stat-card-label">Inscriptions</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#D1FAE5;">✅</div>
+            <div class="stat-card-info"><div class="stat-card-value" id="logStatDeposits">0</div><div class="stat-card-label">Dépôts validés</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#FEF9C3;">⏳</div>
+            <div class="stat-card-info"><div class="stat-card-value" id="logStatPending">0</div><div class="stat-card-label">En attente</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#FEE2E2;">❌</div>
+            <div class="stat-card-info"><div class="stat-card-value" id="logStatFailed">0</div><div class="stat-card-label">Échecs</div></div>
+          </div>
+        </div>
+
         <div class="card">
-          <div style="font-family:'Courier New',monospace;font-size:12px;line-height:1.8;color:var(--text-primary);max-height:480px;overflow-y:auto;" id="logsContent">
-            <div style="color:#9CA3AF;">[2026-05-28] ── Epargn+ v2 — Logs en temps réel (à venir) ──</div>
-            <div style="text-align:center;padding:32px 16px;color:var(--text-secondary);font-family:Inter,sans-serif;">
-              <div style="font-size:36px;margin-bottom:10px;">📋</div>
-              <div style="font-size:14px;font-weight:700;color:var(--primary);">Journal vide</div>
-              <div style="font-size:12px;margin-top:6px;line-height:1.6;">Les événements (inscriptions, dépôts, KYC, OTP)<br>seront enregistrés ici en temps réel.</div>
-            </div>
+          <div style="font-family:'Courier New',monospace;font-size:12px;line-height:1.9;color:var(--text-primary);max-height:560px;overflow-y:auto;padding:8px 0;" id="logsContent">
+            <div style="color:#9CA3AF;padding:4px 12px;">[Epargn+ v6] ── Journal généré depuis Supabase ──</div>
           </div>
         </div>
       </section>
@@ -1093,6 +1246,122 @@
 
 <!-- ══════════ MODALS ══════════ -->
 <div class="toast-container" id="toastContainer"></div>
+
+<!-- Ticket Support Reply -->
+<div class="modal-overlay" id="amodal-ticket" onclick="handleOverlayClick(event,'amodal-ticket')">
+  <div class="modal" style="max-width:580px;">
+    <button class="modal-close" onclick="closeAdminModal('amodal-ticket')">✕</button>
+    <div class="modal-title">🎧 Ticket Support</div>
+    <div id="ticketModalMeta" class="modal-sub">—</div>
+
+    <div id="ticketModalReplies" style="max-height:260px;overflow-y:auto;margin-bottom:16px;display:flex;flex-direction:column;gap:8px;padding:4px 0;"></div>
+
+    <div style="background:#F9FAFB;border-radius:10px;padding:14px;margin-bottom:14px;">
+      <div style="font-size:11px;font-weight:700;color:#6B7280;margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;">MESSAGE DE L'UTILISATEUR</div>
+      <div id="ticketModalMessage" style="font-size:13px;line-height:1.6;color:var(--text-primary);"></div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Votre réponse</label>
+      <textarea class="form-input" id="ticketReplyText" rows="4" placeholder="Répondez à l'utilisateur…" style="resize:vertical;font-family:inherit;"></textarea>
+    </div>
+
+    <div class="form-row" style="margin-bottom:16px;">
+      <div class="form-group" style="flex:1;margin:0;">
+        <label class="form-label">Changer le statut</label>
+        <select class="form-input form-select" id="ticketNewStatus">
+          <option value="">— Laisser inchangé —</option>
+          <option value="in_progress">🟡 En cours</option>
+          <option value="resolved">🟢 Résolu</option>
+          <option value="closed">⚫ Fermé</option>
+          <option value="open">🔴 Ré-ouvrir</option>
+        </select>
+      </div>
+      <div class="form-group" style="flex:1;margin:0;">
+        <label class="form-label">Priorité</label>
+        <select class="form-input form-select" id="ticketNewPriority">
+          <option value="">— Laisser inchangée —</option>
+          <option value="urgent">🚨 Urgente</option>
+          <option value="high">🔴 Haute</option>
+          <option value="normal">🟡 Normale</option>
+          <option value="low">⚪ Faible</option>
+        </select>
+      </div>
+    </div>
+
+    <input type="hidden" id="ticketModalId" />
+    <button class="btn btn-primary" style="width:100%;" onclick="submitTicketReply()">Envoyer la réponse →</button>
+  </div>
+</div>
+
+<!-- Create Promo Code -->
+<div class="modal-overlay" id="amodal-createPromo" onclick="handleOverlayClick(event,'amodal-createPromo')">
+  <div class="modal" style="max-width:480px;">
+    <button class="modal-close" onclick="closeAdminModal('amodal-createPromo')">✕</button>
+    <div class="modal-title">🎁 Créer un code promo</div>
+    <div class="modal-sub">Le code sera visible aux utilisateurs dans leur tableau de bord</div>
+
+    <div class="form-row">
+      <div class="form-group" style="flex:1;">
+        <label class="form-label">Code <span style="color:#DC2626;">*</span></label>
+        <input class="form-input" type="text" id="newPromoCode" placeholder="PILOTE2026" maxlength="20" style="text-transform:uppercase;font-weight:700;letter-spacing:.08em;" />
+      </div>
+      <div class="form-group" style="flex:1;">
+        <label class="form-label">Type <span style="color:#DC2626;">*</span></label>
+        <select class="form-input form-select" id="newPromoType" onchange="updatePromoValueLabel()">
+          <option value="bonus_deposit">💰 Bonus sur dépôt</option>
+          <option value="fee_free">0️⃣ Frais offerts</option>
+          <option value="cashback">💸 Cashback</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group" style="flex:1;">
+        <label class="form-label" id="promoValueLabel">Montant bonus <span style="color:#DC2626;">*</span></label>
+        <input class="form-input" type="number" id="newPromoValue" placeholder="5000" min="0" />
+      </div>
+      <div class="form-group" style="flex:1;">
+        <label class="form-label">Devise</label>
+        <select class="form-input form-select" id="newPromoCurrency">
+          <option value="GNF">GNF (Guinée)</option>
+          <option value="FCFA">FCFA (Bénin / CI)</option>
+          <option value="CNY">CNY (Chine)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group" style="flex:1;">
+        <label class="form-label">Utilisations max (vide = illimité)</label>
+        <input class="form-input" type="number" id="newPromoMaxUses" placeholder="50" min="1" />
+      </div>
+      <div class="form-group" style="flex:1;">
+        <label class="form-label">Pays cible (vide = tous)</label>
+        <select class="form-input form-select" id="newPromoCountry">
+          <option value="">🌍 Tous les pays</option>
+          <option value="gn">🇬🇳 Guinée</option>
+          <option value="bj">🇧🇯 Bénin</option>
+          <option value="ci">🇨🇮 Côte d'Ivoire</option>
+          <option value="cn">🇨🇳 Chine</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group" style="flex:1;">
+        <label class="form-label">Description</label>
+        <input class="form-input" type="text" id="newPromoDescription" placeholder="Bonus de bienvenue pilote" />
+      </div>
+      <div class="form-group" style="flex:1;">
+        <label class="form-label">Date d'expiration (optionnel)</label>
+        <input class="form-input" type="date" id="newPromoExpiry" />
+      </div>
+    </div>
+
+    <button class="btn btn-accent" style="width:100%;margin-top:4px;" onclick="submitCreatePromo()">Créer le code promo →</button>
+  </div>
+</div>
 
 <!-- Add User -->
 <div class="modal-overlay" id="amodal-addUser" onclick="handleOverlayClick(event,'amodal-addUser')">
@@ -1326,6 +1595,7 @@ function populateAdminData(data) {
       riskScore:     u.risk_score        || 0,
       role:          u.role || 'user',
       date:          u.created_at ? new Date(u.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : '—',
+      raw_created:   u.created_at ? new Date(u.created_at).getTime() : 0,
       color:         colors[Math.abs(String(u.id).split('').reduce(function(h,c){return (h*31+c.charCodeAt(0))|0;},0)) % colors.length] || '#3B82F6',
       pendingDeposit: (function() {
         try { var pd = JSON.parse(u.pending_deposit || 'null'); return pd && pd.amount ? pd.amount : 0; }
@@ -1495,8 +1765,9 @@ function populateAdminData(data) {
       montant: t.amount || 0,
       op:      t.operator || '—',
       date:    t.created_at ? new Date(t.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—',
-      statut:  statutLabel,
-      credit:  t.type === 'deposit' || t.type === 'depot',
+      statut:      statutLabel,
+      credit:      t.type === 'deposit' || t.type === 'depot',
+      raw_created: t.created_at ? new Date(t.created_at).getTime() : 0,
     });
   });
 
@@ -1609,6 +1880,9 @@ function populateAdminData(data) {
   }
 
   showAdminToast('✅ Données Supabase chargées (' + total + ' utilisateur' + (total > 1 ? 's' : '') + ')', 'success');
+
+  /* ── Pilot features ── */
+  populatePilotData(data);
 
   /* Démarrer l'auto-refresh si pas encore démarré */
   if (!_autoRefreshTimer) startAutoRefresh();
@@ -3193,6 +3467,562 @@ function esc(str) {
 }
 function fmtAdmin(n) {
   return String(Math.round(n||0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}
+
+/* ════════════════════════════════════════════════════════════
+   PILOT FEATURES — Support, Promos, Broadcast, Logs, Checklist
+   ════════════════════════════════════════════════════════════ */
+
+let SUPPORT_TICKETS = [];
+let PROMO_CODES = [];
+let BROADCASTS = [];
+
+/* ── Populate pilot data when admin data loads ── */
+function populatePilotData(data) {
+  SUPPORT_TICKETS = data.supportTickets || [];
+  PROMO_CODES     = data.promoCodes     || [];
+  BROADCASTS      = data.broadcasts     || [];
+
+  renderSupportTickets();
+  renderPromos();
+  renderLogs();
+  renderBroadcastHistory();
+  renderPilotChecklist(data);
+  updateSupportBadge();
+}
+
+/* ══════════════ SUPPORT TICKETS ══════════════ */
+
+function updateSupportBadge() {
+  var open = SUPPORT_TICKETS.filter(function(t){ return t.status === 'open' || t.status === 'in_progress'; }).length;
+  var badge = document.getElementById('navSupportBadge');
+  if (badge) { badge.textContent = open; badge.style.display = open > 0 ? '' : 'none'; }
+}
+
+function renderSupportTickets() {
+  var filterStatus   = (document.getElementById('supportFilterStatus')   || {}).value || '';
+  var filterPriority = (document.getElementById('supportFilterPriority') || {}).value || '';
+
+  var tickets = SUPPORT_TICKETS.filter(function(t) {
+    if (filterStatus   && t.status   !== filterStatus)   return false;
+    if (filterPriority && t.priority !== filterPriority) return false;
+    return true;
+  });
+
+  /* KPIs */
+  var open       = SUPPORT_TICKETS.filter(function(t){ return t.status === 'open'; }).length;
+  var inProgress = SUPPORT_TICKETS.filter(function(t){ return t.status === 'in_progress'; }).length;
+  var resolved   = SUPPORT_TICKETS.filter(function(t){ return t.status === 'resolved' || t.status === 'closed'; }).length;
+  var urgent     = SUPPORT_TICKETS.filter(function(t){ return t.priority === 'urgent' || t.priority === 'high'; }).length;
+  var el;
+  el = document.getElementById('spStatOpen');       if(el) el.textContent = open;
+  el = document.getElementById('spStatInProgress'); if(el) el.textContent = inProgress;
+  el = document.getElementById('spStatResolved');   if(el) el.textContent = resolved;
+  el = document.getElementById('spStatUrgent');     if(el) el.textContent = urgent;
+  el = document.getElementById('supportSubtitle');
+  if (el) el.textContent = SUPPORT_TICKETS.length + ' ticket' + (SUPPORT_TICKETS.length !== 1 ? 's' : '') +
+    ' · ' + open + ' ouvert' + (open !== 1 ? 's' : '');
+
+  var tbody = document.getElementById('supportTbody');
+  if (!tbody) return;
+
+  if (!tickets.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted);">' +
+      '<div style="font-size:32px;margin-bottom:8px;">🎫</div><div>Aucun ticket' +
+      (filterStatus || filterPriority ? ' correspondant aux filtres' : ' pour l\'instant') +
+      '</div></td></tr>';
+    return;
+  }
+
+  var userMap = {};
+  USERS.forEach(function(u){ userMap[u.id] = u; });
+
+  var statusBadge = function(s) {
+    var cfg = { open:'#FEE2E2:🔴 Ouvert', in_progress:'#FEF9C3:🟡 En cours', resolved:'#D1FAE5:🟢 Résolu', closed:'#F3F4F6:⚫ Fermé' };
+    var parts = (cfg[s] || '#F3F4F6:⚪ Inconnu').split(':');
+    return '<span style="background:' + parts[0] + ';padding:2px 8px;border-radius:100px;font-size:11px;font-weight:700;">' + parts[1] + '</span>';
+  };
+  var priorityBadge = function(p) {
+    var cfg = { urgent:'#FEE2E2;color:#DC2626:🚨 Urgente', high:'#FEE2E2;color:#DC2626:🔴 Haute',
+                normal:'#FEF9C3;color:#92400E:🟡 Normale', low:'#F3F4F6;color:#6B7280:⚪ Faible' };
+    var parts = (cfg[p] || '#F3F4F6;color:#6B7280:? ' + p).split(':');
+    return '<span style="background:' + parts[0] + ';padding:2px 8px;border-radius:100px;font-size:11px;font-weight:700;">' + parts[1] + '</span>';
+  };
+  var catLabel = function(c) {
+    var map = { general:'Général', depot:'Dépôt', retrait:'Retrait', kyc:'KYC', compte:'Compte', technique:'Technique', autre:'Autre' };
+    return map[c] || c;
+  };
+
+  tbody.innerHTML = tickets.map(function(t) {
+    var u = userMap[t.user_id] || {};
+    var name = (u.prenom || '') + ' ' + (u.nom || '') || u.phone || t.user_id.slice(0,8) + '…';
+    var date = t.created_at ? new Date(t.created_at).toLocaleDateString('fr-FR', {day:'2-digit',month:'short'}) : '—';
+    var shortSubject = t.subject.length > 45 ? t.subject.slice(0,45) + '…' : t.subject;
+    return '<tr>' +
+      '<td><div style="font-weight:600;font-size:13px;">' + esc(name.trim() || '—') + '</div><div style="font-size:11px;color:var(--text-muted);">' + esc(u.phone||'') + '</div></td>' +
+      '<td style="max-width:180px;"><div style="font-size:13px;font-weight:500;">' + esc(shortSubject) + '</div></td>' +
+      '<td><span style="font-size:12px;background:#F3F4F6;padding:2px 7px;border-radius:6px;">' + catLabel(t.category) + '</span></td>' +
+      '<td>' + priorityBadge(t.priority) + '</td>' +
+      '<td>' + statusBadge(t.status) + '</td>' +
+      '<td class="text-muted" style="font-size:12px;">' + date + '</td>' +
+      '<td><button class="btn btn-sm" style="font-size:12px;padding:5px 10px;" onclick="openTicketModal(\'' + t.id + '\')">💬 Répondre</button></td>' +
+    '</tr>';
+  }).join('');
+}
+
+function filterSupportTickets() { renderSupportTickets(); }
+
+function openTicketModal(ticketId) {
+  var ticket = SUPPORT_TICKETS.find(function(t){ return t.id === ticketId; });
+  if (!ticket) return;
+  var userMap = {}; USERS.forEach(function(u){ userMap[u.id] = u; });
+  var u = userMap[ticket.user_id] || {};
+  var name = ((u.prenom||'') + ' ' + (u.nom||'')).trim() || u.phone || ticket.user_id.slice(0,8) + '…';
+
+  document.getElementById('ticketModalId').value = ticketId;
+  document.getElementById('ticketModalMeta').textContent =
+    name + ' · ' + ticket.category + ' · ' +
+    new Date(ticket.created_at).toLocaleDateString('fr-FR', {day:'2-digit',month:'short',year:'numeric'});
+  document.getElementById('ticketModalMessage').textContent = ticket.message;
+  document.getElementById('ticketReplyText').value = '';
+  document.getElementById('ticketNewStatus').value = '';
+  document.getElementById('ticketNewPriority').value = '';
+
+  /* Replies */
+  var repliesEl = document.getElementById('ticketModalReplies');
+  if (repliesEl) {
+    /* We don't have replies in memory — show admin_reply if any */
+    var html = '';
+    if (ticket.admin_reply) {
+      html = '<div style="background:#EEF2FF;border-radius:10px;padding:10px 14px;">' +
+        '<div style="font-size:11px;font-weight:700;color:#0B1566;margin-bottom:4px;">RÉPONSE ADMIN</div>' +
+        '<div style="font-size:13px;line-height:1.5;">' + esc(ticket.admin_reply) + '</div></div>';
+    }
+    repliesEl.innerHTML = html || '<div style="text-align:center;font-size:12px;color:var(--text-muted);padding:8px;">Aucune réponse envoyée</div>';
+  }
+
+  openAdminModal('amodal-ticket');
+}
+
+function submitTicketReply() {
+  var ticketId  = document.getElementById('ticketModalId').value;
+  var msg       = (document.getElementById('ticketReplyText').value || '').trim();
+  var newStatus = document.getElementById('ticketNewStatus').value;
+  var newPriority = document.getElementById('ticketNewPriority').value;
+  if (!msg && !newStatus && !newPriority) {
+    showAdminToast('Entrez un message ou changez le statut', 'error'); return;
+  }
+
+  var body = { action: 'reply_ticket', ticketId: ticketId };
+  if (msg) body.message = msg;
+  if (newStatus) body.newStatus = newStatus;
+
+  fetch('/api/admin/update-balance', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
+    body: JSON.stringify(body),
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data) {
+    if (data.ok) {
+      /* Update local state */
+      var ticket = SUPPORT_TICKETS.find(function(t){ return t.id === ticketId; });
+      if (ticket) {
+        if (msg) ticket.admin_reply = msg;
+        if (newStatus) ticket.status = newStatus;
+        if (newPriority) ticket.priority = newPriority;
+      }
+      /* Update priority separately if set */
+      if (newPriority) {
+        fetch('/api/admin/update-balance', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
+          body: JSON.stringify({ action: 'update_ticket', ticketId: ticketId, priority: newPriority }),
+        }).catch(function(){});
+      }
+      closeAdminModal('amodal-ticket');
+      renderSupportTickets();
+      updateSupportBadge();
+      showAdminToast('✅ Réponse envoyée à l\'utilisateur', 'success');
+    } else {
+      showAdminToast('Erreur : ' + (data.error || 'inconnue'), 'error');
+    }
+  })
+  .catch(function(){ showAdminToast('Erreur réseau', 'error'); });
+}
+
+/* ══════════════ PROMO CODES ══════════════ */
+
+function renderPromos() {
+  var active = PROMO_CODES.filter(function(p){ return p.active; }).length;
+  var el = document.getElementById('promoSubtitle');
+  if (el) el.textContent = PROMO_CODES.length + ' code' + (PROMO_CODES.length !== 1 ? 's' : '') + ' · ' + active + ' actif' + (active !== 1 ? 's' : '');
+
+  var tbody = document.getElementById('promoTbody');
+  if (!tbody) return;
+
+  if (!PROMO_CODES.length) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--text-muted);">Aucun code promo</td></tr>';
+    return;
+  }
+
+  var typeLabel = function(t) {
+    return { bonus_deposit:'💰 Bonus', fee_free:'0️⃣ Frais 0%', cashback:'💸 Cashback' }[t] || t;
+  };
+
+  tbody.innerHTML = PROMO_CODES.map(function(p) {
+    var exp = p.expires_at ? new Date(p.expires_at).toLocaleDateString('fr-FR') : '—';
+    var expired = p.expires_at && new Date(p.expires_at) < new Date();
+    var uses = (p.uses_count || 0) + (p.max_uses ? '/' + p.max_uses : '');
+    var country = p.target_country ? {gn:'🇬🇳',bj:'🇧🇯',ci:'🇨🇮',cn:'🇨🇳'}[p.target_country] || p.target_country : '🌍';
+    return '<tr>' +
+      '<td style="font-weight:800;font-family:monospace;color:#0B1566;letter-spacing:.04em;">' + esc(p.code) + '</td>' +
+      '<td>' + typeLabel(p.type) + '</td>' +
+      '<td style="font-weight:700;">' + (p.value||0).toLocaleString('fr-FR') + ' ' + (p.currency||'GNF') + '</td>' +
+      '<td>' + uses + '</td>' +
+      '<td>' + country + '</td>' +
+      '<td style="font-size:12px;' + (expired ? 'color:#DC2626;' : '') + '">' + exp + '</td>' +
+      '<td>' +
+        '<label class="toggle" style="transform:scale(.8);transform-origin:left center;">' +
+          '<input type="checkbox" ' + (p.active ? 'checked' : '') +
+          ' onchange="togglePromo(\'' + p.id + '\',this.checked)" /><span class="slider"></span>' +
+        '</label>' +
+      '</td>' +
+      '<td>' +
+        '<button class="btn-icon danger" title="Supprimer" onclick="deletePromo(\'' + p.id + '\',\'' + esc(p.code) + '\')">🗑</button>' +
+      '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+function updatePromoValueLabel() {
+  var type = (document.getElementById('newPromoType') || {}).value;
+  var lbl  = document.getElementById('promoValueLabel');
+  if (!lbl) return;
+  var labels = { bonus_deposit:'Montant bonus', fee_free:'% de frais offerts', cashback:'% de cashback' };
+  lbl.innerHTML = (labels[type] || 'Valeur') + ' <span style="color:#DC2626;">*</span>';
+}
+
+function submitCreatePromo() {
+  var code        = (document.getElementById('newPromoCode').value        || '').trim().toUpperCase();
+  var type        = (document.getElementById('newPromoType').value        || '');
+  var value       = parseFloat(document.getElementById('newPromoValue').value || '0');
+  var currency    = (document.getElementById('newPromoCurrency').value    || 'GNF');
+  var maxUses     = document.getElementById('newPromoMaxUses').value;
+  var country     = document.getElementById('newPromoCountry').value;
+  var description = (document.getElementById('newPromoDescription').value || '').trim();
+  var expiry      = document.getElementById('newPromoExpiry').value;
+
+  if (!code || !type || isNaN(value)) {
+    showAdminToast('Code, type et valeur sont requis', 'error'); return;
+  }
+
+  var body = { action: 'create_promo', code, type, value, currency, description };
+  if (maxUses)  body.max_uses        = parseInt(maxUses, 10);
+  if (country)  body.target_country  = country;
+  if (expiry)   body.expires_at      = new Date(expiry).toISOString();
+
+  fetch('/api/admin/update-balance', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
+    body: JSON.stringify(body),
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data) {
+    if (data.ok) {
+      if (data.promo) PROMO_CODES.unshift(data.promo);
+      renderPromos();
+      closeAdminModal('amodal-createPromo');
+      showAdminToast('✅ Code promo "' + code + '" créé !', 'success');
+    } else {
+      showAdminToast('Erreur : ' + (data.error || 'inconnue'), 'error');
+    }
+  })
+  .catch(function(){ showAdminToast('Erreur réseau', 'error'); });
+}
+
+function togglePromo(promoId, active) {
+  fetch('/api/admin/update-balance', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
+    body: JSON.stringify({ action: 'toggle_promo', promoId: promoId, active: active }),
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data) {
+    if (data.ok) {
+      var p = PROMO_CODES.find(function(x){ return x.id === promoId; });
+      if (p) p.active = active;
+      showAdminToast((active ? '✅ Promo activée' : '⏸ Promo désactivée'), 'success');
+    } else {
+      showAdminToast('Erreur toggle promo', 'error');
+      renderPromos(); /* reset toggle UI */
+    }
+  })
+  .catch(function(){ showAdminToast('Erreur réseau', 'error'); renderPromos(); });
+}
+
+function deletePromo(promoId, code) {
+  if (!confirm('Supprimer le code promo "' + code + '" ? Cette action est irréversible.')) return;
+  fetch('/api/admin/update-balance', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
+    body: JSON.stringify({ action: 'delete_promo', promoId: promoId }),
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data) {
+    if (data.ok) {
+      PROMO_CODES = PROMO_CODES.filter(function(p){ return p.id !== promoId; });
+      renderPromos();
+      showAdminToast('🗑 Code "' + code + '" supprimé', 'success');
+    } else {
+      showAdminToast('Erreur suppression', 'error');
+    }
+  })
+  .catch(function(){ showAdminToast('Erreur réseau', 'error'); });
+}
+
+/* ══════════════ BROADCAST ══════════════ */
+
+function sendBroadcast() {
+  var title   = (document.getElementById('broadcastTitle').value   || '').trim();
+  var message = (document.getElementById('broadcastMessage').value || '').trim();
+  var target  = (document.getElementById('broadcastTarget').value  || 'all');
+
+  if (!title || !message) { showAdminToast('Titre et message requis', 'error'); return; }
+
+  var btn = document.getElementById('broadcastBtn');
+  var resultEl = document.getElementById('broadcastResult');
+  if (btn) { btn.disabled = true; btn.textContent = 'Envoi en cours…'; }
+  if (resultEl) resultEl.textContent = '';
+
+  fetch('/api/admin/update-balance', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
+    body: JSON.stringify({ action: 'send_broadcast', title: title, message: message, target: target }),
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data) {
+    if (btn) { btn.disabled = false; btn.textContent = '📤 Envoyer la notification'; }
+    if (data.ok) {
+      if (resultEl) {
+        resultEl.textContent = '✅ Envoyé à ' + data.sentCount + ' utilisateur' + (data.sentCount !== 1 ? 's' : '');
+        resultEl.style.color = '#16A34A';
+      }
+      /* Add to broadcasts history */
+      BROADCASTS.unshift({ title: title, message: message, target: target,
+        sent_count: data.sentCount, created_at: new Date().toISOString() });
+      renderBroadcastHistory();
+      document.getElementById('broadcastTitle').value = '';
+      document.getElementById('broadcastMessage').value = '';
+      showAdminToast('📢 Notification envoyée à ' + data.sentCount + ' utilisateurs !', 'success');
+    } else {
+      if (resultEl) { resultEl.textContent = '❌ ' + (data.error || 'Erreur'); resultEl.style.color = '#DC2626'; }
+      showAdminToast('Erreur broadcast : ' + (data.error || ''), 'error');
+    }
+  })
+  .catch(function() {
+    if (btn) { btn.disabled = false; btn.textContent = '📤 Envoyer la notification'; }
+    showAdminToast('Erreur réseau', 'error');
+  });
+}
+
+function renderBroadcastHistory() {
+  var historyEl = document.getElementById('broadcastHistory');
+  var listEl    = document.getElementById('broadcastHistoryList');
+  if (!historyEl || !listEl) return;
+
+  if (!BROADCASTS.length) { historyEl.style.display = 'none'; return; }
+  historyEl.style.display = '';
+
+  var targetLabel = function(t) {
+    return { all:'🌍 Tous', gn:'🇬🇳 Guinée', bj:'🇧🇯 Bénin', ci:'🇨🇮 CI', cn:'🇨🇳 Chine' }[t] || t;
+  };
+
+  listEl.innerHTML = BROADCASTS.slice(0, 10).map(function(b) {
+    var date = b.created_at ? new Date(b.created_at).toLocaleDateString('fr-FR', {day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '—';
+    return '<div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;">' +
+      '<div>' +
+        '<div style="font-size:13px;font-weight:600;">' + esc(b.title) + '</div>' +
+        '<div style="font-size:11px;color:var(--text-muted);">' + targetLabel(b.target) + ' · ' + (b.sent_count||0) + ' envoyés · ' + date + '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+/* ══════════════ LOGS ══════════════ */
+
+function renderLogs() {
+  var filter = (document.getElementById('logsFilter') || {}).value || '';
+
+  /* Build log entries from ALL_TXNS + USERS */
+  var entries = [];
+
+  /* Transactions */
+  ALL_TXNS.forEach(function(t) {
+    var typeKey = t.type || '';
+    var logType = typeKey.includes('depot') || typeKey === 'deposit' || typeKey === 'bonus' ? typeKey : typeKey.includes('retrait') ? 'retrait' : typeKey;
+    if (filter && !logType.includes(filter) && filter !== 'retrait') return;
+    if (filter === 'depot' && !typeKey.includes('depot') && typeKey !== 'deposit') return;
+    if (filter === 'retrait' && !typeKey.includes('retrait')) return;
+    if (filter === 'bonus' && typeKey !== 'bonus') return;
+    var statut = t.statut || '';
+    var icon = statut === 'completed' || statut === 'success' ? '✅' :
+               statut === 'pending'   ? '⏳' :
+               statut === 'failed'    ? '❌' : '•';
+    entries.push({
+      ts: t.raw_created || new Date().getTime(),
+      type: logType,
+      text: icon + ' [' + (t.type||'TXN') + '] user=' + (t.userId||'').slice(0,8) + '… · ' + fmt(t.montant||0) + ' GNF · ' + t.op + ' · ' + t.date,
+      color: statut === 'completed' ? '#16A34A' : statut === 'pending' ? '#92400E' : statut === 'failed' ? '#DC2626' : '#374151',
+    });
+  });
+
+  /* Inscriptions */
+  if (!filter || filter === 'inscription') {
+    USERS.forEach(function(u) {
+      entries.push({
+        ts: u.raw_created || new Date().getTime(),
+        type: 'inscription',
+        text: '👤 [INSCRIPTION] user=' + (u.id||'').slice(0,8) + '… · ' + (u.phone||'') + ' · ' + (u.country||'?').toUpperCase() + ' · ' + (u.date||''),
+        color: '#0B1566',
+      });
+    });
+  }
+
+  /* KYC */
+  if (!filter || filter === 'kyc') {
+    USERS.filter(function(u){ return u.kyc && u.kyc !== 'none'; }).forEach(function(u) {
+      var icon = u.kyc === 'verified' ? '✅' : u.kyc === 'pending' ? '⏳' : '❌';
+      entries.push({
+        ts: u.raw_created || new Date().getTime(),
+        type: 'kyc',
+        text: icon + ' [KYC=' + u.kyc + '] user=' + (u.id||'').slice(0,8) + '… · ' + (u.phone||''),
+        color: u.kyc === 'verified' ? '#16A34A' : '#92400E',
+      });
+    });
+  }
+
+  /* Sort newest first */
+  entries.sort(function(a,b){ return b.ts - a.ts; });
+
+  /* Stats */
+  var deposits  = ALL_TXNS.filter(function(t){ var s = t.statut||''; return s === 'completed' || s === 'success'; }).length;
+  var pending   = ALL_TXNS.filter(function(t){ return (t.statut||'') === 'pending'; }).length;
+  var failed    = ALL_TXNS.filter(function(t){ var s = t.statut||''; return s === 'failed' || s === 'error'; }).length;
+  var el;
+  el = document.getElementById('logStatUsers');    if(el) el.textContent = USERS.length;
+  el = document.getElementById('logStatDeposits'); if(el) el.textContent = deposits;
+  el = document.getElementById('logStatPending');  if(el) el.textContent = pending;
+  el = document.getElementById('logStatFailed');   if(el) el.textContent = failed;
+
+  var content = document.getElementById('logsContent');
+  if (!content) return;
+
+  var lines = entries.slice(0, 200).map(function(e) {
+    return '<div style="padding:2px 12px;color:' + e.color + ';border-bottom:1px solid #F3F4F6;font-size:11.5px;">' + esc(e.text) + '</div>';
+  }).join('');
+
+  content.innerHTML = '<div style="color:#9CA3AF;padding:4px 12px;font-size:11px;">[Epargn+ v6] ── ' + entries.length + ' entrées · filtré: ' + (filter||'tous') + ' ──</div>' +
+    (lines || '<div style="text-align:center;padding:24px;color:#9CA3AF;">Aucun événement</div>');
+}
+
+/* ══════════════ PILOT CHECKLIST ══════════════ */
+
+function renderPilotChecklist(data) {
+  var stats   = data.stats || {};
+  var users   = data.users || [];
+  var txns    = data.allTransactions || [];
+  var promos  = data.promoCodes     || [];
+  var tickets = data.supportTickets || [];
+
+  var checks = [
+    {
+      label: 'Migration SQL exécutée',
+      check: users.length >= 0, /* Si l'API répond, la DB fonctionne */
+      hint:  'Exécuter migration-mvp.sql + migration-pilot.sql dans Supabase',
+    },
+    {
+      label: 'ADMIN_SECRET configuré',
+      check: false, /* Impossible à vérifier côté client */
+      hint:  'Variables Vercel → ADMIN_SECRET (pas le secret par défaut)',
+      manual: true,
+    },
+    {
+      label: 'JWT_SECRET configuré',
+      check: false,
+      hint:  'Variables Vercel → JWT_SECRET fort et aléatoire',
+      manual: true,
+    },
+    {
+      label: 'RESEND_API_KEY actif',
+      check: false,
+      hint:  'Tester l\'envoi d\'un OTP email en production',
+      manual: true,
+    },
+    {
+      label: 'Au moins 1 utilisateur inscrit',
+      check: users.length >= 1,
+      hint:  'Inscrire un compte test via /connexion',
+    },
+    {
+      label: 'Au moins 1 transaction validée',
+      check: txns.filter(function(t){ return (t.statut||t.status) === 'completed'; }).length >= 1,
+      hint:  'Approuver un dépôt test depuis ce dashboard',
+    },
+    {
+      label: 'Numéros dépôt configurés',
+      check: !!(data.merchantConfig && (
+        (data.merchantConfig.orange_gn) ||
+        (data.merchantConfig.mtn_gn)
+      )),
+      hint:  'Paramètres → Numéros de dépôt MM',
+    },
+    {
+      label: 'Code promo de lancement',
+      check: promos.filter(function(p){ return p.active; }).length >= 1,
+      hint:  'Paramètres → Codes Promo → Créer PILOTE2026',
+    },
+    {
+      label: 'Module support opérationnel',
+      check: true, /* Table créée si migration-pilot.sql OK */
+      hint:  'tickets OK après migration-pilot.sql',
+    },
+    {
+      label: 'KYC traité (≥ 1 vérifié)',
+      check: (stats.kycVerified || 0) >= 1,
+      hint:  'Approuver au moins 1 dossier KYC test',
+    },
+  ];
+
+  var done  = checks.filter(function(c){ return c.check; }).length;
+  var total = checks.length;
+
+  var badgeEl = document.getElementById('pilotCheckBadge');
+  if (badgeEl) {
+    var pct = Math.round(done / total * 100);
+    badgeEl.textContent = done + '/' + total;
+    badgeEl.style.background = done === total ? '#16A34A' : done >= total * 0.7 ? '#CA8A04' : '#0B1566';
+  }
+  var progEl = document.getElementById('pilotCheckProgress');
+  if (progEl) {
+    progEl.textContent = done + ' sur ' + total + ' points validés' + (done === total ? ' — Prêt pour le pilote ! 🎉' : ' — Complétez les points manquants');
+  }
+
+  var container = document.getElementById('pilotChecklist');
+  if (!container) return;
+
+  container.innerHTML = checks.map(function(c) {
+    var bg    = c.check ? '#F0FDF4' : (c.manual ? '#FFFBEB' : '#FEF2F2');
+    var icon  = c.check ? '✅' : (c.manual ? '⚙️' : '❌');
+    var color = c.check ? '#16A34A' : (c.manual ? '#92400E' : '#DC2626');
+    return '<div style="background:' + bg + ';border-radius:10px;padding:12px 14px;display:flex;gap:10px;align-items:flex-start;">' +
+      '<span style="font-size:16px;flex-shrink:0;">' + icon + '</span>' +
+      '<div>' +
+        '<div style="font-size:13px;font-weight:700;color:' + color + ';">' + esc(c.label) + '</div>' +
+        '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">' + esc(c.hint) + '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
 }
 </script>
 

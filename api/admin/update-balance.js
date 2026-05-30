@@ -1,6 +1,7 @@
 /**
- * POST /api/admin/update-balance — Epargn+ v5
- * Actions admin : approuver/rejeter dépôts, gérer projets, retraits collectifs, Alipay.
+ * POST /api/admin/update-balance — Epargn+ v6
+ * Actions admin : approuver/rejeter dépôts, gérer projets, retraits collectifs, Alipay,
+ *                 tickets support, codes promo, broadcasts.
  *
  * Actions supportées :
  *   approve            — valider un dépôt Mobile Money
@@ -13,6 +14,12 @@
  *   confirm-alipay     — valider un dépôt Alipay
  *   reject-alipay      — rejeter un dépôt Alipay
  *   delete-account     — supprimer un compte utilisateur
+ *   reply_ticket       — répondre à un ticket support
+ *   update_ticket      — changer statut/priorité d'un ticket
+ *   create_promo       — créer un code promo
+ *   toggle_promo       — activer/désactiver un code promo
+ *   delete_promo       — supprimer un code promo
+ *   send_broadcast     — envoyer une notification à un segment d'utilisateurs
  */
 
 const { supabaseRequest } = require('../_lib/supabase');
@@ -420,6 +427,157 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ok: true, action: 'update-settings' });
     } catch (err) {
       return res.status(500).json({ error: 'Erreur sauvegarde paramètres : ' + err.message });
+    }
+  }
+
+  /* ════════════ REPLY_TICKET ════════════ */
+  if (action === 'reply_ticket') {
+    const { ticketId, message: replyMsg, newStatus } = body;
+    if (!ticketId || !replyMsg) return res.status(400).json({ error: 'ticketId et message requis' });
+    try {
+      /* Insérer la réponse */
+      await supabaseRequest('POST', '/ticket_replies', {
+        ticket_id: ticketId, author_id: null, message: replyMsg, is_admin: true,
+      });
+      /* Mettre à jour le ticket */
+      const patch = { admin_reply: replyMsg, updated_at: now };
+      if (newStatus) patch.status = newStatus;
+      if (newStatus === 'resolved') patch.resolved_at = now;
+      await supabaseRequest('PATCH', '/support_tickets?id=eq.' + encodeURIComponent(ticketId), patch);
+      /* Récupérer le ticket pour notifier le client */
+      try {
+        const tRows = await supabaseRequest('GET',
+          '/support_tickets?id=eq.' + encodeURIComponent(ticketId) + '&select=user_id,subject');
+        if (Array.isArray(tRows) && tRows[0]) {
+          await createNotification(
+            tRows[0].user_id, 'support',
+            '💬 Réponse à votre demande',
+            `Votre demande "${tRows[0].subject}" a reçu une réponse de l'équipe Epargn+.`,
+            { ticket_id: ticketId }
+          );
+        }
+      } catch (ne) { console.warn('[reply_ticket] notification:', ne.message); }
+      console.log('[reply_ticket] ticket=' + ticketId + (newStatus ? ' status→' + newStatus : ''));
+      return res.status(200).json({ ok: true, action: 'reply_ticket', ticketId });
+    } catch (err) {
+      return res.status(500).json({ error: 'Erreur réponse ticket : ' + err.message });
+    }
+  }
+
+  /* ════════════ UPDATE_TICKET ════════════ */
+  if (action === 'update_ticket') {
+    const { ticketId, status: tStatus, priority: tPriority } = body;
+    if (!ticketId) return res.status(400).json({ error: 'ticketId requis' });
+    const allowed = ['open','in_progress','resolved','closed'];
+    const allowedP = ['low','normal','high','urgent'];
+    if (tStatus && !allowed.includes(tStatus)) return res.status(400).json({ error: 'status invalide' });
+    if (tPriority && !allowedP.includes(tPriority)) return res.status(400).json({ error: 'priority invalide' });
+    try {
+      const patch = { updated_at: now };
+      if (tStatus)   patch.status   = tStatus;
+      if (tPriority) patch.priority = tPriority;
+      if (tStatus === 'resolved') patch.resolved_at = now;
+      await supabaseRequest('PATCH', '/support_tickets?id=eq.' + encodeURIComponent(ticketId), patch);
+      return res.status(200).json({ ok: true, action: 'update_ticket', ticketId, status: tStatus, priority: tPriority });
+    } catch (err) {
+      return res.status(500).json({ error: 'Erreur mise à jour ticket : ' + err.message });
+    }
+  }
+
+  /* ════════════ CREATE_PROMO ════════════ */
+  if (action === 'create_promo') {
+    const { code, description: promoDesc, type: promoType, value: promoVal,
+            currency: promoCur, max_uses, target_country, expires_at } = body;
+    if (!code || !promoType || promoVal === undefined) {
+      return res.status(400).json({ error: 'code, type et value requis' });
+    }
+    const validTypes = ['bonus_deposit','fee_free','cashback'];
+    if (!validTypes.includes(promoType)) return res.status(400).json({ error: 'type invalide' });
+    try {
+      const row = {
+        code: code.toUpperCase().trim(),
+        description: promoDesc || '',
+        type: promoType,
+        value: Number(promoVal),
+        currency: promoCur || 'GNF',
+        active: true,
+        uses_count: 0,
+      };
+      if (max_uses)        row.max_uses        = parseInt(max_uses, 10);
+      if (target_country)  row.target_country  = target_country;
+      if (expires_at)      row.expires_at      = expires_at;
+      const created = await supabaseRequest('POST', '/promo_codes', row);
+      const result = Array.isArray(created) ? created[0] : created;
+      console.log('[create_promo] code=' + row.code);
+      return res.status(200).json({ ok: true, action: 'create_promo', promo: result });
+    } catch (err) {
+      if (err.message && err.message.includes('unique')) {
+        return res.status(409).json({ error: 'Ce code promo existe déjà.' });
+      }
+      return res.status(500).json({ error: 'Erreur création promo : ' + err.message });
+    }
+  }
+
+  /* ════════════ TOGGLE_PROMO ════════════ */
+  if (action === 'toggle_promo') {
+    const { promoId, active: promoActive } = body;
+    if (!promoId || promoActive === undefined) return res.status(400).json({ error: 'promoId et active requis' });
+    try {
+      await supabaseRequest('PATCH', '/promo_codes?id=eq.' + encodeURIComponent(promoId), {
+        active: Boolean(promoActive),
+      });
+      return res.status(200).json({ ok: true, action: 'toggle_promo', promoId, active: promoActive });
+    } catch (err) {
+      return res.status(500).json({ error: 'Erreur toggle promo : ' + err.message });
+    }
+  }
+
+  /* ════════════ DELETE_PROMO ════════════ */
+  if (action === 'delete_promo') {
+    const { promoId } = body;
+    if (!promoId) return res.status(400).json({ error: 'promoId requis' });
+    try {
+      try { await supabaseRequest('DELETE', '/promo_uses?promo_id=eq.' + encodeURIComponent(promoId)); } catch {}
+      await supabaseRequest('DELETE', '/promo_codes?id=eq.' + encodeURIComponent(promoId));
+      return res.status(200).json({ ok: true, action: 'delete_promo', promoId });
+    } catch (err) {
+      return res.status(500).json({ error: 'Erreur suppression promo : ' + err.message });
+    }
+  }
+
+  /* ════════════ SEND_BROADCAST ════════════ */
+  if (action === 'send_broadcast') {
+    const { title: bTitle, message: bMsg, target: bTarget } = body;
+    if (!bTitle || !bMsg) return res.status(400).json({ error: 'title et message requis' });
+    const validTargets = ['all','gn','bj','ci','cn'];
+    const target = validTargets.includes(bTarget) ? bTarget : 'all';
+    try {
+      /* Récupérer les utilisateurs ciblés */
+      let usersQuery = '/users?select=id&limit=1000';
+      if (target !== 'all') usersQuery += '&country=eq.' + target;
+      const targetUsers = await supabaseRequest('GET', usersQuery);
+      const userList = Array.isArray(targetUsers) ? targetUsers : [];
+
+      /* Créer une notification pour chaque utilisateur */
+      let sentCount = 0;
+      for (const u of userList) {
+        try {
+          await createNotification(u.id, 'broadcast', bTitle, bMsg, { broadcast: true });
+          sentCount++;
+        } catch (e) { /* continuer */ }
+      }
+
+      /* Enregistrer le broadcast */
+      try {
+        await supabaseRequest('POST', '/broadcasts', {
+          title: bTitle, message: bMsg, target, sent_count: sentCount, created_by: 'admin',
+        });
+      } catch (e) { console.warn('[send_broadcast] save broadcast:', e.message); }
+
+      console.log('[send_broadcast] target=' + target + ' sent=' + sentCount);
+      return res.status(200).json({ ok: true, action: 'send_broadcast', sentCount, target });
+    } catch (err) {
+      return res.status(500).json({ error: 'Erreur broadcast : ' + err.message });
     }
   }
 

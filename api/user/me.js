@@ -76,6 +76,8 @@ module.exports = async (req, res) => {
   if (resource === 'notifications') return handleNotifications(req, res, payload, resourceId);
   if (resource === 'invitations')   return handleInvitations(req, res, payload, resourceId);
   if (resource === 'settings')      return handleSettings(req, res);
+  if (resource === 'tickets')       return handleTickets(req, res, payload, resourceId);
+  if (resource === 'promos')        return handlePromos(req, res, payload);
 
   /* ══════════ ROUTE PROFIL ══════════ */
   if (!['GET', 'PATCH'].includes(req.method)) {
@@ -552,4 +554,172 @@ async function handleInvitations(req, res, payload, resourceId) {
   }
 
   return res.status(405).json({ error: 'Méthode non autorisée pour /invitations' });
+}
+
+/* ── Tickets support utilisateur ── */
+async function handleTickets(req, res, payload, resourceId) {
+  /* GET — liste des tickets de l'utilisateur */
+  if (req.method === 'GET') {
+    try {
+      const rows = await supabaseRequest('GET',
+        '/support_tickets?user_id=eq.' + encodeURIComponent(payload.userId) +
+        '&select=id,subject,message,status,priority,category,admin_reply,resolved_at,created_at,updated_at' +
+        '&order=created_at.desc&limit=50');
+      const tickets = Array.isArray(rows) ? rows : [];
+      /* Pour chaque ticket, récupérer les réponses */
+      const result = [];
+      for (const t of tickets) {
+        let replies = [];
+        try {
+          replies = await supabaseRequest('GET',
+            '/ticket_replies?ticket_id=eq.' + encodeURIComponent(t.id) +
+            '&select=id,message,is_admin,created_at&order=created_at.asc');
+          if (!Array.isArray(replies)) replies = [];
+        } catch (e) { /* ignore */ }
+        result.push({ ...t, replies });
+      }
+      return res.status(200).json(result);
+    } catch (e) {
+      return res.status(500).json({ error: 'Erreur chargement tickets : ' + e.message });
+    }
+  }
+
+  /* POST — créer un ticket */
+  if (req.method === 'POST') {
+    const body = await parseBody(req);
+    const { subject, message: msg, category } = body;
+    if (!subject || !msg) return res.status(400).json({ error: 'subject et message requis' });
+    try {
+      const categories = ['general','depot','retrait','kyc','compte','technique','autre'];
+      const cat = categories.includes(category) ? category : 'general';
+      const created = await supabaseRequest('POST', '/support_tickets', {
+        user_id: payload.userId,
+        subject: String(subject).slice(0, 200),
+        message: String(msg).slice(0, 2000),
+        category: cat,
+        status: 'open',
+        priority: 'normal',
+      });
+      const ticket = Array.isArray(created) ? created[0] : created;
+      return res.status(201).json({ ok: true, ticket });
+    } catch (e) {
+      return res.status(500).json({ error: 'Erreur création ticket : ' + e.message });
+    }
+  }
+
+  /* PATCH — ajouter une réponse utilisateur */
+  if (req.method === 'PATCH' && resourceId) {
+    const body = await parseBody(req);
+    const { message: replyMsg } = body;
+    if (!replyMsg) return res.status(400).json({ error: 'message requis' });
+    try {
+      /* Vérifier ownership */
+      const tRows = await supabaseRequest('GET',
+        '/support_tickets?id=eq.' + encodeURIComponent(resourceId) +
+        '&user_id=eq.' + encodeURIComponent(payload.userId) + '&select=id,status');
+      if (!Array.isArray(tRows) || !tRows[0]) {
+        return res.status(404).json({ error: 'Ticket introuvable' });
+      }
+      if (tRows[0].status === 'closed') {
+        return res.status(400).json({ error: 'Ce ticket est clôturé' });
+      }
+      await supabaseRequest('POST', '/ticket_replies', {
+        ticket_id: resourceId, author_id: payload.userId, message: String(replyMsg).slice(0, 2000), is_admin: false,
+      });
+      await supabaseRequest('PATCH', '/support_tickets?id=eq.' + encodeURIComponent(resourceId), {
+        status: 'in_progress', updated_at: new Date().toISOString(),
+      });
+      return res.status(200).json({ ok: true });
+    } catch (e) {
+      return res.status(500).json({ error: 'Erreur réponse ticket : ' + e.message });
+    }
+  }
+
+  return res.status(405).json({ error: 'Méthode non autorisée pour /tickets' });
+}
+
+/* ── Application d'un code promo ── */
+async function handlePromos(req, res, payload) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'POST uniquement' });
+  const body = await parseBody(req);
+  const { code } = body;
+  if (!code) return res.status(400).json({ error: 'code requis' });
+
+  try {
+    /* Récupérer le promo */
+    const rows = await supabaseRequest('GET',
+      '/promo_codes?code=eq.' + encodeURIComponent(code.toUpperCase().trim()) +
+      '&select=id,code,type,value,currency,max_uses,uses_count,target_country,active,expires_at');
+    if (!Array.isArray(rows) || !rows[0]) {
+      return res.status(404).json({ error: 'Code promo invalide ou inexistant.' });
+    }
+    const promo = rows[0];
+
+    /* Vérifications */
+    if (!promo.active) return res.status(400).json({ error: 'Ce code promo est désactivé.' });
+    if (promo.expires_at && new Date(promo.expires_at) < new Date()) {
+      return res.status(400).json({ error: 'Ce code promo a expiré.' });
+    }
+    if (promo.max_uses !== null && promo.uses_count >= promo.max_uses) {
+      return res.status(400).json({ error: 'Ce code promo a atteint sa limite d\'utilisation.' });
+    }
+
+    /* Vérifier pays si ciblé */
+    if (promo.target_country) {
+      const uRows = await supabaseRequest('GET',
+        '/users?id=eq.' + encodeURIComponent(payload.userId) + '&select=country');
+      const userCountry = (Array.isArray(uRows) && uRows[0]) ? uRows[0].country : null;
+      if (userCountry !== promo.target_country) {
+        return res.status(400).json({ error: 'Ce code promo n\'est pas disponible dans votre pays.' });
+      }
+    }
+
+    /* Vérifier utilisation déjà faite */
+    const usedRows = await supabaseRequest('GET',
+      '/promo_uses?promo_id=eq.' + encodeURIComponent(promo.id) +
+      '&user_id=eq.' + encodeURIComponent(payload.userId) + '&select=id');
+    if (Array.isArray(usedRows) && usedRows.length > 0) {
+      return res.status(400).json({ error: 'Vous avez déjà utilisé ce code promo.' });
+    }
+
+    /* Appliquer le bonus */
+    let bonusAmount = 0;
+    if (promo.type === 'bonus_deposit') {
+      bonusAmount = Number(promo.value) || 0;
+      if (bonusAmount > 0) {
+        const uRows = await supabaseRequest('GET',
+          '/users?id=eq.' + encodeURIComponent(payload.userId) + '&select=id,epargne');
+        if (Array.isArray(uRows) && uRows[0]) {
+          const newEp = (Number(uRows[0].epargne) || 0) + bonusAmount;
+          await supabaseRequest('PATCH', '/users?id=eq.' + encodeURIComponent(payload.userId),
+            { epargne: newEp, updated_at: new Date().toISOString() });
+          await supabaseRequest('POST', '/transactions', {
+            user_id: payload.userId, type: 'bonus', amount: bonusAmount,
+            statut: 'completed', status: 'success', is_credit: true,
+            label: 'Bonus promo — ' + promo.code,
+            currency: promo.currency || 'GNF',
+          });
+        }
+      }
+    }
+
+    /* Enregistrer l'utilisation */
+    await supabaseRequest('POST', '/promo_uses', {
+      promo_id: promo.id, user_id: payload.userId, amount: bonusAmount,
+    });
+
+    /* Incrémenter le compteur */
+    await supabaseRequest('PATCH', '/promo_codes?id=eq.' + encodeURIComponent(promo.id), {
+      uses_count: promo.uses_count + 1,
+    });
+
+    console.log('[promos] user=' + payload.userId + ' code=' + promo.code + ' bonus=' + bonusAmount);
+    return res.status(200).json({
+      ok: true, promo: { code: promo.code, type: promo.type, value: promo.value, currency: promo.currency },
+      bonusAmount,
+    });
+
+  } catch (err) {
+    return res.status(500).json({ error: 'Erreur application promo : ' + err.message });
+  }
 }
