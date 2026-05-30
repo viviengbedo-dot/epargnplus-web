@@ -12,8 +12,13 @@ const crypto = require('crypto');
 const { supabaseRequest } = require('../_lib/supabase');
 const { sendEmail, otpEmailHtml } = require('../_lib/email');
 
-const OTP_SECRET = process.env.OTP_SECRET || 'epargn-otp-dev-secret-change-me';
-const OTP_TTL_MS = 5 * 60 * 1000;
+const OTP_SECRET    = process.env.OTP_SECRET || 'epargn-otp-dev-secret-change-me';
+const OTP_TTL_MS    = 10 * 60 * 1000; // 10 minutes
+const MAX_RESEND    = 3;               // max renvois par heure
+const RESEND_WINDOW = 60 * 60 * 1000; // 1 heure
+
+/* Compteur en mémoire : { phone → [timestamp, ...] } */
+const _resendLog = new Map();
 
 function generateOTP()              { return Math.floor(100000 + Math.random() * 900000).toString(); }
 function signOTP(otp, phone, ts)    { return crypto.createHmac('sha256', OTP_SECRET).update(`${otp}:${phone}:${ts}`).digest('hex'); }
@@ -80,6 +85,19 @@ module.exports = async (req, res) => {
 
   if (!phone) return res.status(400).json({ error: 'phone requis' });
 
+  /* ── Rate limiting : max 3 renvois / heure par numéro ── */
+  const now = Date.now();
+  const key = phone;
+  const history = (_resendLog.get(key) || []).filter(t => now - t < RESEND_WINDOW);
+  if (history.length >= MAX_RESEND) {
+    const retryAfterMin = Math.ceil((RESEND_WINDOW - (now - history[0])) / 60000);
+    return res.status(429).json({
+      error: `Trop de demandes. Réessayez dans ${retryAfterMin} minute${retryAfterMin > 1 ? 's' : ''}.`,
+      retry_after_min: retryAfterMin,
+    });
+  }
+  _resendLog.set(key, [...history, now]);
+
   /* Vérification existence selon le but */
   if (purpose === 'register') {
     try {
@@ -128,7 +146,9 @@ module.exports = async (req, res) => {
 
   return res.status(200).json({
     token,
-    expires:   ts + OTP_TTL_MS,
+    expires:      ts + OTP_TTL_MS,
+    ttl_ms:       OTP_TTL_MS,
+    resends_left: MAX_RESEND - history.length - 1,
     demo,
     emailSent: !!(targetEmail && hasResend),
     channel:   'email',

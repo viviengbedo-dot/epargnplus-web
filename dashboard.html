@@ -298,7 +298,7 @@
         <!-- Frais -->
         <div style="margin-bottom:16px;">
           <div style="display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid var(--divider);">
-            <span style="font-size:13px;color:var(--text-secondary);">Frais de retrait (1%, max. 5 000 GNF)</span>
+            <span style="font-size:13px;color:var(--text-secondary);" id="retraitFeeLabel">Frais de retrait (1%, max. 5 000 GNF)</span>
             <span style="font-size:13px;font-weight:700;color:var(--text-secondary);" id="retraitFee">—</span>
           </div>
           <div style="display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid var(--divider);">
@@ -401,7 +401,7 @@
         <div class="flex-between mb-6">
           <div>
             <h2 style="font-size:22px;font-weight:800;color:var(--primary);">Programme de Parrainage</h2>
-            <p class="text-muted">Invitez vos proches, gagnez jusqu'à <strong>5 000 GNF</strong> par filleul</p>
+            <p class="text-muted">Invitez vos proches, gagnez jusqu'à <strong id="parrMaxPrime">5 000 GNF</strong> par filleul</p>
           </div>
         </div>
 
@@ -410,8 +410,8 @@
           <div style="position:absolute;inset:0;background:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 200 200%22><circle cx=%22160%22 cy=%2240%22 r=%2280%22 fill=%22rgba(200,230,0,.05)%22/></svg>');"></div>
           <div style="position:relative;z-index:1;">
             <div style="font-size:44px;margin-bottom:6px;">🎁</div>
-            <h3 style="font-size:26px;font-weight:900;margin-bottom:6px;">Gagnez jusqu'à <span style="color:var(--accent);">5 000 GNF</span></h3>
-            <p style="opacity:.75;font-size:13px;margin-bottom:18px;line-height:1.5;">500 GNF par tranche de 100 000 GNF déposée par votre filleul.<br>Prime totale de 5 000 GNF atteinte à 1 000 000 GNF cumulés.</p>
+            <h3 style="font-size:26px;font-weight:900;margin-bottom:6px;">Gagnez jusqu'à <span style="color:var(--accent);" id="parrHeroMax">5 000 GNF</span></h3>
+            <p style="opacity:.75;font-size:13px;margin-bottom:18px;line-height:1.5;" id="parrHeroDesc">500 GNF par tranche de 100 000 GNF déposée par votre filleul.<br>Prime totale de 5 000 GNF atteinte à 1 000 000 GNF cumulés.</p>
             <!-- Code parrainage -->
             <div style="background:rgba(255,255,255,.12);border-radius:10px;padding:12px 16px;display:flex;align-items:center;justify-content:center;gap:12px;max-width:360px;margin:0 auto 10px;">
               <span style="font-size:15px;font-weight:800;letter-spacing:.08em;color:#fff;" id="parrainageCode">…</span>
@@ -426,7 +426,7 @@
         <!-- Explication du mécanisme -->
         <div class="card mb-4" style="padding:16px 18px;">
           <div style="font-size:13px;font-weight:700;color:var(--primary);margin-bottom:12px;">📊 Comment fonctionne la commission ?</div>
-          <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:12px;color:var(--text-secondary);">
+          <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:12px;color:var(--text-secondary);" id="parrCommissionGrid">
             <span style="font-weight:700;color:var(--success);">+500 GNF</span><span>dès 100 000 GNF déposés par votre filleul</span>
             <span style="font-weight:700;color:var(--success);">+1 000 GNF</span><span>à 200 000 GNF déposés</span>
             <span style="font-weight:700;color:var(--success);">+2 500 GNF</span><span>à 500 000 GNF déposés</span>
@@ -447,7 +447,7 @@
             <div class="stat-card-icon" style="background:#F0FDF4;">💵</div>
             <div class="stat-card-info">
               <div class="stat-card-value" id="statGagnes">0</div>
-              <div class="stat-card-label">GNF gagnés</div>
+              <div class="stat-card-label"><span id="parrCurLabel">GNF</span> gagnés</div>
             </div>
           </div>
           <div class="stat-card">
@@ -2749,6 +2749,7 @@ function loadTransactions() {
     applyTxnFilters();
     renderHomeActivities();
     buildNotificationsFromData(); /* ← met à jour la cloche */
+    showSmartNotifications();     /* ← toasts proactifs post-chargement */
   })
   .catch(function(err) {
     console.warn('[transactions] Chargement DB impossible :', err.message);
@@ -3089,18 +3090,28 @@ function keypadDel() {
   _retraitVal = _retraitVal.slice(0, -1);
   _updateRetrait();
 }
+/* Plafonds de frais et minimums par devise */
+const RETRAIT_CAPS = { GNF: 5000, FCFA: 2500, XOF: 2500, CFA: 2500, CNY: 50 };
+const DEPOT_MINS  = { GNF: 1000, FCFA: 500,  XOF: 500,  CFA: 500,  CNY: 1  };
+
 function _updateRetrait() {
   const n   = parseInt(_retraitVal) || 0;
   const cur = (COUNTRY_LABELS[_userCountry] || COUNTRY_LABELS.gn).currency;
+  const cap = RETRAIT_CAPS[cur] || 5000;
   document.getElementById('retraitDisplay').textContent = n.toLocaleString('fr');
-  const fee = n > 0 ? Math.min(Math.round(n * 0.01), 5000) : 0;
+  const fee = n > 0 ? Math.min(Math.round(n * 0.01), cap) : 0;
   document.getElementById('retraitFee').textContent   = fee > 0 ? fmt(fee) + ' ' + cur : '0 ' + cur;
   document.getElementById('retraitTotal').textContent = fee > 0 ? fmt(n + fee) + ' ' + cur : '0 ' + cur;
+  /* Mettre à jour le label frais */
+  const lbl = document.getElementById('retraitFeeLabel');
+  if (lbl) lbl.textContent = 'Frais de retrait (1%, max. ' + fmt(cap) + ' ' + cur + ')';
 }
 function submitRetrait() {
   /* Stub — remplacé par le wrapper OTP ci-dessous (rechercher "window.submitRetrait") */
-  const n = parseInt(_retraitVal) || 0;
-  if (n < 1000) { showToast('Montant minimum : 1 000 GNF', 'error'); return; }
+  const n   = parseInt(_retraitVal) || 0;
+  const cur = (COUNTRY_LABELS[_userCountry] || COUNTRY_LABELS.gn).currency;
+  const min = DEPOT_MINS[cur] || 1000;
+  if (n < min) { showToast('Montant minimum : ' + fmt(min) + ' ' + cur, 'error'); return; }
   if (!_retraitProjectId) { showToast('Accédez au retrait via un projet à 100%', 'info'); return; }
   showOTPModal(n);
 }
@@ -4286,18 +4297,94 @@ function _buildProjectionChart(proj, cur, color, pct) {
 /* ────────────────────────────────────────────────
    ASTUCE DU JOUR + PARRAINAGE
    ──────────────────────────────────────────────── */
-var _TIPS = [
+/* ── Astuces communes ── */
+var _TIPS_COMMON = [
   { icon:'💡', titre:'Épargnez d\'abord, dépensez ensuite', texte:'Mettez de côté dès que vous recevez un revenu, avant toute dépense. C\'est la règle d\'or de l\'épargne.' },
   { icon:'🎯', titre:'Un objectif précis motive 3× plus', texte:'Nommez votre projet, fixez une date cible. Un but concret rend l\'effort plus facile à tenir.' },
-  { icon:'📅', titre:'La régularité bat le montant', texte:'5 000 GNF par semaine = 260 000 GNF en un an. La constance, pas la somme, fait la différence.' },
+  { icon:'📅', titre:'La régularité bat le montant', texte:'La constance, pas la somme, fait la différence. Un petit dépôt régulier vaut mieux qu\'un grand dépôt rare.' },
   { icon:'🔒', titre:'Bloquer, c\'est se protéger', texte:'L\'épargne engagée sur une durée évite les tentations. Traitez-la comme une facture mensuelle.' },
   { icon:'👥', titre:'La tontine, l\'entraide qui oblige', texte:'L\'épargne collective crée une responsabilité mutuelle. Le groupe aide chacun à tenir ses engagements.' },
   { icon:'🌱', titre:'Commencer petit, c\'est déjà gagner', texte:'Il n\'y a pas de montant minimum pour commencer. L\'habitude d\'épargner compte plus que la somme.' },
   { icon:'📱', titre:'Automatisez, libérez votre esprit', texte:'Un dépôt régulier planifié chaque mois retire la décision de l\'équation. Moins d\'effort, plus de résultats.' },
+  { icon:'📊', titre:'Suivez vos progrès chaque semaine', texte:'Regarder votre solde grandir renforce la motivation. Chaque semaine, mesurez votre avancée vers l\'objectif.' },
+  { icon:'🚀', titre:'Le temps est votre meilleur allié', texte:'Plus tôt vous épargnez, plus vos économies travaillent pour vous. Chaque jour compte.' },
+  { icon:'🎓', titre:'Apprenez à faire travailler votre argent', texte:'Une épargne inactive ne rapporte rien. Les projets Epargn+ vous permettent de structurer vos objectifs.' },
+  { icon:'🤝', titre:'Parrainez, doublez vos bénéfices', texte:'Invitez vos proches. Chaque filleul actif vous rapporte une prime. Plus vous invitez, plus vous gagnez.' },
+  { icon:'🏠', titre:'Un projet = un objectif de vie', texte:'Maison, études, retraite ou voyage : chaque grand objectif mérite son propre projet dédié.' },
+  { icon:'⏰', titre:'Pas de bonne heure pour épargner', texte:'Vous ne serez jamais "prêt". La meilleure décision est celle que vous prenez maintenant.' },
+  { icon:'💪', titre:'Résistez aux dépenses impulsives', texte:'Avant chaque achat non essentiel, attendez 24h. Souvent, l\'envie disparaît et l\'argent reste dans votre poche.' },
 ];
-var _tipIdx = new Date().getDay(); /* astuce du jour selon le jour de la semaine */
+
+/* ── Astuces par pays ── */
+var _TIPS_BY_COUNTRY = {
+  gn: [
+    { icon:'🇬🇳', titre:'L\'épargne en Guinée : une tradition moderne', texte:'Les tontines guinéennes prouvent que l\'entraide financière fonctionne. Epargn+ vous offre cette solidarité avec la sécurité du numérique.' },
+    { icon:'🍊', titre:'Orange Money et l\'épargne digitale', texte:'Déposer sur Epargn+ via Orange Money prend 30 secondes. Plus d\'excuses pour reporter à demain.' },
+    { icon:'🌍', titre:'Préparez votre avenir en GNF', texte:'Chaque franc guinéen épargné aujourd\'hui vous rapproche d\'un objectif de vie concret demain.' },
+  ],
+  bj: [
+    { icon:'🇧🇯', titre:'La culture de la tontine béninoise', texte:'Le "likeliki" est ancré dans la culture béninoise. Avec Epargn+, formalisez cette tradition pour des objectifs plus grands.' },
+    { icon:'📡', titre:'MTN MoMo et Moov Money au service de votre épargne', texte:'Deux grands opérateurs, une seule plateforme. Épargnez facilement depuis Cotonou, Porto-Novo ou Parakou.' },
+    { icon:'🌱', titre:'Investissez dans votre avenir en FCFA', texte:'Commencez avec 500 FCFA. Ce qui compte, c\'est l\'habitude que vous créez aujourd\'hui.' },
+  ],
+  ci: [
+    { icon:'🇨🇮', titre:'Abidjan, hub financier de l\'Afrique de l\'Ouest', texte:'La Côte d\'Ivoire est un moteur économique régional. Positionnez-vous avec une épargne structurée.' },
+    { icon:'🌊', titre:'Wave, Orange, MTN : choisissez votre opérateur', texte:'En Côte d\'Ivoire, plusieurs options s\'offrent à vous. L\'essentiel est de commencer à épargner maintenant.' },
+    { icon:'🏙️', titre:'Planifiez votre avenir à Abidjan', texte:'Immobilier, éducation, commerce : les opportunités existent. Epargn+ vous aide à y accéder étape par étape.' },
+  ],
+  cn: [
+    { icon:'🇨🇳', titre:'L\'épargne : une valeur confucéenne', texte:'La culture chinoise valorise la prévoyance et l\'économie. Epargn+ vous aide à perpétuer cette sagesse.' },
+    { icon:'📱', titre:'Alipay et l\'épargne internationale', texte:'Avec votre compte Alipay, déposez depuis n\'importe où. Vos économies vous suivent partout dans le monde.' },
+    { icon:'🌏', titre:'Épargnez en CNY, construisez un avenir', texte:'Chaque yuan mis de côté renforce votre sécurité financière. La prospérité se construit pas à pas.' },
+  ],
+};
+
+/* ── Astuces contextuelles (basées sur le comportement) ── */
+function _getContextualTip(u, projets, transactions) {
+  const epargne   = u && u.epargne ? u.epargne : 0;
+  const country   = u && u.country ? u.country : 'gn';
+  const cur       = (COUNTRY_LABELS[country] || COUNTRY_LABELS.gn).currency;
+  const nbProjets = (projets || []).length;
+  const lastTxn   = (transactions || [])[0];
+  const daysSinceTxn = lastTxn
+    ? Math.floor((Date.now() - new Date(lastTxn.date || lastTxn.created_at).getTime()) / 86400000)
+    : 999;
+
+  if (daysSinceTxn >= 7 && epargne > 0) {
+    return { icon:'⏰', titre:'Cela fait ' + daysSinceTxn + ' jours…', texte:'Vous n\'avez pas effectué de dépôt depuis ' + daysSinceTxn + ' jours. Un petit dépôt aujourd\'hui remet la machine en route !' };
+  }
+  if (nbProjets === 0) {
+    return { icon:'🎯', titre:'Créez votre premier projet', texte:'Un projet nommé, c\'est un objectif qui existe vraiment. Créez votre premier projet et commencez à lui donner vie.' };
+  }
+  if (epargne === 0 && nbProjets > 0) {
+    return { icon:'🌱', titre:'Votre projet vous attend', texte:'Vous avez créé un projet — bravo ! Il ne reste qu\'à effectuer votre premier dépôt pour lui donner vie.' };
+  }
+  return null;
+}
+
+/* ── Construction du tableau final des astuces ── */
+function _buildTips() {
+  const u       = _currentUser || {};
+  const country = u.country || _userCountry || 'gn';
+  const local   = _TIPS_BY_COUNTRY[country] || [];
+  const ctx     = _getContextualTip(u, PROJETS, TRANSACTIONS);
+  /* contextuel en premier si pertinent, puis locaux, puis communs */
+  const all = (ctx ? [ctx] : []).concat(local).concat(_TIPS_COMMON);
+  /* Dédupliquer (même titre) */
+  const seen = new Set();
+  return all.filter(function(t) {
+    if (seen.has(t.titre)) return false;
+    seen.add(t.titre); return true;
+  });
+}
+
+var _TIPS = _TIPS_COMMON; /* sera reconstruit dès que l'utilisateur est chargé */
+/* Rotation sur 365 jours pour renouveler l'astuce chaque jour de l'année */
+var _tipIdx = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
 
 function renderInstitutions() {
+  /* Reconstruire la liste des astuces selon le profil utilisateur */
+  _TIPS = _buildTips();
   var tip = _TIPS[_tipIdx % _TIPS.length];
 
   var tipHtml = '<div class="tip-card">' +
@@ -4528,27 +4615,65 @@ function kycResubmit() {
   showToast('Vous pouvez soumettre un nouveau dossier KYC.', 'info');
 }
 
+/* ── PARRAINAGE : configuration des commissions par devise ── */
+const PARRAINAGE_CONFIG = {
+  GNF:  { max: 5000,  tiers: [[100000,500],[200000,1000],[500000,2500],[1000000,5000]],   sym: 'GNF'  },
+  FCFA: { max: 2500,  tiers: [[50000,250],  [100000,500], [250000,1250],[500000,2500]],   sym: 'FCFA' },
+  XOF:  { max: 2500,  tiers: [[50000,250],  [100000,500], [250000,1250],[500000,2500]],   sym: 'FCFA' },
+  CFA:  { max: 2500,  tiers: [[50000,250],  [100000,500], [250000,1250],[500000,2500]],   sym: 'FCFA' },
+  CNY:  { max: 50,    tiers: [[500,5],      [1000,10],    [2500,25],    [5000,50]],       sym: 'CNY'  },
+};
+
 /* ── PARRAINAGE : rendu dynamique ── */
 function renderParrainageSection() {
-  // Code parrainage depuis le profil utilisateur (DB) ou fallback
-  const u = _currentUser || {};
+  const u   = _currentUser || {};
+  const cur = (COUNTRY_LABELS[u.country || _userCountry] || COUNTRY_LABELS.gn).currency || 'GNF';
+  const cfg = PARRAINAGE_CONFIG[cur] || PARRAINAGE_CONFIG.GNF;
+  const sym = cfg.sym;
+  const f   = n => n.toLocaleString('fr');
+
+  /* ── Mettre à jour les labels devise ── */
+  const elMaxPrime = document.getElementById('parrMaxPrime');
+  const elHeroMax  = document.getElementById('parrHeroMax');
+  const elHeroDesc = document.getElementById('parrHeroDesc');
+  const elCurLabel = document.getElementById('parrCurLabel');
+  const elGrid     = document.getElementById('parrCommissionGrid');
+
+  if (elMaxPrime) elMaxPrime.textContent = f(cfg.max) + ' ' + sym;
+  if (elHeroMax)  elHeroMax.textContent  = f(cfg.max) + ' ' + sym;
+  if (elCurLabel) elCurLabel.textContent = sym;
+
+  if (elHeroDesc && cfg.tiers.length >= 4) {
+    const t = cfg.tiers;
+    elHeroDesc.innerHTML =
+      f(t[0][1]) + ' ' + sym + ' par tranche de ' + f(t[0][0]) + ' ' + sym + ' déposée par votre filleul.<br>' +
+      'Prime totale de ' + f(cfg.max) + ' ' + sym + ' atteinte à ' + f(t[3][0]) + ' ' + sym + ' cumulés.';
+  }
+
+  if (elGrid && cfg.tiers.length >= 4) {
+    const t = cfg.tiers;
+    elGrid.innerHTML = `
+      <span style="font-weight:700;color:var(--success);">+${f(t[0][1])} ${sym}</span><span>dès ${f(t[0][0])} ${sym} déposés par votre filleul</span>
+      <span style="font-weight:700;color:var(--success);">+${f(t[1][1])} ${sym}</span><span>à ${f(t[1][0])} ${sym} déposés</span>
+      <span style="font-weight:700;color:var(--success);">+${f(t[2][1])} ${sym}</span><span>à ${f(t[2][0])} ${sym} déposés</span>
+      <span style="font-weight:700;color:var(--accent);">+${f(t[3][1])} ${sym}</span><span style="font-weight:700;color:var(--primary);">à ${f(t[3][0])} ${sym} — prime complète !</span>`;
+  }
+
+  /* ── Code parrainage ── */
   const phone = u.phone || '';
-  const code = u.code_parrain || (phone ? 'EP-' + phone.slice(-4) + '-' + (u.id || '0000').toString().slice(-4).toUpperCase() : 'EP-????');
+  const code  = u.code_parrain || (phone ? 'EP-' + phone.slice(-4) + '-' + (u.id || '0000').toString().slice(-4).toUpperCase() : 'EP-????');
   const codeEl = document.getElementById('parrainageCode');
   if (codeEl) codeEl.textContent = code;
 
-  // Filleuls (vide pour l'instant — sera chargé depuis l'API)
-  const FILLEULS = []; // remplacer par données API plus tard
-  const nbActif = FILLEULS.filter(f => f.statut === 'actif').length;
-  const totalGagne = FILLEULS.reduce((s, f) => s + (f.prime || 0), 0);
-  const nbAttente = FILLEULS.filter(f => f.statut !== 'actif').length;
-
+  /* ── Filleuls ── */
+  const FILLEULS = [];
+  const totalGagne = FILLEULS.reduce((s, ff) => s + (ff.prime || 0), 0);
   const statF = document.getElementById('statFilleuls');
   const statG = document.getElementById('statGagnes');
   const statA = document.getElementById('statEnAttente');
   if (statF) statF.textContent = FILLEULS.length;
-  if (statG) statG.textContent = totalGagne > 0 ? fmt(totalGagne) : '0';
-  if (statA) statA.textContent = nbAttente;
+  if (statG) statG.textContent = totalGagne > 0 ? f(totalGagne) : '0';
+  if (statA) statA.textContent = FILLEULS.filter(ff => ff.statut !== 'actif').length;
 
   const box = document.getElementById('parrainageFilleuls');
   if (!box) return;
@@ -4561,11 +4686,10 @@ function renderParrainageSection() {
   } else {
     box.innerHTML = `<div class="table-wrap"><table>
       <thead><tr><th>Nom</th><th>Date</th><th>Statut</th><th>Prime</th></tr></thead>
-      <tbody>${FILLEULS.map(f => `<tr>
-        <td>${f.nom}</td>
-        <td>${f.date}</td>
-        <td><span class="badge badge-${f.statut === 'actif' ? 'success' : 'warning'}">${f.statut === 'actif' ? 'Actif' : 'En attente'}</span></td>
-        <td style="font-weight:700;color:var(--success);">${f.prime > 0 ? '+ ' + fmt(f.prime) + ' GNF' : '<span style="color:var(--text-hint)">En cours</span>'}</td>
+      <tbody>${FILLEULS.map(ff => `<tr>
+        <td>${ff.nom}</td><td>${ff.date}</td>
+        <td><span class="badge badge-${ff.statut === 'actif' ? 'success' : 'warning'}">${ff.statut === 'actif' ? 'Actif' : 'En attente'}</span></td>
+        <td style="font-weight:700;color:var(--success);">${ff.prime > 0 ? '+ ' + f(ff.prime) + ' ' + sym : '<span style="color:var(--text-hint)">En cours</span>'}</td>
       </tr>`).join('')}</tbody>
     </table></div>`;
   }
@@ -5058,6 +5182,63 @@ function buildNotificationsFromData() {
   renderNotifications();
 }
 
+/* ── Notifications intelligentes proactives (toast au chargement) ── */
+var _smartNotifShown = false;
+function showSmartNotifications() {
+  if (_smartNotifShown) return;
+  _smartNotifShown = true;
+
+  const u       = _currentUser || {};
+  const prenom  = u.prenom || 'vous';
+  const epargne = u.epargne || 0;
+  const cur     = (COUNTRY_LABELS[u.country || _userCountry] || COUNTRY_LABELS.gn).currency;
+
+  /* Délais entre toasts pour ne pas spammer */
+  var delay = 1200;
+  function schedule(msg, type) {
+    setTimeout(function() { showToast(msg, type); }, delay);
+    delay += 2400;
+  }
+
+  /* 1. Dernier dépôt : inactivité > 7 jours */
+  var completedDeposits = (TRANSACTIONS || []).filter(function(t) {
+    return (t.type === 'Dépôt') && t.status === 'completed' && t.rawDate;
+  });
+  if (completedDeposits.length > 0) {
+    var lastDepositMs = new Date(completedDeposits[0].rawDate).getTime();
+    var daysSince     = Math.floor((Date.now() - lastDepositMs) / 86400000);
+    if (daysSince >= 14) {
+      schedule('⏰ ' + prenom + ', cela fait ' + daysSince + ' jours sans dépôt. Reprenez votre élan !', 'info');
+    } else if (daysSince >= 7) {
+      schedule('💡 Vous n\'avez pas déposé depuis ' + daysSince + ' jours. Un petit dépôt aujourd\'hui ?', 'info');
+    }
+  } else if (PROJETS && PROJETS.length > 0 && epargne === 0) {
+    schedule('🌱 Votre projet vous attend ! Effectuez votre premier dépôt pour démarrer.', 'info');
+  }
+
+  /* 2. Milestones de progression (25%, 50%, 75%) */
+  (PROJETS || []).forEach(function(p) {
+    if (!p.cible || p.cible <= 0) return;
+    var pct = Math.round((p.actuel || 0) / p.cible * 100);
+    var key = 'epargn_milestone_' + p.id;
+    var seen = parseInt(localStorage.getItem(key) || '0', 10);
+    var milestone = pct >= 100 ? 100 : pct >= 75 ? 75 : pct >= 50 ? 50 : pct >= 25 ? 25 : 0;
+    if (milestone > 0 && milestone > seen) {
+      localStorage.setItem(key, String(milestone));
+      if (milestone === 100) {
+        schedule('🏆 Félicitations ! Votre projet « ' + p.nom + ' » est atteint à 100% !', 'success');
+      } else {
+        schedule('🎯 Bravo ! « ' + p.nom + ' » est à ' + milestone + '% de l\'objectif !', 'success');
+      }
+    }
+  });
+
+  /* 3. KYC non soumis mais solde non nul */
+  if (u.kyc_status === 'none' && epargne > 0) {
+    schedule('🪪 Vérifiez votre identité (KYC) pour sécuriser votre épargne de ' + fmt(epargne) + ' ' + cur + '.', 'info');
+  }
+}
+
 /* Marquer tout comme lu quand on ouvre la section notifications */
 function markAllNotifsRead() {
   localStorage.setItem('epargn_notifs_seen', Date.now().toString());
@@ -5190,7 +5371,9 @@ function confirmDeposit() {
   const senderRaw = (document.getElementById('depSenderPhone').value   || '').trim();
   const amt       = parseInt(amtStr, 10);
 
-  if (!amt || amt < 1000) { showToast('Montant minimum : 1 000', 'error'); return; }
+  var _depCur = (_currentUser && (COUNTRY_LABELS[_currentUser.country] || COUNTRY_LABELS.gn).currency) || 'GNF';
+  var _depMin = DEPOT_MINS[_depCur] || 1000;
+  if (!amt || amt < _depMin) { showToast('Montant minimum : ' + fmt(_depMin) + ' ' + _depCur, 'error'); return; }
   if (!senderRaw) {
     showToast('Veuillez saisir le numéro Mobile Money ayant servi au dépôt.', 'error');
     document.getElementById('depSenderPhone').focus();
@@ -5511,7 +5694,9 @@ function createProject() {
     ? _npSelectedProject.color
     : colors[PROJETS.length % colors.length];
 
-  var btn = document.querySelector('#np-step3 .btn-accent');
+  /* Chercher le bouton dans toute la modal si #np-step3 introuvable */
+  var btn = document.querySelector('#np-step3 .btn-accent') ||
+            document.querySelector('#modal-newProject .btn-accent[onclick*="createProject"]');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Création…'; }
 
   fetch('/api/user/me?resource=projects', {
@@ -5519,11 +5704,27 @@ function createProject() {
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
     body:    JSON.stringify({ nom, cible, duree, color }),
   })
-  .then(function(r) { return r.json(); })
-  .then(function(data) {
+  .then(function(r) {
+    return r.json().then(function(data) { return { ok: r.ok, status: r.status, data: data }; });
+  })
+  .then(function(res) {
     if (btn) { btn.disabled = false; btn.textContent = '🚀 Lancer mon projet →'; }
-    if (data.error) { showToast('Erreur : ' + data.error, 'error'); return; }
-    const proj = { id: data.id, nom: data.name || nom, cible: data.goal || cible, actuel: data.actuel || 0, duree, color: data.color || color, createdAt: data.created_at };
+    if (!res.ok || res.data.error) {
+      const msg = res.data.error || ('Erreur ' + res.status + ' — réessayez');
+      showToast('❌ ' + msg, 'error');
+      console.error('[createProject] HTTP', res.status, res.data);
+      return;
+    }
+    const data = res.data;
+    if (!data.id) {
+      showToast('❌ Réponse serveur inattendue. Vérifiez vos projets.', 'error');
+      console.error('[createProject] pas d\'id dans la réponse', data);
+      return;
+    }
+    const proj = {
+      id: data.id, nom: data.name || nom, cible: data.goal || cible,
+      actuel: data.actuel || 0, duree, color: data.color || color, createdAt: data.created_at
+    };
     PROJETS.unshift(proj);
     localStorage.setItem('epargn_projets', JSON.stringify(PROJETS));
     closeModal('modal-newProject');
@@ -5535,10 +5736,12 @@ function createProject() {
     if (typeof updateProgressionGauge === 'function') updateProgressionGauge();
     showSection('projets', null);
     showToast('🎯 Projet « ' + proj.nom + ' » créé !', 'success');
+    /* Recharger les projets depuis le serveur pour synchroniser */
+    if (typeof loadProjects === 'function') setTimeout(function() { loadProjects(); }, 1500);
   })
   .catch(function(err) {
     if (btn) { btn.disabled = false; btn.textContent = '🚀 Lancer mon projet →'; }
-    showToast('Erreur réseau. Réessayez.', 'error');
+    showToast('❌ Erreur réseau. Vérifiez votre connexion.', 'error');
     console.error('[createProject]', err);
   });
 }

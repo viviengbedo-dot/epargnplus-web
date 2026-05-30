@@ -1305,7 +1305,15 @@ function populateAdminData(data) {
       prenom:        u.prenom || '',
       nom:           u.nom   || '',
       phone:         u.phone,
-      country:       u.country || 'gn',
+      country: (function() {
+        if (u.country && u.country !== 'gn') return u.country;
+        /* Dériver le pays depuis le préfixe téléphonique si country absent/suspect */
+        var ph = (u.phone || '');
+        if (ph.startsWith('+229')) return 'bj';
+        if (ph.startsWith('+225')) return 'ci';
+        if (ph.startsWith('+86'))  return 'cn';
+        return u.country || 'gn';
+      })(),
       operator:      u.operator || '—',
       epargne:       u.epargne || 0,
       kyc:           u.kyc_status || 'none',
@@ -2639,9 +2647,9 @@ function submitRejectKYC() {
 function fmt(n) { return n.toLocaleString('fr'); }
 
 /* Devise par pays : gn → GNF, bj/ci → FCFA */
-const COUNTRY_FLAGS  = { gn: '🇬🇳', bj: '🇧🇯', ci: '🇨🇮' };
-const COUNTRY_NAMES  = { gn: 'Guinée', bj: 'Bénin', ci: "Côte d'Ivoire" };
-const COUNTRY_CURRENCY = { gn: 'GNF', bj: 'FCFA', ci: 'FCFA' };
+const COUNTRY_FLAGS  = { gn: '🇬🇳', bj: '🇧🇯', ci: '🇨🇮', cn: '🇨🇳' };
+const COUNTRY_NAMES  = { gn: 'Guinée', bj: 'Bénin', ci: "Côte d'Ivoire", cn: 'Chine' };
+const COUNTRY_CURRENCY = { gn: 'GNF', bj: 'FCFA', ci: 'FCFA', cn: 'CNY' };
 function fmtCurrency(amount, country) {
   var cur = COUNTRY_CURRENCY[country] || 'GNF';
   return fmt(amount) + ' ' + cur;

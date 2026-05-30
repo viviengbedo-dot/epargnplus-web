@@ -487,6 +487,7 @@
             <div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">
               Code envoyé à <strong id="regSentViaDisplay"></strong>
             </div>
+            <div style="font-size:12px;color:var(--primary);font-weight:700;margin-top:6px;" id="regOtpCountdown"></div>
           </div>
           <div class="auth-group">
             <label class="auth-label">CODE REÇU PAR EMAIL (6 chiffres)</label>
@@ -662,8 +663,77 @@ let _regOtpToken    = null;
 let _regOtpCode     = null;   /* mémorisé entre étape 2 et étape 3 */
 let _regPhone       = null;
 let _regEmail       = '';
-/* OTP envoyé uniquement par email */
 let _regParrainCode = '';
+let _regOtpExpires  = 0;      /* timestamp expiry du code en cours */
+let _resendCount    = 0;      /* nombre de renvois cette session */
+let _otpTimer       = null;   /* setInterval du countdown */
+
+/* ══════════════════════════════════════
+   GÉOLOCALISATION AUTOMATIQUE
+   ══════════════════════════════════════ */
+(function autoDetectCountry() {
+  const IP_TO_CODE = { GN: 'gn', BJ: 'bj', CI: 'ci', CN: 'cn' };
+  function applyCountry(code) {
+    if (!COUNTRIES[code]) return;
+    /* Attendre que le DOM soit prêt (la réponse réseau peut arriver avant DOMContentLoaded) */
+    function doApply() { selectLoginCountry(code); selectRegCountry(code); }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', doApply, { once: true });
+    } else {
+      doApply();
+    }
+  }
+  /* 1. IP géolocalisation (silencieux, sans popup) */
+  fetch('https://ipapi.co/json/', { cache: 'no-store' })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      const code = IP_TO_CODE[d.country_code];
+      if (code) applyCountry(code);
+    })
+    .catch(function() {
+      /* Fallback : GPS navigateur si disponible */
+      if (!navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(
+        function(pos) {
+          fetch('https://ipapi.co/' + pos.coords.latitude + ',' + pos.coords.longitude + '/country/', { cache: 'no-store' })
+            .then(function(r) { return r.text(); })
+            .then(function(cc) {
+              const code = IP_TO_CODE[(cc || '').trim()];
+              if (code) applyCountry(code);
+            }).catch(function() {});
+        },
+        function() {} /* permission refusée → Guinée par défaut */
+      );
+    });
+})();
+
+/* ── Countdown OTP ── */
+function startOtpCountdown(expiresTs, resendBtn) {
+  if (_otpTimer) clearInterval(_otpTimer);
+  _regOtpExpires = expiresTs;
+  const el = document.getElementById('regOtpCountdown');
+  function tick() {
+    const ms = _regOtpExpires - Date.now();
+    if (!el) return;
+    if (ms <= 0) {
+      clearInterval(_otpTimer);
+      el.textContent = '⏰ Code expiré — cliquez sur "Renvoyer"';
+      el.style.color = '#DC2626';
+      return;
+    }
+    const m = Math.floor(ms / 60000);
+    const s = Math.floor((ms % 60000) / 1000);
+    el.textContent = '⏱ Code valable encore ' + m + 'min ' + String(s).padStart(2,'0') + 's';
+    el.style.color = ms < 60000 ? '#DC2626' : 'var(--primary)';
+  }
+  tick();
+  _otpTimer = setInterval(tick, 1000);
+  /* Désactiver le bouton renvoyer si quota atteint */
+  if (resendBtn) {
+    resendBtn.disabled = _resendCount >= 3;
+    resendBtn.title    = _resendCount >= 3 ? 'Limite de 3 renvois atteinte' : '';
+  }
+}
 
 /* ── Lire ?ref=CODE dans l'URL et pré-remplir le champ parrainage ── */
 (function() {
@@ -899,6 +969,7 @@ async function sendRegisterOTP(e) {
     _regOtpToken = data.token;
     _regPhone    = local;
     _regEmail    = email;
+    _resendCount = 0;
 
     document.getElementById('regStep1').style.display = 'none';
     document.getElementById('regStep2').style.display = 'flex';
@@ -909,6 +980,11 @@ async function sendRegisterOTP(e) {
     document.getElementById('op0').focus();
     clearMsg();
     if (data.demo) showMsg('⚠️ Mode test : code visible dans les logs Vercel.', 'success');
+
+    /* Démarrer le countdown (10 min) */
+    const expiresTs = data.expires || (Date.now() + 10 * 60 * 1000);
+    const resendBtn = document.querySelector('#regStep2 button[onclick="resendOTP()"]');
+    startOtpCountdown(expiresTs, resendBtn);
 
   } catch (err) {
     showMsg('Erreur réseau. Vérifiez votre connexion.', 'error');
@@ -994,7 +1070,13 @@ async function submitRegister(e) {
 /* ── Renvoyer OTP ── */
 async function resendOTP() {
   if (!_regPhone) return;
+  if (_resendCount >= 3) {
+    showMsg('Limite atteinte : maximum 3 renvois par heure.', 'error');
+    return;
+  }
   clearMsg();
+  const resendBtn = document.querySelector('#regStep2 button[onclick="resendOTP()"]');
+  if (resendBtn) { resendBtn.disabled = true; resendBtn.textContent = 'Envoi…'; }
   const countryCfg = COUNTRIES[_regCountry];
   const fullPhone  = countryCfg.prefix + _regPhone;
   try {
@@ -1006,15 +1088,23 @@ async function resendOTP() {
     const data = await r.json();
     if (r.ok) {
       _regOtpToken = data.token;
+      _resendCount++;
       [0,1,2,3,4,5].forEach(function(i) {
         var el = document.getElementById('op' + i); if (el) el.value = '';
       });
       document.getElementById('op0').focus();
-      showMsg('✅ Nouveau code envoyé.', 'success');
+      const left = data.resends_left !== undefined ? data.resends_left : (3 - _resendCount);
+      showMsg('✅ Nouveau code envoyé.' + (left > 0 ? ' (' + left + ' renvoi' + (left > 1 ? 's' : '') + ' restant' + (left > 1 ? 's' : '') + ')' : ''), 'success');
+      const expiresTs = data.expires || (Date.now() + 10 * 60 * 1000);
+      startOtpCountdown(expiresTs, resendBtn);
     } else {
-      showMsg('Impossible de renvoyer le code.', 'error');
+      showMsg(data.error || 'Impossible de renvoyer le code.', 'error');
+      if (resendBtn) { resendBtn.disabled = false; resendBtn.textContent = 'Renvoyer le code'; }
     }
-  } catch { showMsg('Erreur réseau.', 'error'); }
+  } catch {
+    showMsg('Erreur réseau.', 'error');
+    if (resendBtn) { resendBtn.disabled = false; resendBtn.textContent = 'Renvoyer le code'; }
+  }
 }
 
 /* ── Retour étape 1 ── */
