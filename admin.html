@@ -1194,8 +1194,9 @@ function populateAdminData(data) {
       actTbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted);">Aucune épargne collective active</td></tr>';
     } else {
       actTbody.innerHTML = TONTINES_ACTIVES.map(function(t) {
-        var pct = t.goal > 0 ? Math.min(100, Math.round(t.actuel / t.goal * 100)) : 0;
-        var safeNom = (t.nom || '').replace(/'/g, "\\'");
+        var pct      = t.goal > 0 ? Math.min(100, Math.round(t.actuel / t.goal * 100)) : 0;
+        var safeNom  = (t.nom  || '').replace(/'/g, "\\'");
+        var safeUser = (t.user || '').replace(/'/g, "\\'");
         return '<tr>' +
           '<td style="font-weight:600;">' + t.nom + '</td>' +
           '<td>' + fmt(t.goal) + ' GNF</td>' +
@@ -1210,7 +1211,7 @@ function populateAdminData(data) {
           '<td><div style="display:flex;align-items:center;gap:8px;">' +
             '<span class="badge badge-success">✅ Active</span>' +
             '<button class="btn-icon danger" title="Clôturer ce groupe" ' +
-              'onclick="adminForceCloseTontine(\'' + t.id + '\',\'' + safeNom + '\')" ' +
+              'onclick="openDeleteApprovalModal(\'' + t.id + '\',\'' + safeNom + '\',\'' + (t.userId||'') + '\',' + t.actuel + ',\'' + safeUser + '\',\'force\')" ' +
               'style="font-size:12px;width:auto;padding:0 8px;height:26px;border-radius:6px;background:rgba(220,38,38,.07);border:1px solid rgba(220,38,38,.25);color:#DC2626;font-weight:600;cursor:pointer;">' +
               '🗑 Clôturer' +
             '</button>' +
@@ -2142,14 +2143,25 @@ function renderTontines() {
   /* Les tontines sont maintenant rendues dans populateAdminData() */
 }
 
-/* Ouvrir le modal de remboursement avant approbation */
-function openDeleteApprovalModal(projectId, nom, userId, actuel, ownerLabel) {
+/* Ouvrir le modal de remboursement avant approbation ou clôture forcée
+   mode : 'approve' (demande de suppression utilisateur) | 'force' (clôture admin directe) */
+function openDeleteApprovalModal(projectId, nom, userId, actuel, ownerLabel, mode) {
+  mode = mode || 'approve';
   /* Remplir les champs du modal */
   document.getElementById('delApprProjectId').value = projectId;
   document.getElementById('delApprUserId').value    = userId;
+  document.getElementById('delApprMode').value      = mode;
   document.getElementById('delApprGroupName').textContent = '🤝 ' + nom;
   document.getElementById('delApprTotal').textContent     = fmt(actuel) + ' GNF';
   document.getElementById('delApprOwner').textContent     = ownerLabel || '—';
+
+  /* Adapter le titre selon le mode */
+  var titleEl = document.getElementById('delApprTitle');
+  if (titleEl) titleEl.textContent = mode === 'force' ? 'Clôture forcée par l\'admin' : 'Remboursements à traiter';
+  var alertEl = document.getElementById('delApprAlert');
+  if (alertEl) alertEl.textContent = mode === 'force'
+    ? '⚠️ Vous êtes sur le point de clôturer ce groupe de force. Effectuez d\'abord les remboursements ci-dessous.'
+    : '⚠️ Avant de confirmer, effectuez les remboursements Mobile Money ci-dessous pour chaque participant.';
 
   /* Récupérer les transactions de ce projet pour calculer les parts */
   var memberTotals = {};
@@ -2194,9 +2206,15 @@ function openDeleteApprovalModal(projectId, nom, userId, actuel, ownerLabel) {
   if (m) { m.style.display = 'flex'; }
 }
 
-/* Approuver la suppression d'une tontine : marquer le projet status='closed' */
-function adminApproveTontineDelete(projectId, userId) {
-  if (!confirm('Approuver la suppression définitive de cette épargne collective ?')) return;
+/* Confirmer la clôture définitive d'une tontine (appelé depuis le modal) */
+function adminConfirmTontineClose() {
+  var projectId = document.getElementById('delApprProjectId').value;
+  var mode      = document.getElementById('delApprMode').value || 'approve';
+  if (!projectId) { showToast('Erreur : ID projet manquant.', 'error'); return; }
+
+  var btn = document.getElementById('delApprConfirmBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Clôture en cours…'; }
+
   fetch('/api/admin/update-balance', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
@@ -2204,15 +2222,22 @@ function adminApproveTontineDelete(projectId, userId) {
   })
   .then(function(r){ return r.json(); })
   .then(function(d) {
+    if (btn) { btn.disabled = false; btn.textContent = '✅ Confirmer la clôture définitive →'; }
     if (d.ok) {
       closeAdminModal('amodal-deleteApproval');
-      showToast('✅ Suppression approuvée — groupe clôturé.', 'success');
+      var msg = mode === 'force'
+        ? '✅ Groupe clôturé par l\'admin.'
+        : '✅ Suppression approuvée — groupe clôturé.';
+      showToast(msg, 'success');
       reloadAdminData();
     } else {
       showToast('Erreur : ' + (d.error || 'inconnue'), 'error');
     }
   })
-  .catch(function(e){ showToast('Erreur réseau : ' + e.message, 'error'); });
+  .catch(function(e) {
+    if (btn) { btn.disabled = false; btn.textContent = '✅ Confirmer la clôture définitive →'; }
+    showToast('Erreur réseau : ' + e.message, 'error');
+  });
 }
 
 /* Rejeter la demande de suppression : remettre status='active' */
@@ -2226,26 +2251,6 @@ function adminRejectTontineDelete(projectId) {
   .then(function(d) {
     if (d.ok) {
       showToast('Demande rejetée — groupe maintenu actif.', 'info');
-      reloadAdminData();
-    } else {
-      showToast('Erreur : ' + (d.error || 'inconnue'), 'error');
-    }
-  })
-  .catch(function(e){ showToast('Erreur réseau : ' + e.message, 'error'); });
-}
-
-/* Clôturer de force une tontine active (sans demande préalable de l'utilisateur) */
-function adminForceCloseTontine(projectId, nom) {
-  if (!confirm('⚠️ Clôturer définitivement le groupe « ' + nom + ' » ?\n\nCette action est irréversible. Le projet sera marqué comme fermé.')) return;
-  fetch('/api/admin/update-balance', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
-    body: JSON.stringify({ action: 'update-project', projectId: projectId, status: 'closed' }),
-  })
-  .then(function(r){ return r.json(); })
-  .then(function(d) {
-    if (d.ok) {
-      showToast('✅ Groupe « ' + nom + ' » clôturé avec succès.', 'success');
       reloadAdminData();
     } else {
       showToast('Erreur : ' + (d.error || 'inconnue'), 'error');
@@ -2638,13 +2643,13 @@ function runSmileVerify(userId, idNumber, idType, country, firstName, lastName) 
     <div style="background:linear-gradient(135deg,#7F1D1D,#DC2626);padding:24px 20px 20px;color:#fff;position:relative;">
       <button onclick="closeAdminModal('amodal-deleteApproval')" style="position:absolute;top:14px;right:14px;background:rgba(255,255,255,.2);border:none;color:#fff;width:30px;height:30px;border-radius:50%;font-size:16px;cursor:pointer;">✕</button>
       <div style="font-size:32px;margin-bottom:6px;">💸</div>
-      <div style="font-size:18px;font-weight:900;">Remboursements à traiter</div>
+      <div id="delApprTitle" style="font-size:18px;font-weight:900;">Remboursements à traiter</div>
       <div style="font-size:13px;opacity:.85;margin-top:2px;" id="delApprGroupName"></div>
     </div>
 
     <div style="padding:20px;">
       <!-- Alerte -->
-      <div style="background:#FEF9C3;border:1px solid #FDE68A;border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:#92400E;line-height:1.6;">
+      <div id="delApprAlert" style="background:#FEF9C3;border:1px solid #FDE68A;border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:#92400E;line-height:1.6;">
         ⚠️ Avant de confirmer, effectuez les remboursements Mobile Money ci-dessous pour chaque participant.
       </div>
 
@@ -2670,8 +2675,9 @@ function runSmileVerify(userId, idNumber, idType, country, firstName, lastName) 
 
       <input type="hidden" id="delApprProjectId" />
       <input type="hidden" id="delApprUserId" />
+      <input type="hidden" id="delApprMode" value="approve" />
 
-      <button onclick="adminApproveTontineDelete(document.getElementById('delApprProjectId').value, document.getElementById('delApprUserId').value)"
+      <button id="delApprConfirmBtn" onclick="adminConfirmTontineClose()"
         style="width:100%;padding:14px;background:#DC2626;color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:8px;">
         ✅ Confirmer la clôture définitive →
       </button>
