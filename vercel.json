@@ -1,6 +1,8 @@
 {
   "version": 2,
+  "framework": null,
   "outputDirectory": ".",
+  "buildCommand": "echo 'no build'",
   "functions": {
     "api/**/*.js": { "maxDuration": 10 }
   },
@@ -14,17 +16,8 @@
     {
       "source": "/(.*\\.html)",
       "headers": [
-        { "key": "Cache-Control",          "value": "no-store, no-cache, must-revalidate" },
-        { "key": "Pragma",                 "value": "no-cache" },
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options",        "value": "SAMEORIGIN" }
-      ]
-    },
-    {
-      "source": "/(.*)",
-      "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options",        "value": "SAMEORIGIN" }
+        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" },
+        { "key": "Pragma",        "value": "no-cache" }
       ]
     }
   ]
