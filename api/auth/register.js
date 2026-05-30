@@ -112,6 +112,15 @@ module.exports = async (req, res) => {
     return res.status(400).json({ error: `Numéro de téléphone invalide pour ${countryCfg.name}` });
   }
 
+  /* Vérifier que l'utilisateur n'a pas inclus l'indicatif d'un autre pays */
+  for (const [code, cfg] of Object.entries(COUNTRY_CONFIG)) {
+    if (code !== country && localPhone.startsWith(cfg.prefix.slice(1))) {
+      return res.status(400).json({
+        error: `Ne pas inclure l'indicatif pays dans le numéro. Entrez uniquement les chiffres locaux sans le ${cfg.prefix}.`,
+      });
+    }
+  }
+
   const fullPhone = countryCfg.prefix + localPhone;
 
   /* ── Vérification OTP (sauf Chine en mode dev si pas d'OTP configuré) ── */
@@ -208,7 +217,6 @@ module.exports = async (req, res) => {
 
   } catch (err) {
     console.error('[register] Erreur :', err.message);
-    /* DEBUG temporaire — retirer après diagnostic */
-    return res.status(500).json({ error: 'Erreur serveur : ' + err.message });
+    return res.status(500).json({ error: 'Erreur serveur. Réessayez dans quelques instants.' });
   }
 };
