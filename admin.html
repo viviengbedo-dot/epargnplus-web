@@ -3144,8 +3144,13 @@ function previewQr(type) {
   var img     = document.getElementById('sm_' + type + '_img');
   if (!input || !preview || !img) return;
   var url = (input.value || '').trim();
-  if (url) { img.src = url; preview.style.display = 'block'; }
-  else      { preview.style.display = 'none'; }
+  if (url) {
+    /* Générer un QR code image depuis l'URL de paiement */
+    img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=4&data=' + encodeURIComponent(url);
+    preview.style.display = 'block';
+  } else {
+    preview.style.display = 'none';
+  }
 }
 
 function saveMerchantConfig() {

@@ -2517,11 +2517,20 @@ function fetchMerchantSettings() {
     if (cfg.alipay) {
       var alipayIdEl = document.getElementById('alipayAccountId');
       if (alipayIdEl && cfg.alipay.id) alipayIdEl.textContent = cfg.alipay.id;
-      /* QR Code Alipay */
+      /* QR Code Alipay — génération automatique depuis l'URL de paiement */
       if (cfg.alipay.qr_url) {
         var qrContainer = document.getElementById('alipayQrContainer');
         if (qrContainer) {
-          qrContainer.innerHTML = '<img src="' + cfg.alipay.qr_url + '" alt="QR Alipay" style="width:120px;height:120px;border-radius:12px;border:2px solid #BFDBFE;display:block;margin:0 auto 4px;" />';
+          /* api.qrserver.com génère une image QR à partir de n'importe quelle URL */
+          var payUrl   = cfg.alipay.qr_url;
+          var qrImgSrc = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=6&data=' + encodeURIComponent(payUrl);
+          qrContainer.innerHTML =
+            '<a href="' + payUrl + '" target="_blank" title="Ouvrir dans Alipay">' +
+              '<img src="' + qrImgSrc + '" alt="QR Code Alipay" ' +
+                'style="width:140px;height:140px;border-radius:12px;border:3px solid #1677FF;display:block;margin:0 auto 4px;" ' +
+                'onerror="this.style.display=\'none\'" />' +
+            '</a>' +
+            '<div style="font-size:11px;color:#6B7280;text-align:center;margin-top:4px;">Scannez avec Alipay</div>';
           qrContainer.style.display = 'block';
         }
       }
