@@ -298,7 +298,7 @@
         <!-- Frais -->
         <div style="margin-bottom:16px;">
           <div style="display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid var(--divider);">
-            <span style="font-size:13px;color:var(--text-secondary);" id="retraitFeeLabel">Frais de retrait (1%, max. 5 000 GNF)</span>
+            <span style="font-size:13px;color:var(--text-secondary);" id="retraitFeeLabel">Retrait sans frais</span>
             <span style="font-size:13px;font-weight:700;color:var(--text-secondary);" id="retraitFee">—</span>
           </div>
           <div style="display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid var(--divider);">
@@ -2841,6 +2841,27 @@ function isProjectCollective(p) {
 function projectHasJoinedMembers(p) {
   return Number(p && p.members_count) > 1;
 }
+
+/* ══════════════════════════════════════════
+   MARGE EPARGN+ — 3% intégrés, invisibles au client
+   Pour atteindre 100%, le client doit cumuler capital + 3%.
+   L'objectif AFFICHÉ reste le capital (cible) ; seuls le % et le
+   statut "Atteint" se calculent sur la cible effective (cible × 1,03).
+   Source de vérité unique — utilisée partout.
+   ══════════════════════════════════════════ */
+var EPARGN_FEE_RATE = 0.03;
+function projTarget(cible) {
+  return Math.round((Number(cible) || 0) * (1 + EPARGN_FEE_RATE));
+}
+function projPct(actuel, cible) {
+  var t = projTarget(cible);
+  return t > 0 ? Math.min(100, Math.round((Number(actuel) || 0) / t * 100)) : 0;
+}
+function projReached(actuel, cible) {
+  var t = projTarget(cible);
+  return t > 0 && (Number(actuel) || 0) >= t;
+}
+
 let TONTINES_USER = (function() { try { return JSON.parse(localStorage.getItem('epargn_tontines') || '[]'); } catch(e) { return []; } })();
 
 /* Notifications — générées depuis les transactions réelles */
@@ -3282,10 +3303,10 @@ function _onDepositApproved() {
     return;
   }
 
-  /* ── 2. Appliquer les frais de plateforme (1%) ──
-   * Le montant crédité = dépôt × 0,99
-   * Les 1% reviennent à Epargn+ (frais de gestion)           */
-  var netAmount = Math.floor(amount * 0.99);
+  /* ── 2. Crédit intégral du dépôt ──
+   * Aucun frais sur le dépôt. La marge Epargn+ (3%) est intégrée
+   * silencieusement au seuil des 100% (cf. projTarget). */
+  var netAmount = amount;
   var newActuel = (proj.actuel || 0) + netAmount;
   proj.actuel   = newActuel;
 
@@ -3373,12 +3394,13 @@ function _updateRetrait() {
   const cur = (COUNTRY_LABELS[_userCountry] || COUNTRY_LABELS.gn).currency;
   const cap = RETRAIT_CAPS[cur] || 5000;
   document.getElementById('retraitDisplay').textContent = n.toLocaleString('fr');
-  const fee = n > 0 ? Math.min(Math.round(n * 0.01), cap) : 0;
-  document.getElementById('retraitFee').textContent   = fee > 0 ? fmt(fee) + ' ' + cur : '0 ' + cur;
-  document.getElementById('retraitTotal').textContent = fee > 0 ? fmt(n + fee) + ' ' + cur : '0 ' + cur;
+  /* Aucun frais de retrait — seule la marge de 3% (intégrée à l'épargne) s'applique */
+  const fee = 0;
+  document.getElementById('retraitFee').textContent   = '0 ' + cur;
+  document.getElementById('retraitTotal').textContent = n > 0 ? fmt(n) + ' ' + cur : '0 ' + cur;
   /* Mettre à jour le label frais */
   const lbl = document.getElementById('retraitFeeLabel');
-  if (lbl) lbl.textContent = 'Frais de retrait (1%, max. ' + fmt(cap) + ' ' + cur + ')';
+  if (lbl) lbl.textContent = 'Retrait sans frais';
 }
 function submitRetrait() {
   /* Stub — remplacé par le wrapper OTP ci-dessous (rechercher "window.submitRetrait") */
@@ -3940,7 +3962,7 @@ function renderHomeProjects() {
   const COLORS = ['#0B1566','#22CC66','#3B82F6','#F59E0B','#8B5CF6','#EC4899'];
   if (!PROJETS || PROJETS.length === 0) { el.innerHTML = ''; return; }
   el.innerHTML = PROJETS.map((p, i) => {
-    const pct   = p.cible > 0 ? Math.min(100, Math.round(p.actuel / p.cible * 100)) : 0;
+    const pct   = projPct(p.actuel, p.cible);
     const ic    = projectIcon(p.nom);
     const color = p.color || ic.color || COLORS[i % COLORS.length];
     let dotLabel, dotColor;
@@ -3956,7 +3978,7 @@ function renderHomeProjects() {
           <span style="font-size:13px;font-weight:700;color:var(--primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.nom}</span>
           <span style="font-size:13px;font-weight:800;color:${color};flex-shrink:0;margin-left:8px;">${pct}%</span>
         </div>
-        <div style="font-size:11px;color:var(--text-secondary);margin-bottom:5px;">${fmt(p.actuel)}M / ${fmt(p.cible)} ${cur}</div>
+        <div style="font-size:11px;color:var(--text-secondary);margin-bottom:5px;">${fmt(p.actuel)} / ${fmt(p.cible)} ${cur}</div>
         <div style="height:4px;background:#F3F4F6;border-radius:2px;overflow:hidden;">
           <div style="width:${pct}%;height:100%;background:${color};border-radius:2px;transition:width .5s;"></div>
         </div>
@@ -4104,7 +4126,7 @@ function renderProjectCards() {
   const R = 38, CIRC = +(2 * Math.PI * R).toFixed(1);
 
   grid.innerHTML = PROJETS.map((p, idx) => {
-    const pct      = p.cible > 0 ? Math.min(100, Math.round(p.actuel / p.cible * 100)) : 0;
+    const pct      = projPct(p.actuel, p.cible);
     const ic_pre   = projectIcon(p.nom);
     const color    = p.color || ic_pre.color || COLORS[idx % COLORS.length];
     const gcol     = pct >= 100 ? '#22CC66' : color;
@@ -4262,10 +4284,11 @@ function updateHomeOverview() {
     return;
   }
 
-  const atteints    = PROJETS.filter(p => p.cible > 0 && (p.actuel / p.cible) >= 1).length;
+  const atteints    = PROJETS.filter(p => projReached(p.actuel, p.cible)).length;
   const totalCible  = PROJETS.reduce((s, p) => s + (p.cible  || 0), 0);
   const totalActuel = PROJETS.reduce((s, p) => s + (p.actuel || 0), 0);
-  const overallPct  = totalCible > 0 ? Math.min(100, Math.round(totalActuel / totalCible * 100)) : 0;
+  const totalTarget = projTarget(totalCible);
+  const overallPct  = totalTarget > 0 ? Math.min(100, Math.round(totalActuel / totalTarget * 100)) : 0;
 
   el.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:6px;">
@@ -4299,7 +4322,7 @@ function openProjectDetail(proj) {
   if (!proj) return;
   _currentDetailProject = proj;
   var cur = (_currentUser && COUNTRY_LABELS[_currentUser.country]) ? COUNTRY_LABELS[_currentUser.country].currency : 'GNF';
-  var pct = proj.cible > 0 ? Math.min(100, Math.round(proj.actuel / proj.cible * 100)) : 0;
+  var pct = projPct(proj.actuel, proj.cible);
   var remaining = Math.max(0, proj.cible - proj.actuel);
   var color = proj.color || '#0B1566';
   var gcol = pct >= 100 ? '#22CC66' : color;
@@ -4843,13 +4866,13 @@ function openRetraitForProject(projectId, nom, montant) {
   const phone = (_currentUser && _currentUser.phone) ? _currentUser.phone : '—';
   document.querySelectorAll('#sec-retrait [data-user-phone]').forEach(el => { el.textContent = phone; });
 
-  /* Frais */
+  /* Frais — retrait sans frais (seule la marge 3% intégrée s'applique) */
   const cur = (COUNTRY_LABELS[_userCountry] || COUNTRY_LABELS.gn).currency;
-  const fee = Math.min(Math.round(montant * 0.01), 5000);
+  const fee = 0;
   const feeEl = document.getElementById('retraitFee');
-  if (feeEl) feeEl.textContent = fmt(fee) + ' ' + cur;
+  if (feeEl) feeEl.textContent = '0 ' + cur;
   const totEl = document.getElementById('retraitTotal');
-  if (totEl) totEl.textContent = fmt(montant - fee) + ' ' + cur;
+  if (totEl) totEl.textContent = fmt(montant) + ' ' + cur;
 
   /* Notice KYC si le montant dépasse le seuil */
   const kycThreshold = KYC_WITHDRAW_THRESHOLD[_userCountry] || 1000000;
@@ -5133,7 +5156,8 @@ function updateProgressionGauge() {
   const totalActuel = PROJETS.reduce((s, p) => s + (p.actuel || 0), 0);
   const totalCible  = PROJETS.reduce((s, p) => s + (p.cible  || 0), 0);
   const epargne     = totalActuel;
-  const pct         = totalCible > 0 ? Math.min(100, Math.round(totalActuel / totalCible * 100)) : 0;
+  const totalTarget = projTarget(totalCible);
+  const pct         = totalTarget > 0 ? Math.min(100, Math.round(totalActuel / totalTarget * 100)) : 0;
   const arcLen     = 282.7;
   const dash       = (pct / 100 * arcLen).toFixed(1);
 
@@ -5647,7 +5671,7 @@ function showSmartNotifications() {
   /* 2. Milestones de progression (25%, 50%, 75%) */
   (PROJETS || []).forEach(function(p) {
     if (!p.cible || p.cible <= 0) return;
-    var pct = Math.round((p.actuel || 0) / p.cible * 100);
+    var pct = projPct(p.actuel, p.cible);
     var key = 'epargn_milestone_' + p.id;
     var seen = parseInt(localStorage.getItem(key) || '0', 10);
     var milestone = pct >= 100 ? 100 : pct >= 75 ? 75 : pct >= 50 ? 50 : pct >= 25 ? 25 : 0;
@@ -5709,7 +5733,7 @@ function openDepositPicker() {
   const list = document.getElementById('depositPickerList');
   if (list) {
     list.innerHTML = projetsPerso.map((p, i) => {
-      const pct   = p.cible > 0 ? Math.min(100, Math.round(p.actuel / p.cible * 100)) : 0;
+      const pct   = projPct(p.actuel, p.cible);
       const color = p.color || COLORS[i % COLORS.length];
       const R = 30, CIRC = +(2 * Math.PI * R).toFixed(1);
       const dash = +(pct / 100 * CIRC).toFixed(1);
@@ -6407,8 +6431,7 @@ function projCountdownText(proj) {
 /* Retrait débloqué = objectif 100% ET date de fin arrivée */
 function projWithdrawable(proj) {
   if (!proj) return false;
-  var pct = (proj.cible > 0) ? (proj.actuel / proj.cible * 100) : 0;
-  return pct >= 100 && projDeadlineReached(proj);
+  return projReached(proj.actuel, proj.cible) && projDeadlineReached(proj);
 }
 
 function createProject() {
@@ -6755,7 +6778,7 @@ function resendOTP() {
 
 function showReceptionMsg(amount) {
   const phone = (_currentUser && _currentUser.phone) ? _currentUser.phone : TRANSFER_NUMBER;
-  const fee   = Math.min(Math.round(amount * 0.01), 5000);
+  const fee   = 0; /* retrait sans frais */
   const ref   = 'RET-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' +
                 Math.random().toString(36).substr(2,6).toUpperCase();
   const projetNom = _retraitProjectNom || 'Projet';
@@ -6826,8 +6849,8 @@ function showReceptionMsg(amount) {
           <span style="font-size:13px;font-weight:700;color:var(--primary);">${fmt(amount)} GNF</span>
         </div>
         <div class="receipt-row" style="padding:11px 16px;border-bottom:1px solid var(--divider);display:flex;justify-content:space-between;">
-          <span style="font-size:13px;color:var(--text-secondary);">Frais (1%, max 5 000)</span>
-          <span style="font-size:13px;font-weight:700;color:#EF4444;">−${fmt(fee)} GNF</span>
+          <span style="font-size:13px;color:var(--text-secondary);">Frais</span>
+          <span style="font-size:13px;font-weight:700;color:#059669;">Sans frais</span>
         </div>
         <div class="receipt-row" style="padding:11px 16px;border-bottom:1px solid var(--divider);display:flex;justify-content:space-between;">
           <span style="font-size:13px;font-weight:700;color:var(--primary);">Montant reçu</span>
@@ -7344,7 +7367,7 @@ function _tontineProgress(t) {
     });
   }
 
-  var pct = goal > 0 ? Math.min(100, Math.round(collected / goal * 100)) : 0;
+  var pct = projPct(collected, goal);
   return { collected: collected, expected: expected, pct: pct, monthsElapsed: monthsElapsed, goal: goal };
 }
 
@@ -8328,7 +8351,7 @@ function loadInvitations() {
         ? '<span style="background:#D1FAE5;color:#065F46;font-size:11px;font-weight:700;padding:2px 8px;border-radius:100px;">✅ Acceptée</span>'
         : '<span style="background:#FEE2E2;color:#991B1B;font-size:11px;font-weight:700;padding:2px 8px;border-radius:100px;">❌ Refusée</span>';
 
-      var pct = p.goal ? Math.min(100, Math.round(((p.actuel||0)/p.goal)*100)) : 0;
+      var pct = projPct(p.actuel, p.goal);
       var actionBtns = inv.status === 'pending'
         ? '<div style="display:flex;gap:8px;margin-top:14px;"><button class="btn btn-primary btn-sm" style="flex:1;" onclick="respondInvitation(\'' + inv.id + '\',true)">✅ Accepter</button><button class="btn btn-outline btn-sm" style="flex:1;" onclick="respondInvitation(\'' + inv.id + '\',false)">Refuser</button></div>'
         : '';
@@ -8908,8 +8931,8 @@ function updateDepositCap(amtStr) {
 
   var goal      = proj.cible || proj.goal    || 0;
   var actuel    = proj.actuel || proj.current || 0;
-  var remaining = Math.max(0, goal - actuel);
-  var pct       = goal > 0 ? Math.min(100, Math.round(actuel / goal * 100)) : 0;
+  var remaining = Math.max(0, projTarget(goal) - actuel);
+  var pct       = projPct(actuel, goal);
   var cur       = (typeof _currentUser !== 'undefined' && _currentUser)
     ? ((typeof COUNTRY_LABELS !== 'undefined' && COUNTRY_LABELS[_currentUser.country])
         ? COUNTRY_LABELS[_currentUser.country].currency : 'GNF')
@@ -8934,7 +8957,7 @@ function updateDepositCap(amtStr) {
       warningEl.textContent = '⚠ Maximum : ' + fmt(remaining) + ' ' + cur;
       warningEl.style.color = '#DC2626';
     } else if (amt > 0) {
-      var newPct = goal > 0 ? Math.min(100, Math.round((actuel + amt) / goal * 100)) : 0;
+      var newPct = projPct(actuel + amt, goal);
       warningEl.style.display = '';
       warningEl.textContent = '✅ Après ce dépôt : ' + newPct + '%';
       warningEl.style.color = '#16A34A';
