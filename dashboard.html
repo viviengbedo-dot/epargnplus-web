@@ -8996,5 +8996,36 @@ function updateDepositCap(amtStr) {
     </div>
   </div>
 </div>
+
+<!-- ── Polling des notifications toutes les 15 secondes ── -->
+<script>
+(function() {
+  var notifPoll = setInterval(function() {
+    if (window._jwt && typeof loadNotifications === 'function') {
+      loadNotifications();
+    }
+  }, 15000); /* 15 secondes */
+
+  /* Recharger aussi au premier message reçu */
+  var origShowToast = window.showToast;
+  if (origShowToast) {
+    window.showToast = function(msg, type) {
+      origShowToast.call(this, msg, type);
+      if (window._jwt && typeof loadNotifications === 'function') {
+        setTimeout(function() { loadNotifications(); }, 1000);
+      }
+    };
+  }
+})();
+
+/* Charger les notifications au démarrage */
+window.addEventListener('load', function() {
+  setTimeout(function() {
+    if (window._jwt && typeof loadNotifications === 'function') {
+      loadNotifications();
+    }
+  }, 2000);
+});
+</script>
 </body>
 </html>

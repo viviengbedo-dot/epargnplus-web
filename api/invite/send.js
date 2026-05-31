@@ -360,6 +360,20 @@ module.exports = async (req, res) => {
         console.warn('[invite/send POST accept] update count:', e.message);
       }
 
+      /* Créer une notification pour l'invité */
+      try {
+        await supabaseRequest('POST', '/notifications', {
+          user_id: userId,
+          type: 'invitation',
+          title: '🤝 Bienvenue dans ' + project.name,
+          body: 'Vous avez rejoint le groupe d\'épargne collective « ' + project.name + ' »',
+          read: false,
+          created_at: new Date().toISOString(),
+        });
+      } catch (e) {
+        console.warn('[invite/send POST accept] notification failed:', e.message);
+      }
+
       return res.status(200).json({
         ok: true,
         project_id: project.id,

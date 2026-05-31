@@ -362,9 +362,14 @@ async function handleProjects(req, res, payload, resourceId) {
       /* Projet collectif = nom commence par 🤝 OU a plusieurs membres */
       const isCollective = String(proj.name || '').startsWith('🤝') || (proj.members_count > 1);
 
-      /* ── Projet collectif : demander fermeture à l'admin ── */
-      if (isCollective) {
-        /* Les projets collectifs peuvent être demandés pour fermeture */
+      /* Ancien projet collectif avec seulement le créateur : peut être supprimé */
+      if (isCollective && (proj.members_count <= 1)) {
+        /* Permettre la suppression des anciens projets collectifs vides */
+        /* Continuer vers la suppression */
+      }
+      /* Nouveau projet collectif avec membres : demander fermeture */
+      else if (isCollective && (proj.members_count > 1)) {
+        /* Les projets collectifs avec membres passent en fermeture demandée */
         /* Mettre le statut à 'closure_requested' et notifier l'admin */
         try {
           await supabaseRequest('PATCH',
