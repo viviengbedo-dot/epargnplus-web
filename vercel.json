@@ -4,8 +4,7 @@
   "outputDirectory": ".",
   "buildCommand": "echo 'no build'",
   "functions": {
-    "api/**/*.js": { "maxDuration": 60 },
-    "api/cron/**/*.js": { "maxDuration": 300 }
+    "api/**/*.js": { "maxDuration": 300 }
   },
   "crons": [
     {
