@@ -238,6 +238,10 @@
         <span class="nav-icon">✉️</span> Emails
         <span class="nav-badge" id="navEmailsBadge" style="display:none;">0</span>
       </button>
+      <button class="nav-item" onclick="showAdminSection('coherence', this)">
+        <span class="nav-icon">⚖️</span> Cohérence soldes
+        <span class="nav-badge" id="navCoherenceBadge" style="display:none;background:#DC2626;">0</span>
+      </button>
       <div class="nav-section-title">SYSTÈME</div>
       <button class="nav-item" onclick="showAdminSection('parametres', this)">
         <span class="nav-icon">⚙️</span> Paramètres
@@ -1335,6 +1339,72 @@
         </div>
       </section>
 
+      <!-- ════════ COHÉRENCE SOLDES ════════ -->
+      <section id="sec-coherence" style="display:none;">
+        <div class="flex-between mb-6">
+          <div>
+            <h2 style="font-size:22px;font-weight:800;color:var(--primary);">⚖️ Cohérence des soldes</h2>
+            <p class="text-muted" id="coherenceSubtitle">Utilisateurs dont le solde dépasse la capacité de leurs projets actifs.</p>
+          </div>
+          <div class="flex-gap">
+            <button class="btn btn-primary btn-sm" onclick="runMigration()" id="migrateBtn">🔄 Recalculer tous les soldes</button>
+            <button class="btn btn-outline btn-sm" onclick="reloadAdminData()">↻ Actualiser</button>
+          </div>
+        </div>
+
+        <div id="migrationResult" style="display:none;background:#D1FAE5;border-radius:12px;padding:14px 18px;margin-bottom:20px;font-size:14px;font-weight:600;color:#065F46;"></div>
+
+        <!-- Tableau excédents -->
+        <div class="card" style="padding:0;">
+          <div style="padding:16px 20px;border-bottom:1px solid var(--divider);">
+            <div class="card-title" style="margin:0;">💰 Utilisateurs avec excédent non affecté</div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Utilisateur</th>
+                  <th>Solde</th>
+                  <th>Capacité projets</th>
+                  <th>Excédent</th>
+                  <th>Projets actifs</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="coherenceTbody">
+                <tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted);">
+                  <div style="font-size:32px;margin-bottom:8px;">✅</div>
+                  <div>Chargement ou aucun excédent détecté</div>
+                </td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Règles actives -->
+        <div class="card" style="margin-top:20px;background:#FFFBEB;border:2px solid #FDE68A;">
+          <div class="card-title" style="margin-bottom:12px;">📋 Règles de protection actives</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div style="background:#fff;border-radius:10px;padding:12px 14px;border:1px solid var(--border);">
+              <div style="font-size:13px;font-weight:700;color:#0B1566;margin-bottom:4px;">🔒 Suppression projet individuel</div>
+              <div style="font-size:12px;color:var(--text-secondary);">Bloquée si des fonds ont été déposés. Clôture/archivage uniquement.</div>
+            </div>
+            <div style="background:#fff;border-radius:10px;padding:12px 14px;border:1px solid var(--border);">
+              <div style="font-size:13px;font-weight:700;color:#0B1566;margin-bottom:4px;">🤝 Suppression projet collectif</div>
+              <div style="font-size:12px;color:var(--text-secondary);">Soumise à validation admin + remboursement automatique des participants.</div>
+            </div>
+            <div style="background:#fff;border-radius:10px;padding:12px 14px;border:1px solid var(--border);">
+              <div style="font-size:13px;font-weight:700;color:#0B1566;margin-bottom:4px;">💳 Plafond de dépôt</div>
+              <div style="font-size:12px;color:var(--text-secondary);">Un dépôt ne peut jamais dépasser le montant restant d'un objectif. Bloqué côté client ET serveur.</div>
+            </div>
+            <div style="background:#fff;border-radius:10px;padding:12px 14px;border:1px solid var(--border);">
+              <div style="font-size:13px;font-weight:700;color:#0B1566;margin-bottom:4px;">♻️ Réattribution automatique</div>
+              <div style="font-size:12px;color:var(--text-secondary);">À la création d'un projet, le surplus non affecté est automatiquement injecté.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- ════════ LOGS ════════ -->
       <section id="sec-logs" style="display:none;">
         <div class="flex-between mb-6">
@@ -2360,7 +2430,7 @@ function setupResponsiveSidebar() {
 const ADMIN_TITLES = {
   overview: 'Tableau de bord', analytics: 'Analytiques', users: 'Utilisateurs',
   transactions: 'Transactions', projets: 'Projets', tontines: 'Épargne Collective',
-  kyc: 'KYC en attente', support: 'Support', emails: 'Centre Email', parametres: 'Paramètres', logs: 'Logs système'
+  kyc: 'KYC en attente', support: 'Support', emails: 'Centre Email', coherence: 'Cohérence soldes', parametres: 'Paramètres', logs: 'Logs système'
 };
 /* Sections qui déclenchent un rechargement des données à l'ouverture */
 const RELOAD_ON_OPEN = ['users', 'transactions', 'kyc', 'overview', 'projets', 'tontines'];
@@ -3689,6 +3759,70 @@ function fmtAdmin(n) {
 
 
 /* ════════════════════════════════════════════════════════════
+   COHÉRENCE SOLDES — surplus, migration, réattribution
+   ════════════════════════════════════════════════════════════ */
+
+var SURPLUS_USERS = [];
+
+function populateCoherenceData(data) {
+  SURPLUS_USERS = data.surplusUsers || [];
+  var badge = document.getElementById('navCoherenceBadge');
+  if (badge) { badge.textContent = SURPLUS_USERS.length; badge.style.display = SURPLUS_USERS.length > 0 ? '' : 'none'; }
+  var sub = document.getElementById('coherenceSubtitle');
+  if (sub) sub.textContent = SURPLUS_USERS.length + ' utilisateur(s) avec excédent · soldes vérifiés en temps réel';
+  renderCoherenceTable();
+}
+
+function renderCoherenceTable() {
+  var tbody = document.getElementById('coherenceTbody'); if (!tbody) return;
+  if (!SURPLUS_USERS.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted);"><div style="font-size:32px;margin-bottom:8px;">✅</div><div>Aucun excédent — tous les soldes sont cohérents</div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = SURPLUS_USERS.map(function(u) {
+    return '<tr>'+
+      '<td><div style="font-weight:600;">'+esc(u.prenom||'—')+'</div><div style="font-size:11px;color:var(--text-muted);">'+esc(u.phone||'')+'</div></td>'+
+      '<td style="font-weight:700;color:var(--primary);">'+(u.solde_actuel||0).toLocaleString('fr-FR')+' GNF</td>'+
+      '<td>'+(u.capacite_restante||0).toLocaleString('fr-FR')+' GNF</td>'+
+      '<td><span style="background:#FEF3C7;color:#92400E;padding:3px 10px;border-radius:100px;font-size:12px;font-weight:700;">⚠ '+(u.excedent||0).toLocaleString('fr-FR')+' GNF</span></td>'+
+      '<td style="text-align:center;">'+(u.nb_projets_actifs||0)+'</td>'+
+      '<td><button class="btn btn-sm" style="font-size:11px;" onclick="openReattributeModal(\''+esc(u.user_id)+'\',\''+esc(u.phone||'')+'\','+(u.excedent||0)+')">♻️ Réattribuer</button></td>'+
+    '</tr>';
+  }).join('');
+}
+
+function runMigration() {
+  var btn=document.getElementById('migrateBtn'); var resultEl=document.getElementById('migrationResult');
+  if(btn){btn.disabled=true;btn.textContent='⏳ Recalcul en cours…';}
+  if(resultEl) resultEl.style.display='none';
+  fetch('/api/admin/update-balance',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+_adminToken},body:JSON.stringify({action:'migrate_balances'})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(btn){btn.disabled=false;btn.textContent='🔄 Recalculer tous les soldes';}
+    if(resultEl){
+      resultEl.style.display='';resultEl.style.borderRadius='10px';resultEl.style.padding='12px 16px';
+      if(d.ok){
+        SURPLUS_USERS=d.surplusUsers||SURPLUS_USERS;renderCoherenceTable();
+        resultEl.textContent='✅ '+d.recalculated+' projets recalculés · '+(d.surplusUsers||[]).length+' excédents identifiés'+(d.errors?' · '+d.errors+' erreur(s)':'');
+        resultEl.style.background='#D1FAE5';resultEl.style.color='#065F46';
+      } else {
+        resultEl.textContent='❌ Erreur : '+(d.error||'inconnue');
+        resultEl.style.background='#FEE2E2';resultEl.style.color='#991B1B';
+      }
+    }
+  }).catch(function(){if(btn){btn.disabled=false;btn.textContent='🔄 Recalculer';}showAdminToast('Erreur réseau','error');});
+}
+
+function openReattributeModal(userId, phone, excedent) {
+  var projectId = prompt('Réattribution de '+excedent.toLocaleString('fr-FR')+' GNF pour '+phone+'\n\nID du projet cible :');
+  if (!projectId || !projectId.trim()) return;
+  fetch('/api/admin/update-balance',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+_adminToken},body:JSON.stringify({action:'reattribute_surplus',targetUserId:userId,projectId:projectId.trim()})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d.ok){showAdminToast('✅ '+(d.injection||0).toLocaleString('fr-FR')+' GNF réattribués !','success');reloadAdminData();}
+    else{showAdminToast('Erreur : '+(d.error||'inconnue'),'error');}
+  }).catch(function(){showAdminToast('Erreur réseau','error');});
+}
+
+/* ════════════════════════════════════════════════════════════
    EMAIL SYSTEM — Templates, Logs, Campaigns, Test
    ════════════════════════════════════════════════════════════ */
 
@@ -3844,6 +3978,9 @@ function populatePilotData(data) {
 
   /* Email system */
   populateEmailData(data);
+
+  /* Cohérence soldes */
+  populateCoherenceData(data);
 
   renderSupportTickets();
   renderPromos();

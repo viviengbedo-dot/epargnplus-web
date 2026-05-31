@@ -223,7 +223,82 @@ async function handleProjects(req, res, payload, resourceId) {
       }
 
       console.log('[user/me/projects] créé id=' + (result.id) + ' user=' + payload.userId);
-      return res.status(201).json(result);
+
+      /* ── Détection et injection automatique du surplus ── */
+      let surplusInjected = 0;
+      let surplusMessage  = null;
+      if (result && result.id && !isCollective) {
+        try {
+          /* 1. Solde actuel */
+          const uRows = await supabaseRequest('GET',
+            '/users?id=eq.' + encodeURIComponent(payload.userId) + '&select=epargne');
+          const solde = Number((Array.isArray(uRows) && uRows[0]) ? uRows[0].epargne : 0) || 0;
+
+          /* 2. Capacité totale absorbée par les autres projets actifs */
+          const allProjects = await supabaseRequest('GET',
+            '/projects?user_id=eq.' + encodeURIComponent(payload.userId) +
+            '&status=eq.active&id=neq.' + encodeURIComponent(result.id) +
+            '&select=goal,actuel');
+          const capaciteAbsorbee = Array.isArray(allProjects)
+            ? allProjects.reduce((s, p) => s + Math.max(0, (p.goal || 0) - (p.actuel || 0)), 0)
+            : 0;
+
+          /* 3. Calcul surplus */
+          const surplus = Math.max(0, solde - capaciteAbsorbee);
+
+          if (surplus > 0) {
+            const nouvelObjectif = Number(cible) || 0;
+            const injection = Math.min(surplus, nouvelObjectif);
+
+            if (injection > 0) {
+              /* Mettre à jour actuel du nouveau projet */
+              await supabaseRequest('PATCH',
+                '/projects?id=eq.' + encodeURIComponent(result.id),
+                { actuel: injection, has_funds: true });
+
+              /* Créer transaction de réattribution */
+              const refSurplus = 'SURPLUS-' + new Date().toISOString().slice(0,10).replace(/-/g,'') +
+                '-' + Math.random().toString(36).substr(2,5).toUpperCase();
+              await supabaseRequest('POST', '/transactions', {
+                user_id:    payload.userId,
+                type:       'reattribution',
+                amount:     injection,
+                is_credit:  true,
+                project_id: result.id,
+                statut:     'completed',
+                status:     'success',
+                label:      refSurplus + ' · Réattribution automatique excédent',
+              });
+
+              /* Logger */
+              try {
+                await supabaseRequest('POST', '/surplus_log', {
+                  user_id:        payload.userId,
+                  project_id:     result.id,
+                  surplus_amount: surplus,
+                  injected_amount:injection,
+                  remaining:      surplus - injection,
+                  status:         'auto',
+                });
+              } catch {}
+
+              surplusInjected = injection;
+              result.actuel   = injection;
+              result.has_funds = true;
+              surplusMessage = 'Votre solde disponible non affecté (' +
+                injection.toLocaleString('fr-FR') + ' GNF) a été automatiquement injecté dans ce projet.';
+            }
+          }
+        } catch (surplusErr) {
+          console.warn('[projects/create] surplus detection:', surplusErr.message);
+        }
+      }
+
+      return res.status(201).json({
+        ...result,
+        surplus_injected: surplusInjected,
+        surplus_message: surplusMessage,
+      });
     } catch (e) {
       return res.status(500).json({ error: 'Erreur création projet : ' + e.message });
     }
@@ -268,8 +343,64 @@ async function handleProjects(req, res, payload, resourceId) {
   if (req.method === 'DELETE') {
     if (!resourceId) return res.status(400).json({ error: 'id requis' });
     try {
+      /* ── Récupérer le projet ── */
+      const projRows = await supabaseRequest('GET',
+        '/projects?id=eq.' + encodeURIComponent(resourceId) +
+        '&user_id=eq.' + encodeURIComponent(payload.userId) +
+        '&select=id,name,actuel,goal,status,has_funds&limit=1');
+      if (!Array.isArray(projRows) || !projRows[0]) {
+        return res.status(404).json({ error: 'Projet introuvable' });
+      }
+      const proj = projRows[0];
+
+      const isCollective = String(proj.name || '').startsWith('🤝');
+
+      /* ── Projet individuel avec fonds : BLOQUÉ ── */
+      if (!isCollective) {
+        /* Vérifier via has_funds ET actuel ET transactions */
+        const hasFunds = proj.has_funds || (proj.actuel > 0);
+        let hasTransactions = false;
+        if (!hasFunds) {
+          try {
+            const txns = await supabaseRequest('GET',
+              '/transactions?project_id=eq.' + encodeURIComponent(resourceId) +
+              '&statut=eq.completed&is_credit=eq.true&select=id&limit=1');
+            hasTransactions = Array.isArray(txns) && txns.length > 0;
+          } catch {}
+        }
+        if (hasFunds || hasTransactions) {
+          return res.status(403).json({
+            error: 'Ce projet ne peut plus être supprimé car des fonds y sont déjà associés.',
+            code: 'PROJECT_HAS_FUNDS',
+            actions: ['close', 'archive'],
+          });
+        }
+      }
+
+      /* ── Projet collectif : demande de suppression uniquement ── */
+      if (isCollective) {
+        if (proj.actuel > 0 || proj.has_funds) {
+          /* Marquer comme delete_requested — admin devra valider */
+          await supabaseRequest('PATCH',
+            '/projects?id=eq.' + encodeURIComponent(resourceId),
+            { status: 'delete_requested' });
+          return res.status(200).json({
+            ok: true,
+            action: 'delete_requested',
+            message: 'Demande de clôture envoyée. L\'administrateur traitera les remboursements.',
+          });
+        }
+      }
+
+      /* ── Suppression autorisée (pas de fonds) ── */
+      try { await supabaseRequest('DELETE',
+        '/transactions?project_id=eq.' + encodeURIComponent(resourceId)); } catch {}
+      try { await supabaseRequest('DELETE',
+        '/project_members?project_id=eq.' + encodeURIComponent(resourceId)); } catch {}
       await supabaseRequest('DELETE',
         '/projects?id=eq.' + encodeURIComponent(resourceId) + '&user_id=eq.' + payload.userId);
+
+      console.log('[projects/delete] id=' + resourceId + ' user=' + payload.userId);
       return res.status(200).json({ ok: true });
     } catch (e) {
       return res.status(500).json({ error: 'Erreur suppression projet : ' + e.message });

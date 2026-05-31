@@ -446,6 +446,124 @@ module.exports = async (req, res) => {
     }
   }
 
+  /* ════════════ MIGRATE BALANCES ════════════
+     Recalcule les actuel de tous les projets actifs depuis les transactions.
+     Identifie les utilisateurs avec excédent.
+  */
+  if (action === 'migrate_balances') {
+    try {
+      const projects = await supabaseRequest('GET',
+        '/projects?status=eq.active&select=id,user_id,goal,actuel&limit=1000');
+      if (!Array.isArray(projects)) return res.status(500).json({ error: 'Impossible de charger les projets' });
+
+      let recalculated = 0, errors = 0;
+      for (const proj of projects) {
+        try {
+          const txns = await supabaseRequest('GET',
+            '/transactions?project_id=eq.' + encodeURIComponent(proj.id) +
+            '&statut=eq.completed&is_credit=eq.true&select=amount');
+          const totalDeposited = Array.isArray(txns)
+            ? txns.reduce((s, t) => s + (Number(t.amount) || 0), 0)
+            : 0;
+          const cappedActuel = Math.min(totalDeposited, proj.goal || Infinity);
+          if (Math.abs(cappedActuel - (proj.actuel || 0)) > 1) {
+            await supabaseRequest('PATCH',
+              '/projects?id=eq.' + encodeURIComponent(proj.id),
+              { actuel: cappedActuel, has_funds: cappedActuel > 0 });
+          }
+          recalculated++;
+        } catch { errors++; }
+      }
+
+      /* Identifier les utilisateurs en excédent */
+      const users = await supabaseRequest('GET',
+        '/users?select=id,phone,epargne&limit=1000');
+      const surplusUsers = [];
+      if (Array.isArray(users)) {
+        for (const u of users) {
+          try {
+            const userProjs = await supabaseRequest('GET',
+              '/projects?user_id=eq.' + encodeURIComponent(u.id) +
+              '&status=eq.active&select=goal,actuel');
+            const capacite = Array.isArray(userProjs)
+              ? userProjs.reduce((s, p) => s + Math.max(0, (p.goal || 0) - (p.actuel || 0)), 0)
+              : 0;
+            const surplus = (u.epargne || 0) - capacite;
+            if (surplus > 100) surplusUsers.push({ userId: u.id, phone: u.phone, surplus, capacite });
+          } catch {}
+        }
+      }
+
+      console.log('[migrate_balances] recalculated=' + recalculated + ' errors=' + errors +
+        ' surplusUsers=' + surplusUsers.length);
+      return res.status(200).json({
+        ok: true, action: 'migrate_balances', recalculated, errors,
+        surplusUsers: surplusUsers.slice(0, 50),
+      });
+    } catch (err) {
+      return res.status(500).json({ error: 'Erreur migration : ' + err.message });
+    }
+  }
+
+  /* ════════════ REATTRIBUTE SURPLUS ════════════
+     Réattribue manuellement le surplus d'un utilisateur vers un projet.
+  */
+  if (action === 'reattribute_surplus') {
+    const { targetUserId: surplusUserId, projectId: targetProjectId } = body;
+    if (!surplusUserId || !targetProjectId) {
+      return res.status(400).json({ error: 'targetUserId et projectId requis' });
+    }
+    try {
+      const [uRows, projRows] = await Promise.all([
+        supabaseRequest('GET', '/users?id=eq.' + encodeURIComponent(surplusUserId) + '&select=id,epargne'),
+        supabaseRequest('GET', '/projects?id=eq.' + encodeURIComponent(targetProjectId) + '&select=id,goal,actuel,status'),
+      ]);
+      const u    = Array.isArray(uRows)    && uRows[0];
+      const proj = Array.isArray(projRows) && projRows[0];
+      if (!u || !proj) return res.status(404).json({ error: 'Utilisateur ou projet introuvable' });
+      if (proj.status !== 'active') return res.status(400).json({ error: 'Projet non actif' });
+
+      const remaining = Math.max(0, (proj.goal || 0) - (proj.actuel || 0));
+      const injection = Math.min(Number(u.epargne) || 0, remaining);
+
+      if (injection <= 0) return res.status(400).json({ error: 'Aucun excédent à réattribuer ou projet plein' });
+
+      /* Mettre à jour le projet */
+      await supabaseRequest('PATCH',
+        '/projects?id=eq.' + encodeURIComponent(targetProjectId),
+        { actuel: (proj.actuel || 0) + injection, has_funds: true, updated_at: now });
+
+      /* Créer transaction */
+      const ref = 'SURPLUS-' + now.slice(0,10).replace(/-/g,'') +
+        '-' + Math.random().toString(36).substr(2,5).toUpperCase();
+      await supabaseRequest('POST', '/transactions', {
+        user_id:   surplusUserId, type: 'reattribution', amount: injection,
+        is_credit: true, project_id: targetProjectId,
+        statut: 'completed', status: 'success',
+        label: ref + ' · Réattribution excédent (admin)',
+      });
+
+      /* Log */
+      try {
+        await supabaseRequest('POST', '/surplus_log', {
+          user_id: surplusUserId, project_id: targetProjectId,
+          surplus_amount: u.epargne, injected_amount: injection,
+          remaining: (u.epargne || 0) - injection, status: 'manual',
+        });
+      } catch {}
+
+      /* Notification */
+      await createNotification(surplusUserId, 'deposit',
+        '💰 Solde réattribué',
+        `${injection.toLocaleString('fr-FR')} GNF de votre solde non affecté ont été injectés dans votre projet.`,
+        { project_id: targetProjectId, amount: injection });
+
+      return res.status(200).json({ ok: true, action: 'reattribute_surplus', injection, remaining });
+    } catch (err) {
+      return res.status(500).json({ error: 'Erreur réattribution : ' + err.message });
+    }
+  }
+
   /* ════════════ EMAIL TEMPLATE MANAGEMENT ════════════ */
 
   if (action === 'update_email_template') {
@@ -753,19 +871,38 @@ module.exports = async (req, res) => {
         '/users?id=eq.' + encodeURIComponent(userId),
         { epargne: newEpargne, pending_deposit: null });
 
-      /* Mettre à jour projects.actuel si le dépôt est lié à un projet */
+      /* ── Mettre à jour projects.actuel (avec cap strict sur goal) ── */
       if (projectId) {
         try {
           const projRows = await supabaseRequest('GET',
-            '/projects?id=eq.' + encodeURIComponent(projectId) + '&select=id,actuel,goal');
+            '/projects?id=eq.' + encodeURIComponent(projectId) + '&select=id,actuel,goal,status');
           if (Array.isArray(projRows) && projRows[0]) {
-            const newActuel = Math.min(
-              (Number(projRows[0].actuel) || 0) + netForServer,
-              Number(projRows[0].goal) || Infinity
-            );
-            await supabaseRequest('PATCH',
-              '/projects?id=eq.' + encodeURIComponent(projectId),
-              { actuel: newActuel, updated_at: now });
+            const proj = projRows[0];
+            const maxAllowed = Math.max(0, (Number(proj.goal) || 0) - (Number(proj.actuel) || 0));
+
+            /* Vérification admin : bloquer si dépasse le plafond */
+            if (netForServer > maxAllowed && maxAllowed >= 0) {
+              console.warn('[approve] montant dépasse le plafond projet: net=' + netForServer +
+                ' remaining=' + maxAllowed + ' projectId=' + projectId);
+              /* On plafonne automatiquement au maximum autorisé */
+              const cappedNet = maxAllowed;
+              if (cappedNet > 0) {
+                const newActuel = (Number(proj.actuel) || 0) + cappedNet;
+                await supabaseRequest('PATCH',
+                  '/projects?id=eq.' + encodeURIComponent(projectId),
+                  { actuel: newActuel, has_funds: true, updated_at: now,
+                    ...(newActuel >= proj.goal ? { status: 'completed' } : {}) });
+              }
+            } else if (netForServer > 0) {
+              const newActuel = Math.min(
+                (Number(proj.actuel) || 0) + netForServer,
+                Number(proj.goal) || Infinity
+              );
+              await supabaseRequest('PATCH',
+                '/projects?id=eq.' + encodeURIComponent(projectId),
+                { actuel: newActuel, has_funds: true, updated_at: now,
+                  ...(newActuel >= (proj.goal || Infinity) ? { status: 'completed' } : {}) });
+            }
           }
         } catch (projErr) {
           console.warn('[approve] update project actuel:', projErr.message);

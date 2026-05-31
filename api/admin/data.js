@@ -184,6 +184,18 @@ module.exports = async (req, res) => {
       console.warn('[admin/data] invitations:', e.message);
     }
 
+    /* ── 6a. Cohérence soldes — surplus users ── */
+    let surplusUsers = [];
+    try {
+      const usersWithSurplus = await supabaseRequest('GET',
+        '/v_balance_coherence?select=user_id,phone,prenom,solde_actuel,capacite_restante,excedent,nb_projets_actifs' +
+        '&order=excedent.desc&limit=50');
+      if (Array.isArray(usersWithSurplus)) surplusUsers = usersWithSurplus;
+    } catch (e) {
+      /* Vue optionnelle — pas bloquant */
+      console.warn('[admin/data] v_balance_coherence:', e.message);
+    }
+
     /* ── 6b. Support Tickets ── */
     let supportTickets = [];
     try {
@@ -294,6 +306,7 @@ module.exports = async (req, res) => {
       projectMembers,
       allInvitations,
       merchantConfig,
+      surplusUsers,
       supportTickets,
       promoCodes,
       broadcasts,

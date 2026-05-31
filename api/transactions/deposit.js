@@ -57,6 +57,45 @@ module.exports = async (req, res) => {
     return res.status(400).json({ error: 'Montant minimum : ' + minAmount + (isAlipay ? ' CNY' : ' GNF') });
   }
 
+  /* ── Vérification plafond projet ── */
+  if (projectId && !isAlipay) {
+    try {
+      const projRows = await supabaseRequest('GET',
+        '/projects?id=eq.' + encodeURIComponent(projectId) +
+        '&select=id,name,goal,actuel,status&limit=1');
+      if (Array.isArray(projRows) && projRows[0]) {
+        const proj = projRows[0];
+        if (proj.status !== 'active') {
+          return res.status(400).json({ error: 'Ce projet n\'est plus actif.' });
+        }
+        const remaining = Math.max(0, (proj.goal || 0) - (proj.actuel || 0));
+        if (remaining === 0) {
+          return res.status(400).json({
+            error: 'Cet objectif est déjà atteint.',
+            code: 'PROJECT_COMPLETED',
+            remaining: 0,
+            goal: proj.goal,
+            actuel: proj.actuel,
+          });
+        }
+        if (amount > remaining) {
+          return res.status(400).json({
+            error: 'Le montant dépasse le montant restant autorisé pour cet objectif. Maximum : ' +
+              remaining.toLocaleString('fr-FR') + ' GNF.',
+            code: 'DEPOSIT_EXCEEDS_REMAINING',
+            remaining,
+            goal: proj.goal,
+            actuel: proj.actuel,
+            requested: amount,
+          });
+        }
+      }
+    } catch (capErr) {
+      console.warn('[deposit] project cap check:', capErr.message);
+      /* Non bloquant si la vérification échoue */
+    }
+  }
+
   let user;
   try {
     const rows = await supabaseRequest('GET',
