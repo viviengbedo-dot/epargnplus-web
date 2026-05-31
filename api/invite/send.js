@@ -319,12 +319,13 @@ module.exports = async (req, res) => {
             '/project_invitations?id=eq.' + encodeURIComponent(existingInv[0].id),
             { status: 'accepted', responded_at: now });
         } else {
-          /* Créer et accepter une nouvelle invitation */
+          /* Créer et accepter une nouvelle invitation (token requis NOT NULL) */
           await supabaseRequest('POST', '/project_invitations', {
             project_id: project.id,
             inviter_id: project.user_id,
             invitee_user_id: userId,
             invitee_email: null,
+            token: crypto.randomBytes(20).toString('hex'),
             status: 'accepted',
             created_at: now,
             responded_at: now,
