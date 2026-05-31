@@ -118,4 +118,6 @@ WHERE status = 'active';
 -- Mettre à jour has_funds après recalcul :
 UPDATE projects SET has_funds = (actuel > 0);
 
-RAISE NOTICE '✅ Migration v8 terminée — projets recalculés, contraintes ajoutées';
+DO $$ BEGIN
+  RAISE NOTICE '✅ Migration v8 terminée — projets recalculés, contraintes ajoutées';
+END $$;
