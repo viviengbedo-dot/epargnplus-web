@@ -2726,6 +2726,7 @@ document.addEventListener('DOMContentLoaded', function() {
     /* Charger projets et transactions depuis la DB */
     loadProjects();
     loadTransactions();
+    loadInvitations();
   })
   .catch(function(err) {
     console.warn('[auth] Actualisation impossible :', err.message);
@@ -4482,6 +4483,19 @@ function openProjectDetail(proj) {
       '</div>' +
     '</div>' +
 
+    // ── Lien d'invitation (créateur uniquement)
+    (proj.is_tontine && proj.invite_code ?
+      '<div class="card" style="margin-bottom:20px;padding:20px;background:linear-gradient(135deg,#EEF2FF,#F0F9FF);border:2px solid #3B82F6;">' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;"><span style="font-size:20px;">🔗</span><span style="font-size:15px;font-weight:800;color:var(--primary);">Partager ce groupe</span></div>' +
+        '<p style="color:var(--text-secondary);font-size:13px;margin-bottom:12px;">Partagez ce lien pour inviter de nouvelles personnes à rejoindre votre épargne collective.</p>' +
+        '<div style="background:#fff;border:1px solid #3B82F6;border-radius:12px;padding:12px;display:flex;gap:8px;margin-bottom:12px;">' +
+          '<input type="text" id="invite_url_' + safeId + '" value="' + (window.location.origin + '/join/' + proj.invite_code) + '" readonly style="flex:1;border:none;background:transparent;font-size:13px;color:var(--primary);font-weight:600;font-family:monospace;" />' +
+          '<button class="btn btn-sm" style="background:#3B82F6;color:#fff;border:none;padding:8px 14px;border-radius:8px;font-weight:700;cursor:pointer;" onclick="copyToClipboard(\'invite_url_' + safeId + '\')">📋 Copier</button>' +
+        '</div>' +
+        '<button class="btn btn-outline btn-sm" style="width:100%;font-size:12px;" onclick="regenerateInviteLink(\'' + safeId + '\')">🔄 Régénérer le lien</button>' +
+      '</div>'
+    : '') +
+
     // ── Invitations envoyées (collectives uniquement)
     (proj.is_tontine ?
       '<div class="card" style="margin-bottom:20px;padding:20px;">' +
@@ -5818,6 +5832,34 @@ function copyToClipboard(elementId) {
   }).catch(function(err) {
     console.error('Erreur copie:', err);
     toast('Impossible de copier', 'error');
+  });
+}
+
+function regenerateInviteLink(projectId) {
+  if (!projectId || !_authToken) return;
+
+  if (!confirm('Êtes-vous sûr ? L\'ancien lien ne fonctionnera plus.')) return;
+
+  fetch('/api/user/me?id=' + encodeURIComponent(projectId), {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
+    body: JSON.stringify({ regenerate_invite: true }),
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.ok && data.invite_code) {
+      var urlInput = document.getElementById('invite_url_' + projectId);
+      if (urlInput) {
+        urlInput.value = window.location.origin + '/join/' + data.invite_code;
+      }
+      toast('Lien régénéré !', 'success');
+    } else {
+      toast('Erreur : ' + (data.error || 'Unknown'), 'error');
+    }
+  })
+  .catch(function(err) {
+    console.error('Erreur:', err);
+    toast('Erreur réseau', 'error');
   });
 }
 
