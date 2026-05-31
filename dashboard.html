@@ -4203,7 +4203,7 @@ function renderProjectCards() {
       <div style="display:flex;gap:8px;padding-top:10px;border-top:1px solid var(--divider);">
         ${actionBtn}
         ${!isCollectif ? `<button class="btn btn-outline btn-sm" onclick="openProjectDetail(PROJETS[${idx}])" style="font-size:13px;padding:11px 14px;" title="Voir les détails">📊</button>` : ''}
-        ${(!isCollectif && (p.actuel || 0) === 0) ? `<button class="btn btn-outline btn-sm" onclick="deleteProject(${idx})" style="color:#DC2626;border-color:#FECACA;font-size:13px;padding:11px 14px;" title="Supprimer">🗑</button>` : ''}
+        ${(!isCollectif && (p.members_count || 1) === 1 && (p.actuel || 0) === 0) ? `<button class="btn btn-outline btn-sm" onclick="deleteProject(${idx})" style="color:#DC2626;border-color:#FECACA;font-size:13px;padding:11px 14px;" title="Supprimer">🗑</button>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -4840,9 +4840,16 @@ function deleteProject(idx) {
 
   /* ── Vérification fonds côté client ── */
   var hasFunds = (proj.actuel || proj.current || 0) > 0;
-  var isCollective = String(proj.nom || '').startsWith('🤝');
+  /* Collectif si nom commence par 🤝 OU plus d'un membre */
+  var isCollective = String(proj.nom || '').startsWith('🤝') || (proj.members_count > 1);
 
-  if (hasFunds && !isCollective) {
+  /* Projets collectifs ne peuvent jamais être supprimés */
+  if (isCollective) {
+    showToast('❌ Les projets collectifs ne peuvent pas être supprimés. Contactez l\'administrateur.', 'error');
+    return;
+  }
+
+  if (hasFunds) {
     showToast(
       'Ce projet ne peut plus être supprimé car des fonds y sont déjà associés.\n' +
       'Vous pouvez uniquement le clôturer ou l\'archiver.',
@@ -4851,15 +4858,7 @@ function deleteProject(idx) {
     return;
   }
 
-  if (isCollective && hasFunds) {
-    if (!confirm(
-      'Demande de clôture de l\'épargne collective « ' + proj.nom + ' »\n\n' +
-      'Les remboursements seront traités par l\'administrateur.\n\n' +
-      'Confirmer ?'
-    )) return;
-  } else {
-    if (!confirm('Supprimer le projet « ' + proj.nom + ' » ? Cette action est irréversible.')) return;
-  }
+  if (!confirm('Supprimer le projet « ' + proj.nom + ' » ? Cette action est irréversible.')) return;
 
   /* Suppression en DB */
   if (proj.id && _authToken) {

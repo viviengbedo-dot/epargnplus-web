@@ -353,35 +353,14 @@ async function handleProjects(req, res, payload, resourceId) {
       const projRows = await supabaseRequest('GET',
         '/projects?id=eq.' + encodeURIComponent(resourceId) +
         '&user_id=eq.' + encodeURIComponent(payload.userId) +
-        '&select=id,name,actuel,goal,status,has_funds&limit=1');
+        '&select=id,name,actuel,goal,status,has_funds,members_count&limit=1');
       if (!Array.isArray(projRows) || !projRows[0]) {
         return res.status(404).json({ error: 'Projet introuvable' });
       }
       const proj = projRows[0];
 
-      const isCollective = String(proj.name || '').startsWith('🤝');
-
-      /* ── Projet individuel avec fonds : BLOQUÉ ── */
-      if (!isCollective) {
-        /* Vérifier via has_funds ET actuel ET transactions */
-        const hasFunds = proj.has_funds || (proj.actuel > 0);
-        let hasTransactions = false;
-        if (!hasFunds) {
-          try {
-            const txns = await supabaseRequest('GET',
-              '/transactions?project_id=eq.' + encodeURIComponent(resourceId) +
-              '&statut=eq.completed&is_credit=eq.true&select=id&limit=1');
-            hasTransactions = Array.isArray(txns) && txns.length > 0;
-          } catch {}
-        }
-        if (hasFunds || hasTransactions) {
-          return res.status(403).json({
-            error: 'Ce projet ne peut plus être supprimé car des fonds y sont déjà associés.',
-            code: 'PROJECT_HAS_FUNDS',
-            actions: ['close', 'archive'],
-          });
-        }
-      }
+      /* Projet collectif = nom commence par 🤝 OU a plusieurs membres */
+      const isCollective = String(proj.name || '').startsWith('🤝') || (proj.members_count > 1);
 
       /* ── Projet collectif : JAMAIS suppression directe ── */
       if (isCollective) {
@@ -390,6 +369,26 @@ async function handleProjects(req, res, payload, resourceId) {
           error: 'Les projets collectifs ne peuvent pas être supprimés directement. Demandez la clôture à l\'administrateur.',
           code: 'COLLECTIVE_PROJECT_NO_DELETE',
           action: 'contact_admin',
+        });
+      }
+
+      /* ── Projet individuel avec fonds : BLOQUÉ ── */
+      /* Vérifier via has_funds ET actuel ET transactions */
+      const hasFunds = proj.has_funds || (proj.actuel > 0);
+      let hasTransactions = false;
+      if (!hasFunds) {
+        try {
+          const txns = await supabaseRequest('GET',
+            '/transactions?project_id=eq.' + encodeURIComponent(resourceId) +
+            '&statut=eq.completed&is_credit=eq.true&select=id&limit=1');
+          hasTransactions = Array.isArray(txns) && txns.length > 0;
+        } catch {}
+      }
+      if (hasFunds || hasTransactions) {
+        return res.status(403).json({
+          error: 'Ce projet ne peut plus être supprimé car des fonds y sont déjà associés.',
+          code: 'PROJECT_HAS_FUNDS',
+          actions: ['close', 'archive'],
         });
       }
 
