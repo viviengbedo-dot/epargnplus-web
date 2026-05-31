@@ -926,6 +926,94 @@
         </div>
       </section>
 
+      <!-- ════════ EMAILS ════════ -->
+      <section id="sec-emails" style="display:none;">
+        <h2 style="font-size:22px;font-weight:800;color:var(--primary);margin-bottom:6px;">📧 Système Email</h2>
+        <p class="text-muted" style="margin-bottom:24px;">Gestion des emails automatisés et logs d'envoi</p>
+
+        <!-- ══ STATS ══ -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;">
+          <div class="card" style="text-align:center;">
+            <div style="font-size:32px;margin-bottom:8px;">📤</div>
+            <div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;">Envoyés</div>
+            <div style="font-size:24px;font-weight:900;color:var(--primary);" id="emailStatsSent">0</div>
+          </div>
+          <div class="card" style="text-align:center;">
+            <div style="font-size:32px;margin-bottom:8px;">⚠️</div>
+            <div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;">Erreurs</div>
+            <div style="font-size:24px;font-weight:900;color:var(--error);" id="emailStatsFailed">0</div>
+          </div>
+          <div class="card" style="text-align:center;">
+            <div style="font-size:32px;margin-bottom:8px;">👁️</div>
+            <div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;">Ouverts</div>
+            <div style="font-size:24px;font-weight:900;color:var(--success);" id="emailStatsOpened">0</div>
+          </div>
+          <div class="card" style="text-align:center;">
+            <div style="font-size:32px;margin-bottom:8px;">⏳</div>
+            <div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;">En attente</div>
+            <div style="font-size:24px;font-weight:900;color:var(--warning);" id="emailStatsPending">0</div>
+          </div>
+        </div>
+
+        <!-- ══ FORMULAIRE TEST ══ -->
+        <div class="card" style="margin-bottom:24px;">
+          <div class="card-title" style="margin-bottom:16px;">🧪 Envoyer un email de test</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+            <div>
+              <label class="form-label">Utilisateur (UUID)</label>
+              <input class="form-input" id="testEmailUserId" type="text" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+            </div>
+            <div>
+              <label class="form-label">Template</label>
+              <select class="form-input" id="testEmailTemplate">
+                <option value="welcome">Bienvenue</option>
+                <option value="deposit_approved">Dépôt approuvé</option>
+                <option value="withdrawal_approved">Retrait approuvé</option>
+                <option value="goal_reached">Objectif atteint</option>
+                <option value="invitation_sent">Invitation épargne</option>
+                <option value="milestone_reached">Milestone</option>
+                <option value="inactivity_reminder">Inactivité</option>
+              </select>
+            </div>
+          </div>
+          <button class="btn btn-accent" style="width:100%;padding:12px;" onclick="sendTestEmail()">Envoyer un email de test</button>
+          <div id="testEmailResponse" style="margin-top:12px;padding:12px;border-radius:8px;display:none;"></div>
+        </div>
+
+        <!-- ══ FILTRES ══ -->
+        <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+          <input class="form-input" id="emailLogsFilter" type="text" placeholder="Filtrer par email/template..." style="flex:1;min-width:200px;" oninput="refreshEmailLogs()" />
+          <select class="form-input" id="emailLogsStatus" style="min-width:150px;" onchange="refreshEmailLogs()">
+            <option value="">Tous les statuts</option>
+            <option value="sent">Envoyés ✅</option>
+            <option value="failed">Erreurs ⚠️</option>
+            <option value="pending">En attente ⏳</option>
+            <option value="opened">Ouverts 👁️</option>
+          </select>
+          <button class="btn btn-outline" onclick="refreshEmailLogs()">🔄 Actualiser</button>
+        </div>
+
+        <!-- ══ TABLEAU LOGS ══ -->
+        <div class="card">
+          <div style="overflow-x:auto;">
+            <table style="width:100%;font-size:13px;">
+              <thead style="background:var(--bg-light);border-bottom:1px solid var(--border);">
+                <tr>
+                  <th style="padding:12px;text-align:left;font-weight:700;color:var(--text-secondary);">Email</th>
+                  <th style="padding:12px;text-align:left;font-weight:700;color:var(--text-secondary);">Template</th>
+                  <th style="padding:12px;text-align:center;font-weight:700;color:var(--text-secondary);">Statut</th>
+                  <th style="padding:12px;text-align:left;font-weight:700;color:var(--text-secondary);">Envoyé le</th>
+                  <th style="padding:12px;text-align:center;font-weight:700;color:var(--text-secondary);">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="emailLogsTableBody">
+                <tr><td colspan="5" style="padding:24px;text-align:center;color:var(--text-secondary);">Chargement...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
       <!-- ════════ PARAMÈTRES ════════ -->
       <section id="sec-parametres" style="display:none;">
         <h2 style="font-size:22px;font-weight:800;color:var(--primary);margin-bottom:6px;">Paramètres Système</h2>
@@ -4665,6 +4753,127 @@ function renderPilotChecklist(data) {
     </div>
   </div>
 </div>
+
+
+<script>
+/* ════════ SYSTÈME EMAIL ════════ */
+
+async function refreshEmailLogs() {
+  const filter = (document.getElementById('emailLogsFilter') || {}).value || '';
+  const status = (document.getElementById('emailLogsStatus') || {}).value || '';
+
+  try {
+    let url = '/email_logs?select=id,user_id,recipient_email,template_type,subject,status,sent_at,created_at&order=created_at.desc&limit=100';
+
+    if (status) url += '&status=eq.' + status;
+
+    const resp = await fetch('https://' + window.location.hostname.replace('epargnplus', 'epargnplus-api-admin') + '/api/admin/get-email-logs?q=' + encodeURIComponent(filter));
+    const logs = await resp.json() || [];
+
+    let html = '';
+    if (logs.length === 0) {
+      html = '<tr><td colspan="5" style="padding:24px;text-align:center;color:var(--text-secondary);">Aucun email</td></tr>';
+    } else {
+      logs.forEach(function(log) {
+        const statusBadge = {
+          'sent': '✅ Envoyé',
+          'failed': '⚠️ Erreur',
+          'pending': '⏳ Attente',
+          'opened': '👁️ Ouvert',
+          'bounced': '⛔ Rejeté'
+        }[log.status] || '❓ ' + log.status;
+
+        const sentDate = log.sent_at ? new Date(log.sent_at).toLocaleDateString('fr-FR') : '—';
+
+        html += '<tr style="border-bottom:1px solid var(--border);">' +
+          '<td style="padding:12px;">' + (log.recipient_email || '—') + '</td>' +
+          '<td style="padding:12px;"><span style="background:#EEF2FF;color:var(--primary);padding:4px 8px;border-radius:6px;font-size:11px;font-weight:700;">' + log.template_type + '</span></td>' +
+          '<td style="padding:12px;text-align:center;">' + statusBadge + '</td>' +
+          '<td style="padding:12px;">' + sentDate + '</td>' +
+          '<td style="padding:12px;text-align:center;"><button class="btn-icon" title="Renvoyer" onclick="resendEmail(\'' + log.id + '\')" style="font-size:14px;">🔄</button></td>' +
+        '</tr>';
+      });
+    }
+
+    const tbody = document.getElementById('emailLogsTableBody');
+    if (tbody) tbody.innerHTML = html;
+
+    // Stats
+    const stats = await fetch('https://' + window.location.hostname.replace('epargnplus', 'epargnplus-api-admin') + '/api/admin/get-email-stats');
+    const st = await stats.json() || {};
+    if (document.getElementById('emailStatsSent')) document.getElementById('emailStatsSent').textContent = (st.sent || 0);
+    if (document.getElementById('emailStatsFailed')) document.getElementById('emailStatsFailed').textContent = (st.failed || 0);
+    if (document.getElementById('emailStatsOpened')) document.getElementById('emailStatsOpened').textContent = (st.opened || 0);
+    if (document.getElementById('emailStatsPending')) document.getElementById('emailStatsPending').textContent = (st.pending || 0);
+  } catch (e) {
+    console.error('[email logs]:', e.message);
+    const tbody = document.getElementById('emailLogsTableBody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="padding:24px;text-align:center;color:var(--error);">Erreur de chargement</td></tr>';
+  }
+}
+
+async function sendTestEmail() {
+  const userId = (document.getElementById('testEmailUserId') || {}).value || '';
+  const template = (document.getElementById('testEmailTemplate') || {}).value || 'welcome';
+
+  if (!userId) {
+    showToast('Entrez un User ID', 'error');
+    return;
+  }
+
+  try {
+    const resp = await fetch('/api/email/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
+      body: JSON.stringify({
+        user_id: userId,
+        template_type: template,
+        variables: {
+          montant: 50000,
+          devise: 'GNF',
+          projet_nom: 'Test Project',
+          progression: 50,
+        },
+      }),
+    });
+
+    const data = await resp.json();
+
+    const respEl = document.getElementById('testEmailResponse');
+    if (respEl) {
+      if (data.ok) {
+        respEl.style.background = '#F0FDF4';
+        respEl.style.color = '#166534';
+        respEl.textContent = '✅ Email envoyé ! Log ID: ' + data.log_id;
+      } else {
+        respEl.style.background = '#FEE2E2';
+        respEl.style.color = '#991B1B';
+        respEl.textContent = '⚠️ Erreur: ' + (data.error || 'Unknown');
+      }
+      respEl.style.display = 'block';
+      setTimeout(() => { respEl.style.display = 'none'; }, 5000);
+    }
+
+    showToast(data.ok ? 'Email envoyé !' : 'Erreur: ' + data.error, data.ok ? 'success' : 'error');
+    if (data.ok) refreshEmailLogs();
+  } catch (e) {
+    console.error('[send test email]:', e.message);
+    showToast('Erreur: ' + e.message, 'error');
+  }
+}
+
+async function resendEmail(logId) {
+  if (!logId) return;
+  showToast('Non implémenté pour l\'instant', 'info');
+}
+
+// Charger les emails au démarrage
+if (typeof refreshEmailLogs === 'function') {
+  document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(refreshEmailLogs, 500);
+  });
+}
+</script>
 
 </body>
 </html>
