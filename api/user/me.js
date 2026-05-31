@@ -383,19 +383,14 @@ async function handleProjects(req, res, payload, resourceId) {
         }
       }
 
-      /* ── Projet collectif : demande de suppression uniquement ── */
+      /* ── Projet collectif : JAMAIS suppression directe ── */
       if (isCollective) {
-        if (proj.actuel > 0 || proj.has_funds) {
-          /* Marquer comme delete_requested — admin devra valider */
-          await supabaseRequest('PATCH',
-            '/projects?id=eq.' + encodeURIComponent(resourceId),
-            { status: 'delete_requested' });
-          return res.status(200).json({
-            ok: true,
-            action: 'delete_requested',
-            message: 'Demande de clôture envoyée. L\'administrateur traitera les remboursements.',
-          });
-        }
+        /* Les projets collectifs ne peuvent JAMAIS être supprimés par l'user */
+        return res.status(403).json({
+          error: 'Les projets collectifs ne peuvent pas être supprimés directement. Demandez la clôture à l\'administrateur.',
+          code: 'COLLECTIVE_PROJECT_NO_DELETE',
+          action: 'contact_admin',
+        });
       }
 
       /* ── Suppression autorisée (pas de fonds) ── */

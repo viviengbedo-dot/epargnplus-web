@@ -4869,6 +4869,10 @@ function deleteProject(idx) {
     })
     .then(function(r) { return r.json(); })
     .then(function(data) {
+      if (data.code === 'COLLECTIVE_PROJECT_NO_DELETE') {
+        showToast('❌ Les projets collectifs ne peuvent pas être supprimés. Contactez l\'administrateur.', 'error');
+        return;
+      }
       if (data.code === 'PROJECT_HAS_FUNDS') {
         showToast('Ce projet ne peut pas être supprimé — des fonds y sont associés.', 'error');
         return;
