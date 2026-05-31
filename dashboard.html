@@ -9045,14 +9045,23 @@ function updateDepositCap(amtStr) {
   </div>
 </div>
 
-<!-- ── Polling des notifications toutes les 15 secondes ── -->
+<!-- ── Polling des notifications (30s, uniquement onglet visible) ── -->
 <script>
 (function() {
-  var notifPoll = setInterval(function() {
+  function pollNotifications() {
+    /* N'interroge que si connecté ET l'onglet est au premier plan */
+    if (document.visibilityState !== 'visible') return;
     if (_authToken && typeof loadNotifications === 'function') {
       loadNotifications();
     }
-  }, 15000); /* 15 secondes */
+  }
+
+  setInterval(pollNotifications, 30000); /* 30 secondes */
+
+  /* Rafraîchir immédiatement quand l'utilisateur revient sur l'onglet */
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible') pollNotifications();
+  });
 
   /* Recharger aussi au premier message reçu */
   var origShowToast = window.showToast;
