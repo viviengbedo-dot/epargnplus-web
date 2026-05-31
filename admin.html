@@ -2001,9 +2001,13 @@ function populateAdminData(data) {
     };
   });
 
-  /* ── Projets de tous les utilisateurs ── */
+  /* ── Projets de tous les utilisateurs (individuels seulement) ── */
   var rawProjects = data.allProjects || [];
-  PROJETS_TOP = rawProjects.filter(function(p){ return !String(p.name||'').startsWith('🤝'); }).map(function(p) {
+  PROJETS_TOP = rawProjects.filter(function(p){
+    /* Exclure les collectifs : nom commence par 🤝 OU a plusieurs membres */
+    var isCollective = String(p.name||'').startsWith('🤝') || (p.members_count && p.members_count > 1);
+    return !isCollective;
+  }).map(function(p) {
     var u = userMap[p.user_id] || {};
     return {
       id:    p.id,
@@ -2017,7 +2021,10 @@ function populateAdminData(data) {
   });
 
   /* ── Tontines (projets collectifs) ── */
-  var TONTINES_ALL = rawProjects.filter(function(p){ return String(p.name||'').startsWith('🤝'); }).map(function(p) {
+  /* Collectif = nom commence par 🤝 OU a plusieurs membres */
+  var TONTINES_ALL = rawProjects.filter(function(p){
+    return String(p.name||'').startsWith('🤝') || (p.members_count && p.members_count > 1);
+  }).map(function(p) {
     var u = userMap[p.user_id] || {};
     return {
       id:      p.id,
