@@ -3749,6 +3749,95 @@ function _getBirthdayInfo(now, u) {
   } catch(e) { return null; }
 }
 
+/* ── Histoire dynamique pour CHAQUE projet réel du client ──
+   Calcule reste à épargner, échéance réelle (createdAt + durée), rythme
+   conseillé, et raconte où en est chaque objectif. */
+function getProjectStorySuggestions(now, cur) {
+  var out = [];
+  (PROJETS || []).forEach(function(p) {
+    if (!p || !p.cible || p.cible <= 0) return;
+
+    var actuel    = p.actuel || 0;
+    var target    = projTarget(p.cible);
+    var pct       = projPct(actuel, p.cible);
+    var remaining = Math.max(0, target - actuel);
+    var ic        = (typeof projectIcon === 'function') ? projectIcon(p.nom) : { emoji: '🎯' };
+    var emoji     = ic.emoji || '🎯';
+    var isColl    = isProjectCollective(p);
+    var safeNom   = String(p.nom || '').replace(/'/g, "\\'");
+
+    /* Échéance : date ISO si dispo, sinon createdAt + durée (m/w) */
+    var deadline = projGetDeadline(p);
+    if (!deadline) {
+      var created = new Date(p.createdAt || p.created_at || now);
+      if (isNaN(created.getTime())) created = new Date(now);
+      var pu = _parseDuree(p.duree);
+      deadline = new Date(created);
+      if (pu.unit === 'w') deadline.setDate(deadline.getDate() + pu.n * 7);
+      else                 deadline.setMonth(deadline.getMonth() + pu.n);
+    }
+    var daysLeft = Math.ceil((deadline - now) / 864e5);
+
+    /* ── Objectif atteint ── */
+    if (projReached(actuel, p.cible)) {
+      var withdrawable = (typeof projWithdrawable === 'function') ? projWithdrawable(p) : true;
+      if (isColl) {
+        out.push({ emoji: emoji, priority: 2, tag: '🏆 ATTEINT', tc: '#059669', tb: '#ECFDF5',
+          title: p.nom + ' — objectif atteint !',
+          desc: 'Bravo ! Le groupe « ' + p.nom + ' » a bouclé son objectif de ' + fmt(p.cible) + ' ' + cur + '. Vous pouvez préparer la clôture avec l\'administrateur.',
+          action: '100% • ' + fmt(p.cible) + ' ' + cur,
+          cta: 'Voir le groupe', onClick: "showSection('tontine',null);setBottomNav('')" });
+      } else if (withdrawable) {
+        out.push({ emoji: emoji, priority: 2, tag: '🎉 RETRAIT DISPO', tc: '#059669', tb: '#ECFDF5',
+          title: p.nom + ' — c\'est bouclé !',
+          desc: 'Félicitations ! Tu as atteint « ' + p.nom + ' » (' + fmt(p.cible) + ' ' + cur + ') et l\'échéance est arrivée. Tes fonds sont disponibles au retrait, sans frais.',
+          action: '100% atteint • retrait sans frais',
+          cta: 'Retirer mes fonds', onClick: "openRetraitForProject('" + (p.id || '') + "','" + safeNom + "'," + actuel + ")" });
+      } else {
+        var cd = projCountdownText(p) || '';
+        out.push({ emoji: emoji, priority: 2, tag: '🏆 100% ATTEINT', tc: '#059669', tb: '#ECFDF5',
+          title: p.nom + ' — objectif atteint !',
+          desc: 'Objectif « ' + p.nom + ' » atteint à 100% ! Le retrait s\'ouvrira à l\'échéance' + (cd ? ' (' + cd + ')' : '') + '. Continue, tu gères.',
+          action: '100% • ' + fmt(p.cible) + ' ' + cur,
+          cta: 'Voir mes projets', onClick: "showSection('projets',null);setBottomNav('projets')" });
+      }
+      return;
+    }
+
+    /* ── En cours : rythme conseillé ── */
+    var paceMsg = '';
+    if (daysLeft > 0 && remaining > 0) {
+      var perMonth = Math.ceil(remaining / Math.max(1, daysLeft / 30));
+      paceMsg = ' Pour tenir l\'échéance, vise ~' + fmt(perMonth) + ' ' + cur + '/mois.';
+    }
+
+    var tag, tc, tb, desc;
+    if (daysLeft <= 0) {
+      tag = '⏰ ÉCHÉANCE DÉPASSÉE'; tc = '#DC2626'; tb = '#FEF2F2';
+      desc = 'L\'échéance de « ' + p.nom + ' » est passée et il manque ' + fmt(remaining) + ' ' + cur + '. Relance les dépôts pour finir, ou ajuste l\'objectif.';
+    } else if (pct === 0) {
+      tag = 'À LANCER'; tc = '#B45309'; tb = '#FFFBEB';
+      desc = 'Tu n\'as pas encore démarré « ' + p.nom + ' ». Un premier dépôt, même modeste, enclenche la dynamique vers tes ' + fmt(p.cible) + ' ' + cur + '.' + paceMsg;
+    } else if (pct >= 75) {
+      tag = pct + '% • DERNIÈRE LIGNE'; tc = '#6D28D9'; tb = '#F5F3FF';
+      desc = 'Plus que ' + fmt(remaining) + ' ' + cur + ' pour boucler « ' + p.nom + ' ». Tu y es presque, un dernier coup d\'accélérateur !' + paceMsg;
+    } else if (daysLeft <= 14) {
+      tag = 'J−' + daysLeft + ' ⚡'; tc = '#DC2626'; tb = '#FEF2F2';
+      desc = 'Échéance proche pour « ' + p.nom + ' » : encore ' + fmt(remaining) + ' ' + cur + ' à réunir en ' + daysLeft + ' jour' + (daysLeft > 1 ? 's' : '') + '.' + paceMsg;
+    } else {
+      tag = pct + '% ATTEINT'; tc = '#1D4ED8'; tb = '#EFF6FF';
+      desc = 'Il te reste ' + fmt(remaining) + ' ' + cur + ' pour atteindre « ' + p.nom + ' » (objectif ' + fmt(p.cible) + ' ' + cur + ').' + paceMsg;
+    }
+
+    out.push({ emoji: emoji, priority: 3, tag: tag, tc: tc, tb: tb,
+      title: p.nom,
+      desc: desc,
+      action: 'Reste ' + fmt(remaining) + ' ' + cur,
+      cta: '+ Déposer', onClick: "openDepositForProject('" + (p.id || '') + "','" + safeNom + "')" });
+  });
+  return out;
+}
+
 function getAISuggestions() {
   var now        = new Date();
   var u          = _currentUser || {};
@@ -3765,7 +3854,9 @@ function getAISuggestions() {
   } catch(e) {}
 
   var suggestions = [];
-  var priority    = 1;
+  /* Démarre à 20 : les histoires de projets (priorité 2–3) passent avant
+     toutes les suggestions génériques (événements, voyages, âge…). */
+  var priority    = 20;
 
   /* ── 0. Nouveau client ── */
   if (solde === 0) {
@@ -3777,6 +3868,9 @@ function getAISuggestions() {
       cta:'Déposer maintenant', onClick:"openDepositPicker()"
     });
   }
+
+  /* ── 0bis. Histoire dynamique de CHAQUE projet réel (priorité haute) ── */
+  getProjectStorySuggestions(now, cur).forEach(function(s) { suggestions.push(s); });
 
   /* ── 1. Anniversaire client ── */
   var bday = _getBirthdayInfo(now, u);
