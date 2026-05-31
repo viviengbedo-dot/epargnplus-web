@@ -71,13 +71,15 @@ module.exports = async (req, res) => {
 
   const { resource, id: resourceId } = getQuery(req);
 
-  if (resource === 'projects')      return handleProjects(req, res, payload, resourceId);
-  if (resource === 'transactions')  return handleTransactions(req, res, payload);
-  if (resource === 'notifications') return handleNotifications(req, res, payload, resourceId);
-  if (resource === 'invitations')   return handleInvitations(req, res, payload, resourceId);
-  if (resource === 'settings')      return handleSettings(req, res);
-  if (resource === 'tickets')       return handleTickets(req, res, payload, resourceId);
-  if (resource === 'promos')        return handlePromos(req, res, payload);
+  if (resource === 'projects')         return handleProjects(req, res, payload, resourceId);
+  if (resource === 'transactions')     return handleTransactions(req, res, payload);
+  if (resource === 'notifications')    return handleNotifications(req, res, payload, resourceId);
+  if (resource === 'invitations')      return handleInvitations(req, res, payload, resourceId);
+  if (resource === 'invitations_sent') return handleInvitationsSent(req, res, payload, resourceId);
+  if (resource === 'invitations_send') return handleInvitationsSend(req, res, payload);
+  if (resource === 'settings')         return handleSettings(req, res);
+  if (resource === 'tickets')          return handleTickets(req, res, payload, resourceId);
+  if (resource === 'promos')           return handlePromos(req, res, payload);
 
   /* ══════════ ROUTE PROFIL ══════════ */
   if (!['GET', 'PATCH'].includes(req.method)) {
@@ -853,4 +855,232 @@ async function handlePromos(req, res, payload) {
   } catch (err) {
     return res.status(500).json({ error: 'Erreur application promo : ' + err.message });
   }
+}
+
+/* ── Invitations envoyées par l'utilisateur ── */
+async function handleInvitationsSent(req, res, payload) {
+  if (req.method === 'GET') {
+    try {
+      /* Récupérer les invitations envoyées par cet utilisateur */
+      const { projectId } = getQuery(req);
+      let query = '/project_invitations?inviter_id=eq.' + encodeURIComponent(payload.userId);
+      if (projectId) query += '&project_id=eq.' + encodeURIComponent(projectId);
+      query += '&select=id,project_id,invitee_email,invitee_phone,invitee_user_id,status,created_at,responded_at,expires_at,viewed_at' +
+               '&order=created_at.desc&limit=100';
+
+      let invitations = await supabaseRequest('GET', query);
+      if (!Array.isArray(invitations)) invitations = [];
+
+      /* Enrichir avec les noms des projets et des invités */
+      const projectIds = [...new Set(invitations.map(i => i.project_id).filter(Boolean))];
+      let projects = {};
+      for (const pid of projectIds) {
+        try {
+          const pRows = await supabaseRequest('GET',
+            '/projects?id=eq.' + encodeURIComponent(pid) + '&select=id,name');
+          if (Array.isArray(pRows) && pRows[0]) projects[pRows[0].id] = pRows[0].name;
+        } catch (e) {}
+      }
+
+      const userIds = [...new Set(invitations.map(i => i.invitee_user_id).filter(Boolean))];
+      let users = {};
+      for (const uid of userIds) {
+        try {
+          const uRows = await supabaseRequest('GET',
+            '/users?id=eq.' + encodeURIComponent(uid) + '&select=id,prenom');
+          if (Array.isArray(uRows) && uRows[0]) users[uRows[0].id] = uRows[0].prenom;
+        } catch (e) {}
+      }
+
+      invitations = invitations.map(i => ({
+        ...i,
+        project_name: projects[i.project_id] || null,
+        invitee_name: (i.invitee_user_id ? users[i.invitee_user_id] : null) || null,
+        /* Calculer le statut affichable */
+        display_status: (() => {
+          if (i.status === 'accepted') return '✅ Acceptée';
+          if (i.status === 'rejected') return '❌ Refusée';
+          if (i.status === 'expired' || new Date(i.expires_at) < new Date()) return '⏰ Expirée';
+          if (i.viewed_at && !i.responded_at) return '🔗 Vue';
+          return '📨 Envoyée';
+        })(),
+      }));
+
+      return res.status(200).json(invitations);
+    } catch (e) {
+      return res.status(200).json([]);
+    }
+  }
+
+  return res.status(405).json({ error: 'Méthode non autorisée pour /invitations_sent' });
+}
+
+/* ── Envoyer une invitation et la gérer (resend, revoke) ── */
+async function handleInvitationsSend(req, res, payload) {
+  const body = await parseBody(req);
+
+  if (req.method === 'POST') {
+    /* POST : envoyer une nouvelle invitation */
+    const { projectId, email, phone, message } = body;
+    if (!projectId || (!email && !phone)) {
+      return res.status(400).json({ error: 'projectId et (email ou phone) requis' });
+    }
+
+    try {
+      /* Vérifier que l'utilisateur est le créateur du projet */
+      const projRows = await supabaseRequest('GET',
+        '/projects?id=eq.' + encodeURIComponent(projectId) +
+        '&user_id=eq.' + encodeURIComponent(payload.userId) +
+        '&select=id,name,goal,invite_active,invite_code,members_count');
+      if (!Array.isArray(projRows) || !projRows[0]) {
+        return res.status(403).json({ error: 'Vous n\'êtes pas le créateur de ce projet' });
+      }
+      const proj = projRows[0];
+
+      if (!proj.invite_active) {
+        return res.status(400).json({ error: 'Les invitations sont fermées pour ce projet' });
+      }
+
+      /* Vérifier que cette personne n'est pas déjà invitée ou membre */
+      let query = '/project_invitations?project_id=eq.' + encodeURIComponent(projectId) +
+                  '&status=eq.pending';
+      if (email) query += '&invitee_email=eq.' + encodeURIComponent(email);
+      else query += '&invitee_phone=eq.' + encodeURIComponent(phone);
+      query += '&select=id&limit=1';
+
+      let existingInv = [];
+      try { existingInv = await supabaseRequest('GET', query); } catch (e) {}
+      if (Array.isArray(existingInv) && existingInv.length > 0) {
+        return res.status(400).json({ error: 'Cette personne a déjà une invitation en attente' });
+      }
+
+      /* Créer l'invitation */
+      const token = generateInviteToken();
+      const now = new Date().toISOString();
+      const expiresAt = new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString();
+
+      const invResp = await supabaseRequest('POST', '/project_invitations', {
+        project_id: projectId,
+        inviter_id: payload.userId,
+        invitee_email: email || null,
+        invitee_phone: phone || null,
+        token: token,
+        status: 'pending',
+        expires_at: expiresAt,
+        created_at: now,
+      });
+
+      const inv = Array.isArray(invResp) ? invResp[0] : invResp;
+      const invitationId = inv.id;
+      const inviteUrl = 'https://www.epargnplus.com/join/' + (proj.invite_code || token);
+
+      /* Envoyer l'email/SMS via api/invite/send */
+      try {
+        await fetch(process.env.API_URL + '/invite/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            projectId: projectId,
+            tontineName: proj.name,
+            email: email || null,
+            phone: phone || null,
+            goal: proj.goal,
+            membersCount: proj.members_count,
+            creatorName: payload.userId,
+          }),
+        });
+      } catch (e) {
+        console.warn('[invitations_send] email send failed:', e.message);
+      }
+
+      console.log('[invitations_send] invitationId=' + invitationId + ' project=' + projectId);
+      return res.status(201).json({
+        ok: true,
+        invitationId: invitationId,
+        inviteUrl: inviteUrl,
+        inviteCode: proj.invite_code,
+        email: email,
+        phone: phone,
+      });
+    } catch (e) {
+      return res.status(500).json({ error: 'Erreur envoi invitation : ' + e.message });
+    }
+  }
+
+  if (req.method === 'POST' && body.action === 'resend') {
+    /* Renvoyer une invitation existante */
+    const { invitationId } = body;
+    if (!invitationId) {
+      return res.status(400).json({ error: 'invitationId requis' });
+    }
+
+    try {
+      const invRows = await supabaseRequest('GET',
+        '/project_invitations?id=eq.' + encodeURIComponent(invitationId) +
+        '&inviter_id=eq.' + encodeURIComponent(payload.userId) +
+        '&select=id,project_id,invitee_email,invitee_phone,status');
+      if (!Array.isArray(invRows) || !invRows[0]) {
+        return res.status(404).json({ error: 'Invitation introuvable' });
+      }
+      const inv = invRows[0];
+
+      if (inv.status !== 'pending') {
+        return res.status(400).json({ error: 'Cette invitation ne peut plus être renvoyée' });
+      }
+
+      /* Renvoyer l'email */
+      const projRows = await supabaseRequest('GET',
+        '/projects?id=eq.' + encodeURIComponent(inv.project_id) + '&select=id,name,goal,members_count');
+      const proj = Array.isArray(projRows) ? projRows[0] : null;
+
+      try {
+        await fetch(process.env.API_URL + '/invite/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            projectId: inv.project_id,
+            tontineName: proj ? proj.name : '—',
+            email: inv.invitee_email,
+            phone: inv.invitee_phone,
+            goal: proj ? proj.goal : 0,
+            membersCount: proj ? proj.members_count : 0,
+          }),
+        });
+      } catch (e) {
+        console.warn('[resend] email send failed:', e.message);
+      }
+
+      return res.status(200).json({ ok: true, message: 'Invitation renvoyée' });
+    } catch (e) {
+      return res.status(500).json({ error: 'Erreur renvoi invitation : ' + e.message });
+    }
+  }
+
+  if (req.method === 'DELETE') {
+    /* DELETE : révoquer une invitation en attente */
+    const { invitationId } = body;
+    if (!invitationId) {
+      return res.status(400).json({ error: 'invitationId requis' });
+    }
+
+    try {
+      const invRows = await supabaseRequest('GET',
+        '/project_invitations?id=eq.' + encodeURIComponent(invitationId) +
+        '&inviter_id=eq.' + encodeURIComponent(payload.userId) +
+        '&status=eq.pending&select=id');
+      if (!Array.isArray(invRows) || !invRows[0]) {
+        return res.status(404).json({ error: 'Invitation introuvable ou déjà acceptée' });
+      }
+
+      await supabaseRequest('PATCH',
+        '/project_invitations?id=eq.' + encodeURIComponent(invitationId),
+        { status: 'revoked', responded_at: new Date().toISOString() });
+
+      return res.status(200).json({ ok: true, message: 'Invitation révoquée' });
+    } catch (e) {
+      return res.status(500).json({ error: 'Erreur révocation invitation : ' + e.message });
+    }
+  }
+
+  return res.status(405).json({ error: 'Méthode non autorisée pour /invitations_send' });
 }
