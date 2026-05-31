@@ -1883,6 +1883,21 @@ function adminLogout() {
 let USERS = [];
 let ALL_TXNS = [];                /* Transactions complétées */
 let PENDING_TXNS = [];            /* Transactions en attente (table transactions) */
+
+/* ══════════════════════════════════════════
+   SOURCE DE VÉRITÉ UNIQUE — projet collectif ?
+   (copie identique du backend api/_lib/project.js)
+   Champs DB bruts : name, invite_code, invite_token, members_count
+   ══════════════════════════════════════════ */
+function isProjectCollective(p) {
+  if (!p) return false;
+  return !!(
+    p.invite_code ||
+    p.invite_token ||
+    String(p.name || '').startsWith('🤝') ||
+    (Number(p.members_count) > 1)
+  );
+}
 const KYC_REQUESTS = [];
 const TONTINES = [];
 let PROJETS_TOP = [];             /* Projets de tous les utilisateurs */
@@ -2004,9 +2019,7 @@ function populateAdminData(data) {
   /* ── Projets de tous les utilisateurs (individuels seulement) ── */
   var rawProjects = data.allProjects || [];
   PROJETS_TOP = rawProjects.filter(function(p){
-    /* Exclure les collectifs : nom commence par 🤝 OU a plusieurs membres */
-    var isCollective = String(p.name||'').startsWith('🤝') || (p.members_count && p.members_count > 1);
-    return !isCollective;
+    return !isProjectCollective(p);
   }).map(function(p) {
     var u = userMap[p.user_id] || {};
     return {
@@ -2020,10 +2033,9 @@ function populateAdminData(data) {
     };
   });
 
-  /* ── Tontines (projets collectifs) ── */
-  /* Collectif = nom commence par 🤝 OU a plusieurs membres */
+  /* ── Tontines (projets collectifs) — source de vérité unique ── */
   var TONTINES_ALL = rawProjects.filter(function(p){
-    return String(p.name||'').startsWith('🤝') || (p.members_count && p.members_count > 1);
+    return isProjectCollective(p);
   }).map(function(p) {
     var u = userMap[p.user_id] || {};
     return {

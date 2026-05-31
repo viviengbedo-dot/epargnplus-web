@@ -10,6 +10,7 @@
 
 const { supabaseRequest }   = require('../_lib/supabase');
 const { runReminderCron }   = require('../_lib/email');
+const { isProjectCollective } = require('../_lib/project');
 const ADMIN_SECRET  = process.env.ADMIN_SECRET  || 'epargn-admin-dev-2026';
 const CRON_SECRET   = process.env.CRON_SECRET   || '';
 
@@ -142,7 +143,8 @@ module.exports = async (req, res) => {
     } catch (e) {
       try {
         allProjects = await supabaseRequest('GET',
-          '/projects?select=id,user_id,name,goal,actuel,status,color,duree,created_at' +
+          '/projects?select=id,user_id,name,goal,actuel,status,color,duree,' +
+          'invite_code,members_count,created_at' +
           '&order=created_at.desc&limit=500');
         if (!Array.isArray(allProjects)) allProjects = [];
       } catch (e2) {
@@ -255,8 +257,8 @@ module.exports = async (req, res) => {
       .filter(t => t.statut === 'completed')
       .reduce((s, t) => s + (t.amount || 0), 0);
 
-    /* Projets collectifs stats */
-    const collectifProjects = allProjects.filter(p => p.name && p.name.startsWith('🤝'));
+    /* Projets collectifs stats — source de vérité unique */
+    const collectifProjects = allProjects.filter(p => isProjectCollective(p));
     const collectifActive   = collectifProjects.filter(p => p.status === 'active').length;
     const collectifClosed   = collectifProjects.filter(p => p.status === 'closed').length;
     const withdrawalsPending = pendingWithdrawals.length;

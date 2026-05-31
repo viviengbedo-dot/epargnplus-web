@@ -15,6 +15,7 @@
 
 const { supabaseRequest } = require('../_lib/supabase');
 const { verifyJWT, hashPin, verifyPin } = require('../_lib/auth');
+const { isProjectCollective, hasJoinedMembers } = require('../_lib/project');
 const crypto = require('crypto');
 
 function parseBody(req) {
@@ -349,36 +350,50 @@ async function handleProjects(req, res, payload, resourceId) {
   if (req.method === 'DELETE') {
     if (!resourceId) return res.status(400).json({ error: 'id requis' });
     try {
-      /* ── Récupérer le projet ── */
+      /* ── Récupérer le projet (avec TOUS les signaux collectif) ── */
       const projRows = await supabaseRequest('GET',
         '/projects?id=eq.' + encodeURIComponent(resourceId) +
         '&user_id=eq.' + encodeURIComponent(payload.userId) +
-        '&select=id,name,actuel,goal,status,has_funds,members_count&limit=1');
+        '&select=id,name,actuel,goal,status,has_funds,members_count,invite_code,invite_token&limit=1');
       if (!Array.isArray(projRows) || !projRows[0]) {
         return res.status(404).json({ error: 'Projet introuvable' });
       }
       const proj = projRows[0];
 
-      /* Projet collectif = nom commence par 🤝 OU a plusieurs membres */
-      const isCollective = String(proj.name || '').startsWith('🤝') || (proj.members_count > 1);
+      /* ── Calcul des signaux (source de vérité unique) ── */
+      const collective   = isProjectCollective(proj);
+      const joinedMembers = hasJoinedMembers(proj);
 
-      /* Ancien projet collectif avec seulement le créateur : peut être supprimé */
-      if (isCollective && (proj.members_count <= 1)) {
-        /* Permettre la suppression des anciens projets collectifs vides */
-        /* Continuer vers la suppression */
+      /* Présence de fonds : has_funds OU actuel OU transactions créditées */
+      let hasFunds = proj.has_funds || (proj.actuel > 0);
+      if (!hasFunds) {
+        try {
+          const txns = await supabaseRequest('GET',
+            '/transactions?project_id=eq.' + encodeURIComponent(resourceId) +
+            '&statut=eq.completed&is_credit=eq.true&select=id&limit=1');
+          hasFunds = Array.isArray(txns) && txns.length > 0;
+        } catch {}
       }
-      /* Nouveau projet collectif avec membres : demander fermeture */
-      else if (isCollective && (proj.members_count > 1)) {
-        /* Les projets collectifs avec membres passent en fermeture demandée */
-        /* Mettre le statut à 'closure_requested' et notifier l'admin */
+
+      /* ═══════════════════════════════════════════════════════════
+         RÈGLES DE SUPPRESSION (déterministes)
+         ───────────────────────────────────────────────────────────
+         COLLECTIF + (membres rejoints OU fonds) → demande clôture admin
+         COLLECTIF vide (créateur seul, 0 fonds)  → suppression directe
+         INDIVIDUEL avec fonds                    → bloqué
+         INDIVIDUEL sans fonds                    → suppression directe
+         ═══════════════════════════════════════════════════════════ */
+
+      if (collective && (joinedMembers || hasFunds)) {
+        /* Projet collectif actif → fermeture gérée par l'admin */
         try {
           await supabaseRequest('PATCH',
             '/projects?id=eq.' + encodeURIComponent(resourceId),
             { status: 'closure_requested' });
         } catch (e) {
           console.error('[projects/delete closure_requested]:', e.message);
+          return res.status(500).json({ error: 'Erreur demande de clôture : ' + e.message });
         }
-
         return res.status(200).json({
           ok: true,
           action: 'closure_requested',
@@ -387,19 +402,8 @@ async function handleProjects(req, res, payload, resourceId) {
         });
       }
 
-      /* ── Projet individuel avec fonds : BLOQUÉ ── */
-      /* Vérifier via has_funds ET actuel ET transactions */
-      const hasFunds = proj.has_funds || (proj.actuel > 0);
-      let hasTransactions = false;
-      if (!hasFunds) {
-        try {
-          const txns = await supabaseRequest('GET',
-            '/transactions?project_id=eq.' + encodeURIComponent(resourceId) +
-            '&statut=eq.completed&is_credit=eq.true&select=id&limit=1');
-          hasTransactions = Array.isArray(txns) && txns.length > 0;
-        } catch {}
-      }
-      if (hasFunds || hasTransactions) {
+      if (!collective && hasFunds) {
+        /* Projet individuel avec fonds → bloqué (clôturer ou archiver) */
         return res.status(403).json({
           error: 'Ce projet ne peut plus être supprimé car des fonds y sont déjà associés.',
           code: 'PROJECT_HAS_FUNDS',
@@ -407,7 +411,9 @@ async function handleProjects(req, res, payload, resourceId) {
         });
       }
 
-      /* ── Suppression autorisée (pas de fonds) ── */
+      /* ── Suppression directe autorisée (individuel vide OU collectif vide) ── */
+      try { await supabaseRequest('DELETE',
+        '/project_invitations?project_id=eq.' + encodeURIComponent(resourceId)); } catch {}
       try { await supabaseRequest('DELETE',
         '/transactions?project_id=eq.' + encodeURIComponent(resourceId)); } catch {}
       try { await supabaseRequest('DELETE',
@@ -415,7 +421,8 @@ async function handleProjects(req, res, payload, resourceId) {
       await supabaseRequest('DELETE',
         '/projects?id=eq.' + encodeURIComponent(resourceId) + '&user_id=eq.' + payload.userId);
 
-      console.log('[projects/delete] id=' + resourceId + ' user=' + payload.userId);
+      console.log('[projects/delete] id=' + resourceId + ' user=' + payload.userId +
+        ' collective=' + collective);
       return res.status(200).json({ ok: true });
     } catch (e) {
       return res.status(500).json({ error: 'Erreur suppression projet : ' + e.message });

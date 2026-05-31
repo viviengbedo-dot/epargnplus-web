@@ -2823,6 +2823,24 @@ function logoutUser() {
 /* ── DATA — chargé depuis l'API, cache localStorage en attendant ── */
 let PROJETS = (function() { try { return JSON.parse(localStorage.getItem('epargn_projets') || '[]'); } catch(e) { return []; } })();
 let TRANSACTIONS = []; /* Rempli depuis /api/user/me?resource=transactions */
+
+/* ══════════════════════════════════════════
+   SOURCE DE VÉRITÉ UNIQUE — projet collectif ?
+   (copie identique du backend api/_lib/project.js)
+   Champs UI : nom, members_count, invite_code, invite_token
+   ══════════════════════════════════════════ */
+function isProjectCollective(p) {
+  if (!p) return false;
+  return !!(
+    p.invite_code ||
+    p.invite_token ||
+    String(p.nom || p.name || '').startsWith('🤝') ||
+    (Number(p.members_count) > 1)
+  );
+}
+function projectHasJoinedMembers(p) {
+  return Number(p && p.members_count) > 1;
+}
 let TONTINES_USER = (function() { try { return JSON.parse(localStorage.getItem('epargn_tontines') || '[]'); } catch(e) { return []; } })();
 
 /* Notifications — générées depuis les transactions réelles */
@@ -2918,14 +2936,17 @@ function loadProjects() {
     var colors = ['#0B1566','#22CC66','#3B82F6','#F59E0B','#8B5CF6','#EC4899','#06B6D4','#EF4444'];
     var dbProjects = rows.map(function(p, i) {
       return {
-        id:        p.id,
-        nom:       p.name,
-        cible:     p.goal,
-        actuel:    p.actuel || 0,
-        duree:     p.duree  || '12',
-        color:     p.color  || colors[i % colors.length],
-        status:    p.status || 'active',
-        createdAt: p.created_at,
+        id:            p.id,
+        nom:           p.name,
+        cible:         p.goal,
+        actuel:        p.actuel || 0,
+        duree:         p.duree  || '12',
+        color:         p.color  || colors[i % colors.length],
+        status:        p.status || 'active',
+        createdAt:     p.created_at,
+        members_count: p.members_count || 1,
+        invite_code:   p.invite_code  || null,
+        invite_token:  p.invite_token || null,
       };
     });
     /* Migration : si DB vide mais localStorage a des projets, migrer vers DB */
@@ -4094,8 +4115,10 @@ function renderProjectCards() {
     const ic       = ic_pre; /* déjà calculé */
     const ins      = projectInsight(pct, p.actuel);
 
-    /* Détection projet collectif (tontine liée) */
-    const isCollectif = TONTINES_USER.some(function(t){ return t.projectId === p.id; });
+    /* Détection projet collectif — source de vérité unique
+       (signaux projet OU tontine liée par sécurité) */
+    const isCollectif = isProjectCollective(p) ||
+      TONTINES_USER.some(function(t){ return t.projectId === p.id; });
 
     /* Badge statut */
     let stLabel, stClass;
@@ -4216,7 +4239,7 @@ function renderProjectCards() {
       <div style="display:flex;gap:8px;padding-top:10px;border-top:1px solid var(--divider);">
         ${actionBtn}
         ${!isCollectif ? `<button class="btn btn-outline btn-sm" onclick="openProjectDetail(PROJETS[${idx}])" style="font-size:13px;padding:11px 14px;" title="Voir les détails">📊</button>` : ''}
-        ${(!isCollectif && (p.members_count || 1) === 1 && (p.actuel || 0) === 0) ? `<button class="btn btn-outline btn-sm" onclick="deleteProject(${idx})" style="color:#DC2626;border-color:#FECACA;font-size:13px;padding:11px 14px;" title="Supprimer">🗑</button>` : ''}
+        ${(p.status !== 'closure_requested' && !projectHasJoinedMembers(p) && (p.actuel || 0) === 0) ? `<button class="btn btn-outline btn-sm" onclick="deleteProject(${idx})" style="color:#DC2626;border-color:#FECACA;font-size:13px;padding:11px 14px;" title="Supprimer">🗑</button>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -4851,27 +4874,37 @@ function deleteProject(idx) {
   var proj = PROJETS[idx];
   if (!proj) return;
 
-  /* ── Vérification fonds côté client ── */
-  var hasFunds = (proj.actuel || proj.current || 0) > 0;
-  /* Collectif si nom commence par 🤝 OU plus d'un membre */
-  var isCollective = String(proj.nom || '').startsWith('🤝') || (proj.members_count > 1);
+  /* ── Signaux (source de vérité unique) ── */
+  var hasFunds      = (proj.actuel || proj.current || 0) > 0;
+  var isCollective  = isProjectCollective(proj);
+  var joinedMembers = projectHasJoinedMembers(proj);
 
-  /* Projets collectifs ne peuvent jamais être supprimés */
-  if (isCollective) {
-    showToast('❌ Les projets collectifs ne peuvent pas être supprimés. Contactez l\'administrateur.', 'error');
+  /* Déjà en attente de clôture */
+  if (proj.status === 'closure_requested') {
+    showToast('⏳ Ce projet est déjà en attente de clôture par l\'administrateur.', 'info');
     return;
   }
 
-  if (hasFunds) {
+  /* Collectif actif (membres rejoints OU fonds) → demande de clôture admin */
+  if (isCollective && (joinedMembers || hasFunds)) {
+    if (!confirm(
+      'Demande de fermeture du groupe collectif « ' + proj.nom + ' »\n\n' +
+      'Le projet sera transmis à l\'administrateur qui traitera les remboursements.\n\n' +
+      'Confirmer la demande ?'
+    )) return;
+    /* → envoyé au backend qui retournera closure_requested */
+  } else if (!isCollective && hasFunds) {
+    /* Individuel avec fonds → bloqué */
     showToast(
       'Ce projet ne peut plus être supprimé car des fonds y sont déjà associés.\n' +
       'Vous pouvez uniquement le clôturer ou l\'archiver.',
       'error'
     );
     return;
+  } else {
+    /* Vide (individuel ou collectif sans membre/fonds) → suppression directe */
+    if (!confirm('Supprimer le projet « ' + proj.nom + ' » ? Cette action est irréversible.')) return;
   }
-
-  if (!confirm('Supprimer le projet « ' + proj.nom + ' » ? Cette action est irréversible.')) return;
 
   /* Suppression en DB */
   if (proj.id && _authToken) {
