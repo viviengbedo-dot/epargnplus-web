@@ -1306,21 +1306,39 @@
         <label class="form-label">Nom du projet</label>
         <input class="form-input" id="proj-nom" type="text" placeholder="Ex: Mon Mariage, Ma Voiture…" autocomplete="off" />
       </div>
+      <div class="form-group">
+        <label class="form-label" id="proj-cible-label">Objectif</label>
+        <input class="form-input" id="proj-cible" type="number" min="1000" placeholder="1 000 000" oninput="npUpdateEstimate()" />
+      </div>
       <div class="form-row">
         <div class="form-group">
-          <label class="form-label" id="proj-cible-label">Objectif</label>
-          <input class="form-input" id="proj-cible" type="number" min="1000" placeholder="1 000 000" oninput="npUpdateEstimate()" />
+          <label class="form-label">Rythme d'épargne</label>
+          <select class="form-input form-select" id="proj-freq" onchange="npUpdateEstimate()">
+            <option value="quotidienne">Quotidienne</option>
+            <option value="hebdomadaire">Hebdomadaire</option>
+            <option value="bimensuelle">Bimensuelle (2×/mois)</option>
+            <option value="mensuelle" selected>Mensuelle</option>
+            <option value="trimestrielle">Trimestrielle</option>
+            <option value="libre">Libre (à mon rythme)</option>
+          </select>
         </div>
         <div class="form-group">
-          <label class="form-label">Durée (mois)</label>
-          <input class="form-input" id="proj-duree" type="number" min="1" max="120" placeholder="12" oninput="npUpdateEstimate()" />
+          <label class="form-label">Date de fin 🎯</label>
+          <input class="form-input" id="proj-deadline" type="date" oninput="npUpdateEstimate()" />
         </div>
       </div>
-      <!-- Estimation mensuelle -->
+      <!-- Estimation par période -->
       <div id="np-monthly-est" style="display:none;background:linear-gradient(135deg,#EEF2FF,#F0FDF4);border-radius:12px;padding:12px 16px;margin-bottom:16px;border:1px solid #C7D2FE;">
         <div style="font-size:11px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;">Versement estimé</div>
-        <div style="font-size:18px;font-weight:900;color:var(--primary);" id="np-monthly-text">— / mois</div>
-        <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">en épargnant régulièrement chaque mois</div>
+        <div style="font-size:18px;font-weight:900;color:var(--primary);" id="np-monthly-text">—</div>
+        <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;" id="np-monthly-sub">en épargnant régulièrement</div>
+      </div>
+      <!-- Rappel règle de retrait -->
+      <div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:12px;padding:11px 14px;margin-bottom:16px;display:flex;gap:9px;align-items:flex-start;">
+        <span style="font-size:16px;">🔒</span>
+        <div style="font-size:12px;color:#92400E;line-height:1.5;">
+          Le retrait sera débloqué <strong>uniquement</strong> lorsque votre objectif atteint <strong>100%</strong> ET que la <strong>date de fin</strong> est arrivée.
+        </div>
       </div>
       <button class="btn btn-accent" style="width:100%;padding:16px;font-size:15px;font-weight:800;border-radius:16px;" onclick="createProject()">
         🚀 Lancer mon projet →
@@ -3041,7 +3059,8 @@ function refreshDashboardData(silent) {
       const COLORS = ['#0B1566','#22CC66','#3B82F6','#F59E0B','#8B5CF6','#EC4899','#06B6D4','#EF4444'];
       const updated = rows.map((p, i) => ({
         id: p.id, nom: p.name, cible: p.goal, actuel: p.actuel || 0,
-        duree: p.duree || '12', color: p.color || COLORS[i % COLORS.length],
+        duree: p.duree || '12', deadline: (p.duree && String(p.duree).includes('-')) ? p.duree : null,
+        freq: p.freq || null, color: p.color || COLORS[i % COLORS.length],
         status: p.status || 'active', createdAt: p.created_at,
       }));
 
@@ -4023,9 +4042,13 @@ function renderProjectCards() {
     else if (pct >= 25)  { stLabel = 'Conforme';            stClass = 'badge-status-conform'; }
     else                 { stLabel = 'À accélérer';         stClass = 'badge-status-accel'; }
 
-    /* Deadline */
+    /* Deadline + compte à rebours */
     let deadlineHtml = '';
-    if (p.duree && p.duree.includes('-')) {
+    const _cd = (typeof projCountdownText === 'function') ? projCountdownText(p) : '';
+    if (_cd) {
+      const _reached = projDeadlineReached(p);
+      deadlineHtml = `<span style="display:flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:${_reached ? '#059669' : '#D97706'};">${_cd}</span>`;
+    } else if (p.duree && p.duree.includes('-')) {
       try {
         const d = new Date(p.duree);
         const mois = d.toLocaleDateString('fr-FR', { month:'long', year:'numeric' });
@@ -4038,12 +4061,15 @@ function renderProjectCards() {
       deadlineHtml = `<span style="color:var(--text-secondary);font-size:12px;">🗓 Durée : ${p.duree}</span>`;
     }
 
-    /* Action buttons — les projets collectifs se déposent via la section Tontine */
+    /* Action buttons — retrait débloqué si 100% ET échéance atteinte */
+    const _canWithdraw = (typeof projWithdrawable === 'function') ? projWithdrawable(p) : (pct >= 100);
     const actionBtn = isCollectif
       ? `<button class="btn btn-sm" style="flex:1;font-size:13px;padding:11px 0;background:#EEF2FF;color:var(--primary);border:none;font-weight:700;" onclick="showSection('tontine',null);setBottomNav('')">🤝 Voir la tontine</button>`
-      : pct >= 100
+      : _canWithdraw
         ? `<button class="btn btn-sm" style="background:#059669;color:#fff;flex:1;font-weight:700;font-size:13px;padding:11px 0;border-radius:10px;" onclick="openRetraitForProject('${p.id||''}','${safeNom}',${p.actuel})">🎉 Retirer les fonds</button>`
-        : `<button class="btn btn-primary btn-sm" style="flex:1;font-size:13px;padding:11px 0;" onclick="openDepositForProject('${p.id||''}','${safeNom}')">+ Déposer</button>`;
+        : pct >= 100
+          ? `<button class="btn btn-sm" style="flex:1;font-size:13px;padding:11px 0;background:#FEF3C7;color:#92400E;border:none;font-weight:700;cursor:not-allowed;" onclick="showToast('🔒 Retrait disponible à échéance · ${_cd}','info')">🔒 ${_cd || 'À échéance'}</button>`
+          : `<button class="btn btn-primary btn-sm" style="flex:1;font-size:13px;padding:11px 0;" onclick="openDepositForProject('${p.id||''}','${safeNom}')">+ Déposer</button>`;
 
     return `<div class="card" style="padding:18px 18px 14px;border:1px solid var(--divider);border-radius:16px;overflow:hidden;">
 
@@ -4217,7 +4243,10 @@ function openProjectDetail(proj) {
 
   // Deadline
   var deadlineDisplay = '';
-  if (proj.duree && String(proj.duree).includes('-')) {
+  var _cdDetail = (typeof projCountdownText === 'function') ? projCountdownText(proj) : '';
+  if (_cdDetail) {
+    deadlineDisplay = _cdDetail;
+  } else if (proj.duree && String(proj.duree).includes('-')) {
     try { var d = new Date(proj.duree); deadlineDisplay = d.toLocaleDateString('fr-FR',{month:'long',year:'numeric'}); } catch(e){}
   } else if (proj.duree && proj.duree !== '12') {
     deadlineDisplay = proj.duree + ' mois';
@@ -4377,9 +4406,24 @@ function openProjectDetail(proj) {
 
     // ── CTA
     '<div style="padding-bottom:100px;">' +
-      (pct >= 100
-        ? '<button class="btn btn-accent" style="width:100%;padding:18px;font-size:16px;font-weight:800;border-radius:50px;letter-spacing:.02em;" onclick="openRetraitForProject(\'' + safeId + '\',\'' + safeNom + '\',' + proj.actuel + ')">🎉 Retirer les fonds</button>'
-        : '<button class="btn btn-accent" style="width:100%;padding:18px;font-size:16px;font-weight:800;border-radius:50px;letter-spacing:.02em;" onclick="openDepositForProject(\'' + safeId + '\',\'' + safeNom + '\')">💰 Faire un versement</button>') +
+      (function() {
+        var dlReached = projDeadlineReached(proj);
+        var cdText    = projCountdownText(proj);
+        if (pct >= 100 && dlReached) {
+          /* 100% + date arrivée → retrait débloqué */
+          return '<button class="btn btn-accent" style="width:100%;padding:18px;font-size:16px;font-weight:800;border-radius:50px;letter-spacing:.02em;" onclick="openRetraitForProject(\'' + safeId + '\',\'' + safeNom + '\',' + proj.actuel + ')">🎉 Retirer les fonds</button>';
+        }
+        if (pct >= 100 && !dlReached) {
+          /* 100% mais date pas arrivée → bouton verrouillé + compte à rebours */
+          return '<div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:16px;padding:16px;text-align:center;margin-bottom:12px;">' +
+              '<div style="font-size:13px;font-weight:800;color:#92400E;margin-bottom:4px;">🔒 Objectif atteint !</div>' +
+              '<div style="font-size:12px;color:#92400E;">Retrait disponible à l\'échéance · ' + cdText + '</div>' +
+            '</div>' +
+            '<button class="btn" style="width:100%;padding:18px;font-size:16px;font-weight:800;border-radius:50px;background:#E5E7EB;color:#9CA3AF;cursor:not-allowed;" disabled>🔒 Retrait verrouillé</button>';
+        }
+        /* Pas encore 100% → versement */
+        return '<button class="btn btn-accent" style="width:100%;padding:18px;font-size:16px;font-weight:800;border-radius:50px;letter-spacing:.02em;" onclick="openDepositForProject(\'' + safeId + '\',\'' + safeNom + '\')">💰 Faire un versement</button>';
+      })() +
     '</div>';
 
   document.getElementById('projDetailContent').innerHTML = html;
@@ -4621,6 +4665,22 @@ function openRetraitForProject(projectId, nom, montant) {
     showToast('Projet invalide pour le retrait', 'error');
     return;
   }
+
+  /* ── Garde-fou : 100% ET date de fin atteinte ── */
+  var _proj = (typeof PROJETS !== 'undefined' ? PROJETS : [])
+    .find(function(p) { return p.id === projectId; });
+  if (_proj) {
+    var _pct = (_proj.cible > 0) ? (_proj.actuel / _proj.cible * 100) : 0;
+    if (_pct < 100) {
+      showToast('Le retrait nécessite un objectif atteint à 100%.', 'error');
+      return;
+    }
+    if (!projDeadlineReached(_proj)) {
+      showToast('🔒 Retrait disponible à l\'échéance · ' + projCountdownText(_proj), 'info');
+      return;
+    }
+  }
+
   _retraitProjectId  = projectId;
   _retraitProjectNom = nom;
   _retraitVal        = String(montant);
@@ -5917,28 +5977,105 @@ function npRenderStep3(fromCustom) {
   if (labelEl) labelEl.textContent = 'Objectif (' + cur + ')';
 }
 
+/* Nombre de jours par période selon la fréquence */
+var FREQ_DAYS = {
+  quotidienne: 1, hebdomadaire: 7, bimensuelle: 15,
+  mensuelle: 30, trimestrielle: 90, libre: 30
+};
+var FREQ_LABEL = {
+  quotidienne: 'jour', hebdomadaire: 'semaine', bimensuelle: 'quinzaine',
+  mensuelle: 'mois', trimestrielle: 'trimestre', libre: 'versement'
+};
+
 function npUpdateEstimate() {
-  var cible = parseInt((document.getElementById('proj-cible') || {}).value) || 0;
-  var duree = parseInt((document.getElementById('proj-duree') || {}).value) || 0;
-  var est   = document.getElementById('np-monthly-est');
-  var txt   = document.getElementById('np-monthly-text');
-  var cur   = (COUNTRY_LABELS[_userCountry] || COUNTRY_LABELS.gn).currency;
-  if (cible >= 1000 && duree >= 1) {
-    var mensuel = Math.ceil(cible / duree);
-    if (txt) txt.textContent = fmt(mensuel) + ' ' + cur + ' / mois';
+  var cible    = parseInt((document.getElementById('proj-cible') || {}).value) || 0;
+  var freq     = (document.getElementById('proj-freq') || {}).value || 'mensuelle';
+  var deadline = (document.getElementById('proj-deadline') || {}).value || '';
+  var est      = document.getElementById('np-monthly-est');
+  var txt      = document.getElementById('np-monthly-text');
+  var sub      = document.getElementById('np-monthly-sub');
+  var cur      = (COUNTRY_LABELS[_userCountry] || COUNTRY_LABELS.gn).currency;
+
+  if (cible < 1000 || !deadline) { if (est) est.style.display = 'none'; return; }
+
+  var now    = new Date(); now.setHours(0,0,0,0);
+  var end    = new Date(deadline);
+  var diffMs = end - now;
+  var diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 1) {
+    if (txt) txt.textContent = '⚠ Choisissez une date future';
+    if (sub) sub.textContent = '';
     if (est) est.style.display = '';
-  } else {
-    if (est) est.style.display = 'none';
+    return;
   }
+
+  var periodDays = FREQ_DAYS[freq] || 30;
+  var nbPeriods  = Math.max(1, Math.floor(diffDays / periodDays));
+  var perPeriod  = Math.ceil(cible / nbPeriods);
+  var unit       = FREQ_LABEL[freq] || 'mois';
+
+  if (txt) txt.textContent = fmt(perPeriod) + ' ' + cur + ' / ' + unit;
+  if (sub) sub.textContent = nbPeriods + ' versement' + (nbPeriods > 1 ? 's' : '') +
+    ' · objectif le ' + end.toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric' });
+  if (est) est.style.display = '';
+}
+
+/* ── Helpers date de fin & déblocage retrait ── */
+function projGetDeadline(proj) {
+  if (!proj) return null;
+  var d = proj.deadline || proj.duree || null;
+  if (!d || typeof d !== 'string' || d.indexOf('-') === -1) return null;
+  var parsed = new Date(d);
+  return isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function projDeadlineReached(proj) {
+  var d = projGetDeadline(proj);
+  if (!d) return true; /* pas de date → ancien comportement (100% suffit) */
+  var now = new Date(); now.setHours(0,0,0,0);
+  d.setHours(0,0,0,0);
+  return now >= d;
+}
+
+/* Texte compte à rebours : "⏳ 45 jours restants" ou "✅ Échéance atteinte" */
+function projCountdownText(proj) {
+  var d = projGetDeadline(proj);
+  if (!d) return '';
+  var now = new Date(); now.setHours(0,0,0,0);
+  d.setHours(0,0,0,0);
+  var days = Math.ceil((d - now) / (1000 * 60 * 60 * 24));
+  if (days <= 0) return '✅ Échéance atteinte';
+  if (days === 1) return '⏳ 1 jour restant';
+  if (days < 31)  return '⏳ ' + days + ' jours restants';
+  var months = Math.floor(days / 30);
+  var rem    = days % 30;
+  return '⏳ ' + months + ' mois' + (rem > 0 ? ' ' + rem + 'j' : '') + ' restants';
+}
+
+/* Retrait débloqué = objectif 100% ET date de fin arrivée */
+function projWithdrawable(proj) {
+  if (!proj) return false;
+  var pct = (proj.cible > 0) ? (proj.actuel / proj.cible * 100) : 0;
+  return pct >= 100 && projDeadlineReached(proj);
 }
 
 function createProject() {
-  const nom    = ((document.getElementById('proj-nom')   || {}).value || '').trim();
-  const cible  = parseInt((document.getElementById('proj-cible') || {}).value) || 0;
-  const duree  = String(parseInt((document.getElementById('proj-duree') || {}).value) || 12);
+  const nom      = ((document.getElementById('proj-nom')   || {}).value || '').trim();
+  const cible    = parseInt((document.getElementById('proj-cible') || {}).value) || 0;
+  const freq     = (document.getElementById('proj-freq') || {}).value || 'mensuelle';
+  const deadline = (document.getElementById('proj-deadline') || {}).value || '';
   if (!nom)         { showToast('Donnez un nom à votre projet.', 'error'); return; }
   if (cible < 1000) { showToast('Objectif minimum : 1 000.', 'error'); return; }
+  if (!deadline)    { showToast('Choisissez une date de fin pour votre projet.', 'error'); return; }
   if (!_authToken)  { showToast('Vous devez être connecté.', 'error'); return; }
+
+  /* Vérifier que la date est dans le futur */
+  var _now = new Date(); _now.setHours(0,0,0,0);
+  if (new Date(deadline) <= _now) { showToast('La date de fin doit être dans le futur.', 'error'); return; }
+
+  /* On stocke la date de fin dans le champ "duree" (ISO) — supporté par le rendu existant */
+  const duree = deadline;
 
   /* Couleur : catégorie sélectionnée ou palette par défaut */
   const colors = ['#0B1566','#22CC66','#3B82F6','#F59E0B','#8B5CF6','#EC4899','#06B6D4','#EF4444'];
@@ -5954,7 +6091,7 @@ function createProject() {
   fetch('/api/user/me?resource=projects', {
     method:  'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
-    body:    JSON.stringify({ nom, cible, duree, color }),
+    body:    JSON.stringify({ nom, cible, duree, color, freq }),
   })
   .then(function(r) {
     return r.json().then(function(data) { return { ok: r.ok, status: r.status, data: data }; });
@@ -5975,12 +6112,14 @@ function createProject() {
     }
     const proj = {
       id: data.id, nom: data.name || nom, cible: data.goal || cible,
-      actuel: data.actuel || 0, duree, color: data.color || color, createdAt: data.created_at
+      actuel: data.actuel || 0, duree, deadline: deadline, freq: freq,
+      color: data.color || color, createdAt: data.created_at
     };
     PROJETS.unshift(proj);
     localStorage.setItem('epargn_projets', JSON.stringify(PROJETS));
     closeModal('modal-newProject');
-    ['proj-nom','proj-cible','proj-duree'].forEach(function(id) { var el = document.getElementById(id); if (el) el.value = ''; });
+    ['proj-nom','proj-cible','proj-deadline'].forEach(function(id) { var el = document.getElementById(id); if (el) el.value = ''; });
+    var freqEl = document.getElementById('proj-freq'); if (freqEl) freqEl.value = 'mensuelle';
     _npSelectedProject = null; _npSelectedCategory = null;
     renderProjectCards();
     renderHomeProjects();
