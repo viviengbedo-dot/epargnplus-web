@@ -362,13 +362,23 @@ async function handleProjects(req, res, payload, resourceId) {
       /* Projet collectif = nom commence par 🤝 OU a plusieurs membres */
       const isCollective = String(proj.name || '').startsWith('🤝') || (proj.members_count > 1);
 
-      /* ── Projet collectif : JAMAIS suppression directe ── */
+      /* ── Projet collectif : demander fermeture à l'admin ── */
       if (isCollective) {
-        /* Les projets collectifs ne peuvent JAMAIS être supprimés par l'user */
-        return res.status(403).json({
-          error: 'Les projets collectifs ne peuvent pas être supprimés directement. Demandez la clôture à l\'administrateur.',
-          code: 'COLLECTIVE_PROJECT_NO_DELETE',
-          action: 'contact_admin',
+        /* Les projets collectifs peuvent être demandés pour fermeture */
+        /* Mettre le statut à 'closure_requested' et notifier l'admin */
+        try {
+          await supabaseRequest('PATCH',
+            '/projects?id=eq.' + encodeURIComponent(resourceId),
+            { status: 'closure_requested' });
+        } catch (e) {
+          console.error('[projects/delete closure_requested]:', e.message);
+        }
+
+        return res.status(200).json({
+          ok: true,
+          action: 'closure_requested',
+          message: 'Demande de fermeture envoyée à l\'administrateur. Le projet restera visible jusqu\'à clôture.',
+          code: 'CLOSURE_REQUESTED',
         });
       }
 

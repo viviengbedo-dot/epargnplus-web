@@ -4099,7 +4099,13 @@ function renderProjectCards() {
 
     /* Badge statut */
     let stLabel, stClass;
-    if      (pct >= 100) { stLabel = '🏆 Objectif atteint'; stClass = 'badge-status-done'; }
+    if (p.status === 'closure_requested') {
+      stLabel = '⏳ Fermeture demandée';
+      stClass = 'badge-status-pending';
+    } else if (pct >= 100) {
+      stLabel = '🏆 Objectif atteint';
+      stClass = 'badge-status-done';
+    }
     else if (pct >= 80)  { stLabel = 'Presque atteint';     stClass = 'badge-status-near'; }
     else if (pct >= 60)  { stLabel = 'En avance';           stClass = 'badge-status-ahead'; }
     else if (pct >= 25)  { stLabel = 'Conforme';            stClass = 'badge-status-conform'; }
@@ -4126,13 +4132,20 @@ function renderProjectCards() {
 
     /* Action buttons — retrait débloqué si 100% ET échéance atteinte */
     const _canWithdraw = (typeof projWithdrawable === 'function') ? projWithdrawable(p) : (pct >= 100);
-    const actionBtn = isCollectif
-      ? `<button class="btn btn-sm" style="flex:1;font-size:13px;padding:11px 0;background:#EEF2FF;color:var(--primary);border:none;font-weight:700;" onclick="showSection('tontine',null);setBottomNav('')">🤝 Voir la tontine</button>`
-      : _canWithdraw
-        ? `<button class="btn btn-sm" style="background:#059669;color:#fff;flex:1;font-weight:700;font-size:13px;padding:11px 0;border-radius:10px;" onclick="openRetraitForProject('${p.id||''}','${safeNom}',${p.actuel})">🎉 Retirer les fonds</button>`
-        : pct >= 100
-          ? `<button class="btn btn-sm" style="flex:1;font-size:13px;padding:11px 0;background:#FEF3C7;color:#92400E;border:none;font-weight:700;cursor:not-allowed;" onclick="showToast('🔒 Retrait disponible à échéance · ${_cd}','info')">🔒 ${_cd || 'À échéance'}</button>`
-          : `<button class="btn btn-primary btn-sm" style="flex:1;font-size:13px;padding:11px 0;" onclick="openDepositForProject('${p.id||''}','${safeNom}')">+ Déposer</button>`;
+    let actionBtn;
+
+    if (p.status === 'closure_requested') {
+      /* Projet en fermeture : aucune action ne peut être faite */
+      actionBtn = `<button class="btn btn-sm" style="flex:1;font-size:13px;padding:11px 0;background:#FEE2E2;color:#DC2626;border:none;font-weight:700;cursor:not-allowed;opacity:0.7;" disabled>⏳ En attente de clôture</button>`;
+    } else if (isCollectif) {
+      actionBtn = `<button class="btn btn-sm" style="flex:1;font-size:13px;padding:11px 0;background:#EEF2FF;color:var(--primary);border:none;font-weight:700;" onclick="showSection('tontine',null);setBottomNav('')">🤝 Voir la tontine</button>`;
+    } else if (_canWithdraw) {
+      actionBtn = `<button class="btn btn-sm" style="background:#059669;color:#fff;flex:1;font-weight:700;font-size:13px;padding:11px 0;border-radius:10px;" onclick="openRetraitForProject('${p.id||''}','${safeNom}',${p.actuel})">🎉 Retirer les fonds</button>`;
+    } else if (pct >= 100) {
+      actionBtn = `<button class="btn btn-sm" style="flex:1;font-size:13px;padding:11px 0;background:#FEF3C7;color:#92400E;border:none;font-weight:700;cursor:not-allowed;" onclick="showToast('🔒 Retrait disponible à échéance · ${_cd}','info')">🔒 ${_cd || 'À échéance'}</button>`;
+    } else {
+      actionBtn = `<button class="btn btn-primary btn-sm" style="flex:1;font-size:13px;padding:11px 0;" onclick="openDepositForProject('${p.id||''}','${safeNom}')">+ Déposer</button>`;
+    }
 
     return `<div class="card" style="padding:18px 18px 14px;border:1px solid var(--divider);border-radius:16px;overflow:hidden;">
 
@@ -4868,22 +4881,19 @@ function deleteProject(idx) {
     })
     .then(function(r) { return r.json(); })
     .then(function(data) {
-      if (data.code === 'COLLECTIVE_PROJECT_NO_DELETE') {
-        showToast('❌ Les projets collectifs ne peuvent pas être supprimés. Contactez l\'administrateur.', 'error');
-        return;
-      }
       if (data.code === 'PROJECT_HAS_FUNDS') {
         showToast('Ce projet ne peut pas être supprimé — des fonds y sont associés.', 'error');
         return;
       }
-      if (data.action === 'delete_requested') {
-        showToast('✅ Demande de clôture envoyée. L\'admin traitera les remboursements.', 'success');
-        /* Mettre à jour le statut local */
-        if (PROJETS[idx]) PROJETS[idx].status = 'delete_requested';
+      /* Fermeture demandée pour un projet collectif */
+      if (data.code === 'CLOSURE_REQUESTED' || data.action === 'closure_requested') {
+        showToast('✅ Demande de clôture envoyée à l\'administrateur. Le projet restera visible jusqu\'à clôture.', 'success');
+        if (PROJETS[idx]) PROJETS[idx].status = 'closure_requested';
         renderProjectCards();
         return;
       }
-      if (data.ok) {
+      /* Suppression directe réussie (projets individuels vides) */
+      if (data.ok && !data.code) {
         PROJETS.splice(idx, 1);
         localStorage.setItem('epargn_projets', JSON.stringify(PROJETS));
         renderProjectCards();
@@ -4891,6 +4901,11 @@ function deleteProject(idx) {
         updateHomeOverview();
         if (typeof updateProgressionGauge === 'function') updateProgressionGauge();
         showToast('Projet supprimé.', 'info');
+      } else if (data.ok) {
+        /* Autre action (delete_requested, etc) */
+        showToast(data.message || 'Action effectuée.', 'success');
+        if (PROJETS[idx]) PROJETS[idx].status = data.status || PROJETS[idx].status;
+        renderProjectCards();
       } else {
         showToast(data.error || 'Erreur suppression', 'error');
       }
