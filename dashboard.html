@@ -8357,29 +8357,38 @@ function initChineseUserUI() {
     tries++;
     if (window._jwt) {
       clearInterval(interval);
-      /* Résoudre le code */
-      fetch('/api/invite/send?code=' + encodeURIComponent(joinCode))
-        .then(function(r) { return r.json(); })
-        .then(function(d) {
-          if (!d.ok || !d.project) return;
-          /* Chercher l'invitation correspondante */
-          fetch('/api/user/me?resource=invitations', {
-            headers: { 'Authorization': 'Bearer ' + window._jwt },
-          })
-          .then(function(r) { return r.json(); })
-          .then(function(invs) {
-            if (!Array.isArray(invs)) return;
-            var inv = invs.find(function(i) {
-              return i.project_id === d.project.id && i.status === 'pending';
-            });
-            if (inv) {
-              showToast('🤝 Invitation trouvée ! Rejoignez le groupe depuis "Invitations".', 'info');
-              showSection('invitations', null);
-              loadInvitations();
-            }
-          });
-        })
-        .catch(function() {});
+
+      /* Accepter l'invitation via le code */
+      fetch('/api/invite/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + window._jwt,
+        },
+        body: JSON.stringify({ code: joinCode }),
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (!d.ok) {
+          console.warn('[handleJoinCode] accept failed:', d.error);
+          showToast('❌ ' + (d.error || 'Erreur'), 'error');
+          return;
+        }
+        /* Succès : afficher la confirmation et recharger les projets */
+        showToast('✅ Bienvenue dans le groupe ! ' + d.project_name, 'success');
+
+        /* Recharger les projets et invitations */
+        if (typeof loadUserData === 'function') {
+          loadUserData();
+        } else {
+          window.location.hash = '#tontines';
+          window.location.reload();
+        }
+      })
+      .catch(function(e) {
+        console.error('[handleJoinCode] error:', e);
+        showToast('❌ Erreur réseau', 'error');
+      });
     }
     if (tries > 20) clearInterval(interval);
   }, 500);

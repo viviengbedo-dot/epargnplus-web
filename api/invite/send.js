@@ -255,7 +255,7 @@ module.exports = async (req, res) => {
     }
   }
 
-  /* ════ POST : envoyer une invitation ════ */
+  /* ════ POST : envoyer une invitation ou accepter une invitation via code ════ */
   if (req.method !== 'POST') return res.status(405).json({ error: 'GET/POST uniquement' });
 
   /* Auth — vérifier JWT */
@@ -265,6 +265,114 @@ module.exports = async (req, res) => {
   if (!jwtPayload) return res.status(401).json({ error: 'Session expirée — reconnectez-vous' });
 
   const body = await parseBody(req);
+  const userId = jwtPayload.userId;
+
+  /* ─── Traiter l'acceptation d'invitation via code ─── */
+  if (body.code && !body.projectId) {
+    const code = (body.code || '').trim();
+    if (!code) return res.status(400).json({ error: 'code requis' });
+
+    try {
+      /* Valider le code */
+      let project = null;
+      try {
+        const rows = await supabaseRequest('GET',
+          '/projects?invite_code=eq.' + encodeURIComponent(code) +
+          '&select=id,name,goal,actuel,members_count,status,invite_active,invite_expires_at,user_id');
+        if (Array.isArray(rows) && rows[0]) project = rows[0];
+      } catch (e) {
+        console.error('[invite/send POST accept] GET project:', e.message);
+      }
+
+      if (!project) return res.status(404).json({ error: 'Lien introuvable' });
+      if (!project.invite_active) return res.status(410).json({ error: 'Invitations désactivées' });
+      if (project.invite_expires_at && new Date(project.invite_expires_at) < new Date()) {
+        return res.status(410).json({ error: 'Lien expiré' });
+      }
+      if (project.status !== 'active') return res.status(410).json({ error: 'Projet inactif' });
+
+      /* Vérifier si déjà membre */
+      let isMember = false;
+      try {
+        const members = await supabaseRequest('GET',
+          '/project_members?project_id=eq.' + encodeURIComponent(project.id) +
+          '&user_id=eq.' + encodeURIComponent(userId) +
+          '&select=id');
+        if (Array.isArray(members) && members[0]) isMember = true;
+      } catch (e) {}
+
+      if (isMember) {
+        return res.status(400).json({ error: 'Vous êtes déjà membre de ce groupe' });
+      }
+
+      /* Créer/accepter l'invitation */
+      try {
+        const existingInv = await supabaseRequest('GET',
+          '/project_invitations?project_id=eq.' + encodeURIComponent(project.id) +
+          '&invitee_user_id=eq.' + encodeURIComponent(userId) +
+          '&select=id');
+
+        const now = new Date().toISOString();
+        if (Array.isArray(existingInv) && existingInv[0]) {
+          /* Accepter l'invitation existante */
+          await supabaseRequest('PATCH',
+            '/project_invitations?id=eq.' + encodeURIComponent(existingInv[0].id),
+            { status: 'accepted', responded_at: now });
+        } else {
+          /* Créer et accepter une nouvelle invitation */
+          await supabaseRequest('POST', '/project_invitations', {
+            project_id: project.id,
+            inviter_id: project.user_id,
+            invitee_user_id: userId,
+            invitee_email: null,
+            status: 'accepted',
+            created_at: now,
+            responded_at: now,
+            expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          });
+        }
+      } catch (e) {
+        console.error('[invite/send POST accept] invitation failed:', e.message);
+        return res.status(500).json({ error: 'Erreur invitation' });
+      }
+
+      /* Ajouter à project_members */
+      try {
+        await supabaseRequest('POST', '/project_members', {
+          project_id: project.id,
+          user_id: userId,
+          role: 'member',
+          contribution: 0,
+          status: 'active',
+        });
+      } catch (e) {
+        console.error('[invite/send POST accept] member creation:', e.message);
+        return res.status(500).json({ error: 'Erreur ajout membre' });
+      }
+
+      /* Mettre à jour members_count */
+      try {
+        const newCount = (project.members_count || 1) + 1;
+        await supabaseRequest('PATCH',
+          '/projects?id=eq.' + encodeURIComponent(project.id),
+          { members_count: newCount });
+      } catch (e) {
+        console.warn('[invite/send POST accept] update count:', e.message);
+      }
+
+      return res.status(200).json({
+        ok: true,
+        project_id: project.id,
+        project_name: project.name,
+        message: 'Bienvenue dans le groupe !',
+      });
+    } catch (e) {
+      console.error('[invite/send POST accept] error:', e.message);
+      return res.status(500).json({ error: 'Erreur serveur: ' + e.message });
+    }
+  }
+
+  /* ─── Traiter l'envoi d'invitation ─── */
   const {
     projectId, phone, email,
     tontineName, mise, freq, goal, deadline,
