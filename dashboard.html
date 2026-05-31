@@ -3243,7 +3243,7 @@ function _notifyDepositApproved(amount, projectNom, newActuel, cible) {
         </div>
         <div class="dep-notif-stats">
           ${fmt(newActuel)} ${cur} épargnés · ${pct}% de l'objectif
-          ${pct < 100 ? ' · ' + fmt(restant) + ' ' + cur + ' restants' : ' 🎉 Objectif atteint !'}
+          ${pct >= 100 ? ' 🎉 Objectif atteint !' : ''}
         </div>
       </div>
       <button class="dep-notif-close" onclick="_closeBanner()">×</button>
@@ -3804,9 +3804,10 @@ function getProjectStorySuggestions(now, cur) {
       return;
     }
 
-    /* ── En cours : rythme conseillé ── */
+    /* ── En cours : rythme conseillé (sans révéler le restant ; on garde le
+       montant uniquement loin de la fin, pour ne pas exposer la marge 3%) ── */
     var paceMsg = '';
-    if (daysLeft > 0 && remaining > 0) {
+    if (daysLeft > 0 && remaining > 0 && pct < 90) {
       var perMonth = Math.ceil(remaining / Math.max(1, daysLeft / 30));
       paceMsg = ' Pour tenir l\'échéance, vise ~' + fmt(perMonth) + ' ' + cur + '/mois.';
     }
@@ -3814,25 +3815,28 @@ function getProjectStorySuggestions(now, cur) {
     var tag, tc, tb, desc;
     if (daysLeft <= 0) {
       tag = '⏰ ÉCHÉANCE DÉPASSÉE'; tc = '#DC2626'; tb = '#FEF2F2';
-      desc = 'L\'échéance de « ' + p.nom + ' » est passée et il manque ' + fmt(remaining) + ' ' + cur + '. Relance les dépôts pour finir, ou ajuste l\'objectif.';
+      desc = 'L\'échéance de « ' + p.nom + ' » est passée. Relance les dépôts pour le boucler, ou ajuste l\'objectif.';
     } else if (pct === 0) {
       tag = 'À LANCER'; tc = '#B45309'; tb = '#FFFBEB';
-      desc = 'Tu n\'as pas encore démarré « ' + p.nom + ' ». Un premier dépôt, même modeste, enclenche la dynamique vers tes ' + fmt(p.cible) + ' ' + cur + '.' + paceMsg;
-    } else if (pct >= 75) {
+      desc = 'Tu n\'as pas encore démarré « ' + p.nom + ' ». Un premier dépôt, même modeste, enclenche la dynamique vers ton objectif de ' + fmt(p.cible) + ' ' + cur + '.' + paceMsg;
+    } else if (pct >= 90) {
       tag = pct + '% • DERNIÈRE LIGNE'; tc = '#6D28D9'; tb = '#F5F3FF';
-      desc = 'Plus que ' + fmt(remaining) + ' ' + cur + ' pour boucler « ' + p.nom + ' ». Tu y es presque, un dernier coup d\'accélérateur !' + paceMsg;
+      desc = 'Tu es à ' + pct + '% de « ' + p.nom + ' ». Plus qu\'un petit effort pour le boucler — continue, tu y es presque !';
+    } else if (pct >= 75) {
+      tag = pct + '% • BIENTÔT'; tc = '#6D28D9'; tb = '#F5F3FF';
+      desc = 'Belle avancée sur « ' + p.nom + ' » : tu es déjà à ' + pct + '%. Garde le rythme pour atteindre les 100% !' + paceMsg;
     } else if (daysLeft <= 14) {
       tag = 'J−' + daysLeft + ' ⚡'; tc = '#DC2626'; tb = '#FEF2F2';
-      desc = 'Échéance proche pour « ' + p.nom + ' » : encore ' + fmt(remaining) + ' ' + cur + ' à réunir en ' + daysLeft + ' jour' + (daysLeft > 1 ? 's' : '') + '.' + paceMsg;
+      desc = 'Échéance proche pour « ' + p.nom + ' » (' + pct + '% atteint) : plus que ' + daysLeft + ' jour' + (daysLeft > 1 ? 's' : '') + ' pour finir.' + paceMsg;
     } else {
       tag = pct + '% ATTEINT'; tc = '#1D4ED8'; tb = '#EFF6FF';
-      desc = 'Il te reste ' + fmt(remaining) + ' ' + cur + ' pour atteindre « ' + p.nom + ' » (objectif ' + fmt(p.cible) + ' ' + cur + ').' + paceMsg;
+      desc = 'Tu es à ' + pct + '% de « ' + p.nom + ' » (objectif ' + fmt(p.cible) + ' ' + cur + '). Continue sur ta lancée !' + paceMsg;
     }
 
     out.push({ emoji: emoji, priority: 3, tag: tag, tc: tc, tb: tb,
       title: p.nom,
       desc: desc,
-      action: 'Reste ' + fmt(remaining) + ' ' + cur,
+      action: pct + '% • objectif ' + fmt(p.cible) + ' ' + cur,
       cta: '+ Déposer', onClick: "openDepositForProject('" + (p.id || '') + "','" + safeNom + "')" });
   });
   return out;
@@ -4072,7 +4076,7 @@ function renderHomeProjects() {
           <span style="font-size:13px;font-weight:700;color:var(--primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.nom}</span>
           <span style="font-size:13px;font-weight:800;color:${color};flex-shrink:0;margin-left:8px;">${pct}%</span>
         </div>
-        <div style="font-size:11px;color:var(--text-secondary);margin-bottom:5px;">${fmt(p.actuel)} / ${fmt(p.cible)} ${cur}</div>
+        <div style="font-size:11px;color:var(--text-secondary);margin-bottom:5px;">Objectif : ${fmt(p.cible)} ${cur}</div>
         <div style="height:4px;background:#F3F4F6;border-radius:2px;overflow:hidden;">
           <div style="width:${pct}%;height:100%;background:${color};border-radius:2px;transition:width .5s;"></div>
         </div>
@@ -4434,7 +4438,7 @@ function openProjectDetail(proj) {
   // Motivational message
   var motIcon, motMsg, motDetail, motBg;
   if (pct >= 100)     { motIcon='🎉'; motMsg='Félicitations !';         motDetail='Vous avez atteint votre objectif ! Vous pouvez maintenant retirer vos fonds.';                          motBg='linear-gradient(135deg,#059669,#10B981)'; }
-  else if (pct >= 75) { motIcon='🔥'; motMsg='Excellent rythme !';      motDetail='Vous êtes à ' + pct + '% de votre objectif. Encore ' + fmt(remaining) + ' ' + cur + ' et c\'est dans la poche !'; motBg='linear-gradient(135deg,#1D4ED8,#3B82F6)'; }
+  else if (pct >= 75) { motIcon='🔥'; motMsg='Excellent rythme !';      motDetail='Vous êtes à ' + pct + '% de votre objectif. Un dernier effort et c\'est dans la poche !'; motBg='linear-gradient(135deg,#1D4ED8,#3B82F6)'; }
   else if (pct >= 50) { motIcon='💫'; motMsg='Vous êtes en avance !';   motDetail='Plus de la moitié du chemin ! Maintenez ce rythme pour atteindre votre objectif.';                  motBg='linear-gradient(135deg,#7C3AED,#8B5CF6)'; }
   else if (pct >= 25) { motIcon='🌳'; motMsg='Bonne progression !';     motDetail='Chaque dépôt vous rapproche de votre rêve. Continuez à épargner régulièrement.';                  motBg='linear-gradient(135deg,#0B1566,#1a2a8a)'; }
   else if (proj.actuel > 0) { motIcon='💪'; motMsg='Bon début !';       motDetail='Vous avez commencé — c\'est le plus important ! Continuez à déposer régulièrement.';             motBg='linear-gradient(135deg,#0B1566,#1a2a8a)'; }
@@ -4533,9 +4537,9 @@ function openProjectDetail(proj) {
     // ── Stats 2 cols
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">' +
       '<div style="background:var(--bg-light);border-radius:16px;padding:16px 14px;text-align:center;">' +
-        '<div style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Restant à épargner</div>' +
-        '<div style="font-size:22px;font-weight:900;color:var(--primary);">' + (remaining > 0 ? fmt(remaining) : '✅') + '</div>' +
-        '<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">' + (remaining > 0 ? cur : 'Objectif atteint !') + '</div>' +
+        '<div style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Objectif</div>' +
+        '<div style="font-size:22px;font-weight:900;color:var(--primary);">' + (pct >= 100 ? '✅' : fmt(goal)) + '</div>' +
+        '<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">' + (pct >= 100 ? 'Objectif atteint !' : cur) + '</div>' +
       '</div>' +
       '<div style="background:var(--bg-light);border-radius:16px;padding:16px 14px;text-align:center;">' +
         '<div style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Temps estimé</div>' +
@@ -5295,8 +5299,8 @@ function updateProgressionGauge() {
         <div style="font-size:15px;font-weight:800;color:var(--primary);">${fmt(totalCible)} ${cur}</div>
       </div>
       <div style="flex:1;text-align:center;">
-        <div style="font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--text-secondary);text-transform:uppercase;margin-bottom:4px;">RESTANT</div>
-        <div style="font-size:15px;font-weight:800;color:var(--success);">${fmt(restant)} ${cur}</div>
+        <div style="font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--text-secondary);text-transform:uppercase;margin-bottom:4px;">PROGRESSION</div>
+        <div style="font-size:15px;font-weight:800;color:var(--success);">${pct}%</div>
       </div>
     </div>`;
 }
@@ -5845,7 +5849,7 @@ function openDepositPicker() {
         </div>
         <div style="flex:1;min-width:0;">
           <div style="font-size:14px;font-weight:800;color:var(--primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.nom}</div>
-          <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">${fmt(p.actuel)} / ${fmt(p.cible)} GNF</div>
+          <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">Objectif : ${fmt(p.cible)} GNF</div>
           <div style="height:4px;background:#F3F4F6;border-radius:2px;margin-top:6px;overflow:hidden;">
             <div style="width:${pct}%;height:100%;background:${color};border-radius:2px;"></div>
           </div>
