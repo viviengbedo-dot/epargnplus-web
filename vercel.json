@@ -6,12 +6,6 @@
   "functions": {
     "api/**/*.js": { "maxDuration": 300 }
   },
-  "crons": [
-    {
-      "path": "/api/cron/send-pending-emails?secret={{CRON_SECRET}}",
-      "schedule": "0 9 * * *"
-    }
-  ],
   "rewrites": [
     { "source": "/api/otp/send",       "destination": "/api/otp" },
     { "source": "/api/otp/verify",     "destination": "/api/otp" },
