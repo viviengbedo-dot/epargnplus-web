@@ -80,6 +80,7 @@ module.exports = async (req, res) => {
   if (resource === 'invitations_sent') return handleInvitationsSent(req, res, payload, resourceId);
   if (resource === 'invitations_send') return handleInvitationsSend(req, res, payload);
   if (resource === 'invitations_resend') return handleInvitationsResend(req, res, payload);
+  if (resource === 'my_groups')        return handleMyGroups(req, res, payload);
   if (resource === 'settings')         return handleSettings(req, res);
   if (resource === 'tickets')          return handleTickets(req, res, payload, resourceId);
   if (resource === 'promos')           return handlePromos(req, res, payload);
@@ -1175,5 +1176,64 @@ async function handleInvitationsResend(req, res, payload) {
     return res.status(200).json({ ok: true, message: 'Invitation renvoyée', inviteUrl, emailSent });
   } catch (e) {
     return res.status(500).json({ error: 'Erreur renvoi invitation : ' + e.message });
+  }
+}
+
+/* ── Groupes collectifs où l'utilisateur est membre (créateur OU invité accepté) ── */
+async function handleMyGroups(req, res, payload) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'GET uniquement' });
+  try {
+    /* 1. Adhésions de l'utilisateur */
+    let members = [];
+    try {
+      members = await supabaseRequest('GET',
+        '/project_members?user_id=eq.' + encodeURIComponent(payload.userId) +
+        '&select=project_id,role,status');
+      if (!Array.isArray(members)) members = [];
+    } catch (e) {
+      console.warn('[my_groups] project_members:', e.message);
+    }
+
+    const ids = [...new Set(members.map(m => m.project_id).filter(Boolean))];
+    if (ids.length === 0) return res.status(200).json([]);
+
+    /* 2. Détails des projets (filtre PostgREST in.(...)) */
+    const inList = '(' + ids.map(encodeURIComponent).join(',') + ')';
+    let projects = [];
+    try {
+      projects = await supabaseRequest('GET',
+        '/projects?id=in.' + inList +
+        '&select=id,user_id,name,goal,actuel,members_count,status,invite_code,' +
+        'invite_active,mise_mensuelle,freq,duree,contribution_type,created_at');
+      if (!Array.isArray(projects)) projects = [];
+    } catch (e) {
+      console.warn('[my_groups] projects:', e.message);
+    }
+
+    /* 3. Fusionner le rôle de l'utilisateur */
+    const roleMap = {};
+    members.forEach(m => { roleMap[m.project_id] = m.role || 'member'; });
+
+    const result = projects.map(p => ({
+      id:                p.id,
+      name:              p.name,
+      goal:              p.goal,
+      actuel:            p.actuel || 0,
+      members_count:     p.members_count || 1,
+      status:            p.status || 'active',
+      invite_code:       p.invite_code || null,
+      invite_active:     p.invite_active,
+      mise_mensuelle:    p.mise_mensuelle || 0,
+      freq:              p.freq || 'mensuelle',
+      duree:             p.duree || 'm12',
+      contribution_type: p.contribution_type || 'free',
+      created_at:        p.created_at,
+      role:              roleMap[p.id] || 'member',
+      is_creator:        p.user_id === payload.userId,
+    }));
+
+    return res.status(200).json(result);
+  } catch (e) {
+    return res.status(200).json([]);
   }
 }

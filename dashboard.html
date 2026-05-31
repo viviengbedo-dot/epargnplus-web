@@ -7330,9 +7330,13 @@ function _tontineProgress(t) {
   var ppm      = _tontinePeriodsPerMonth(freq);
   var expected = mise * nbMembers * monthsElapsed * ppm;
 
-  /* Montant réellement collecté (compter les "paid") */
+  /* Montant réellement collecté :
+     - groupes rejoints/synchronisés : montant réel du serveur (t.actuel)
+     - groupes locaux du créateur : somme des paiements "paid" */
   var collected = 0;
-  if (t.payments) {
+  if (typeof t.actuel === 'number' && t.actuel > 0) {
+    collected = t.actuel;
+  } else if (t.payments) {
     Object.values(t.payments).forEach(function(periodPays) {
       Object.values(periodPays).forEach(function(status) {
         if (status === 'paid') collected += mise;
@@ -7595,7 +7599,7 @@ function renderUserTontines() {
       <!-- ── Header ── -->
       <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;">
         <div>
-          <div style="font-size:17px;font-weight:800;color:var(--primary);">🤝 ${t.nom}</div>
+          <div style="font-size:17px;font-weight:800;color:var(--primary);">🤝 ${t.nom}${t.isJoined ? ' <span class="badge" style="background:#EEF2FF;color:var(--primary);font-size:10px;vertical-align:middle;">Membre</span>' : ''}</div>
           <div class="text-muted" style="font-size:12px;">${freq === 'journalier' ? 'Journalière' : freq === 'hebdomadaire' ? 'Hebdomadaire' : freq === 'bimensuelle' ? 'Bimensuelle' : 'Mensuelle'} · ${nb} membre${nb!==1?'s':''} ${freq !== 'journalier' ? '· Jour ' + (t.depositDay || 10) : ''}</div>
         </div>
         ${statusBadge}
@@ -7640,12 +7644,73 @@ function renderUserTontines() {
       <!-- ── Actions ── -->
       <div style="display:flex;gap:8px;flex-wrap:wrap;padding-top:10px;border-top:1px solid var(--divider);">
         ${depositBtn}
-        <button class="btn btn-sm" style="background:#EEF2FF;color:var(--primary);border:none;font-weight:700;" onclick="openAddTontineMember(${idx})">➕ Membre</button>
-        <button class="btn btn-sm" style="background:#F0FDF4;color:#166534;border:none;font-weight:700;" onclick="openTontinePaymentModal(${idx})">✅ Paiement</button>
-        ${deleteBtn}
+        ${t.isJoined ? '' : `<button class="btn btn-sm" style="background:#EEF2FF;color:var(--primary);border:none;font-weight:700;" onclick="openAddTontineMember(${idx})">➕ Membre</button>`}
+        ${t.isJoined ? '' : `<button class="btn btn-sm" style="background:#F0FDF4;color:#166534;border:none;font-weight:700;" onclick="openTontinePaymentModal(${idx})">✅ Paiement</button>`}
+        ${t.isJoined ? '' : deleteBtn}
       </div>
     </div>`;
   }).join('');
+}
+
+/* ── Charger les groupes collectifs où je suis MEMBRE (depuis le serveur) ──
+   Corrige le cas de l'invité : son groupe rejoint vit en DB (project_members)
+   mais pas dans son localStorage → sans ça il ne le voit jamais. */
+function loadMyGroups() {
+  if (!_authToken) return;
+  fetch('/api/user/me?resource=my_groups', {
+    headers: { 'Authorization': 'Bearer ' + _authToken },
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(groups) {
+    if (!Array.isArray(groups)) return;
+    var changed = false;
+
+    groups.forEach(function(g) {
+      var existing = TONTINES_USER.find(function(t) { return t.projectId === g.id; });
+      if (existing) {
+        /* Synchroniser le montant réel + nb membres + clôture */
+        existing.actuel  = g.actuel;
+        existing.membres = g.members_count;
+        if (g.status === 'closed') existing.status = 'closed';
+        changed = true;
+        return;
+      }
+      /* Les groupes que JE possède viennent du localStorage local — ne pas dupliquer */
+      if (g.is_creator) return;
+
+      /* Groupe REJOINT : l'ajouter pour qu'il apparaisse chez le membre */
+      var nom = String(g.name || '').replace(/^🤝\s*/, '');
+      TONTINES_USER.push({
+        id:                _tontineGenId(),
+        projectId:         g.id,
+        nom:               nom,
+        goal:              g.goal || 0,
+        actuel:            g.actuel || 0,
+        duree:             g.duree || 'm12',
+        freq:              g.freq || 'mensuelle',
+        mise:              g.mise_mensuelle || 0,
+        depositDay:        10,
+        phones:            new Array(Math.max(0, (g.members_count || 1) - 1)).fill('membre'),
+        payments:          {},
+        primes:            {},
+        membres:           g.members_count || 1,
+        status:            g.status || 'active',
+        createdAt:         g.created_at || new Date().toISOString(),
+        contribution_type: g.contribution_type || 'free',
+        role:              g.role || 'member',
+        isJoined:          true,
+        inviteCode:        g.invite_code || null,
+      });
+      changed = true;
+    });
+
+    if (changed) {
+      localStorage.setItem('epargn_tontines', JSON.stringify(TONTINES_USER));
+    }
+    renderTontineStats();
+    renderUserTontines();
+  })
+  .catch(function() {});
 }
 
 /* ── Afficher/masquer input montant minimum ── */
@@ -8311,7 +8376,11 @@ function respondInvitation(invId, accept) {
     if (d.ok) {
       showToast(accept ? '🎉 Vous avez rejoint le groupe !' : '✅ Invitation refusée', accept ? 'success' : 'info');
       loadInvitations();
-      if (accept) { setTimeout(function() { loadUserData(); }, 1000); }
+      if (accept) {
+        /* Charger le groupe rejoint pour qu'il apparaisse dans Épargne Collective */
+        if (typeof loadMyGroups === 'function') setTimeout(loadMyGroups, 800);
+        setTimeout(function() { loadUserData(); }, 1000);
+      }
     } else {
       showToast('❌ ' + (d.error || 'Erreur'), 'error');
       btn.disabled = false; btn.textContent = orig;
@@ -8467,6 +8536,9 @@ function initChineseUserUI() {
     if (origShow) origShow.call(this, id, btn);
     if (id === 'invitations') {
       loadInvitations();
+    }
+    if (id === 'tontine' && typeof loadMyGroups === 'function') {
+      loadMyGroups();
     }
   };
 })();
@@ -9075,11 +9147,14 @@ function updateDepositCap(amtStr) {
   }
 })();
 
-/* Charger les notifications au démarrage */
+/* Charger les notifications + groupes rejoints au démarrage */
 window.addEventListener('load', function() {
   setTimeout(function() {
     if (_authToken && typeof loadNotifications === 'function') {
       loadNotifications();
+    }
+    if (_authToken && typeof loadMyGroups === 'function') {
+      loadMyGroups();
     }
   }, 2000);
 });
