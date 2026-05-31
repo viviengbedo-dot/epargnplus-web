@@ -5760,7 +5760,7 @@ function loadProjectInvitationsSent(projectId) {
 
   fetch('/api/user/me?resource=invitations_sent&projectId=' + projectId, {
     method: 'GET',
-    headers: { 'Content-Type': 'application/json' }
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken }
   })
   .then(function(r) { return r.json(); })
   .then(function(data) {
@@ -5816,17 +5816,26 @@ function sendMemberInvitation() {
     toast('Email ou Téléphone requis', 'warn');
     return;
   }
+  if (!_authToken) {
+    toast('Session expirée — reconnectez-vous', 'error');
+    return;
+  }
 
-  var payload = {
-    projectId: projectId,
-    email: email || undefined,
-    phone: phone || undefined
-  };
+  var creatorName = (_currentUser && _currentUser.prenom) ? _currentUser.prenom : 'Un membre';
 
-  fetch('/api/user/me?resource=invitations_send', {
+  /* Endpoint complet : crée l'invitation + notification in-app + email + SMS + lien */
+  fetch('/api/invite/send', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + _authToken,
+    },
+    body: JSON.stringify({
+      projectId:   projectId,
+      email:       email || undefined,
+      phone:       phone || undefined,
+      creatorName: creatorName,
+    })
   })
   .then(function(r) { return r.json(); })
   .then(function(data) {
@@ -5834,11 +5843,13 @@ function sendMemberInvitation() {
       document.getElementById('inviteFormSection').style.display = 'none';
       document.getElementById('inviteResponseSection').style.display = 'block';
       document.getElementById('inviteUrlDisplay').value = data.inviteUrl || '';
-      toast('Invitation envoyée !', 'success');
-      // Reload invitations in background
-      setTimeout(function() {
-        loadProjectInvitationsSent(projectId);
-      }, 500);
+      var channels = [];
+      if (data.emailSent) channels.push('email');
+      if (data.smsSent)   channels.push('SMS');
+      toast(channels.length
+        ? 'Invitation envoyée par ' + channels.join(' + ') + ' !'
+        : 'Invitation créée — partagez le lien ci-dessous.', 'success');
+      setTimeout(function() { loadProjectInvitationsSent(projectId); }, 500);
     } else {
       toast(data.error || 'Erreur d\'envoi', 'error');
     }
@@ -5850,10 +5861,10 @@ function sendMemberInvitation() {
 }
 
 function resendInvitation(invitationId) {
-  if (!invitationId) return;
+  if (!invitationId || !_authToken) return;
   fetch('/api/user/me?resource=invitations_resend', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
     body: JSON.stringify({ invitationId: invitationId })
   })
   .then(function(r) { return r.json(); })
@@ -8022,12 +8033,14 @@ function addTontineMember() {
   /* Ouvrir le modal */
   openModal('inviteShare');
 
-  /* Envoyer SMS + Email via API en background */
-  if (_authToken) {
+  /* Envoyer SMS + Email + notification in-app via API en background.
+     projectId OBLIGATOIRE — sans lui le backend renvoie 400 et rien n'est envoyé. */
+  if (_authToken && t.projectId) {
     fetch('/api/invite/send', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
       body:    JSON.stringify({
+        projectId:   t.projectId,
         phone:       phone,
         tontineName: t.nom,
         mise:        t.mise,
@@ -8040,6 +8053,7 @@ function addTontineMember() {
       var notifLines = [];
       if (d.smsSent && !d.demo) notifLines.push('📱 SMS envoyé');
       if (d.emailSent)          notifLines.push('📧 Email envoyé');
+      if (d.invitationId)       notifLines.push('🔔 Notification dashboard');
       if (notifLines.length > 0) {
         if (smsBadge) { smsBadge.textContent = '✅ ' + notifLines.join(' · '); smsBadge.style.display = ''; }
       } else {
@@ -8050,6 +8064,7 @@ function addTontineMember() {
       if (smsFailBadge) smsFailBadge.style.display = '';
     });
   } else {
+    /* Projet non lié en DB → seul le partage manuel (WhatsApp/SMS/copie) est possible */
     if (smsFailBadge) smsFailBadge.style.display = '';
   }
 }
@@ -8206,7 +8221,7 @@ function sendEmailInvitation() {
 
   fetch('/api/invite/send', {
     method:  'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _jwt },
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
     body:    JSON.stringify({
       projectId:   _currentInviteProjectId,
       email:       email,
@@ -8237,7 +8252,7 @@ function loadInvitations() {
   container.innerHTML = '<div style="text-align:center;padding:32px;color:var(--text-secondary);"><div style="font-size:32px;margin-bottom:8px;">⏳</div><div>Chargement…</div></div>';
 
   fetch('/api/user/me?resource=invitations', {
-    headers: { 'Authorization': 'Bearer ' + _jwt },
+    headers: { 'Authorization': 'Bearer ' + _authToken },
   })
   .then(function(r) { return r.json(); })
   .then(function(invitations) {
@@ -8288,7 +8303,7 @@ function respondInvitation(invId, accept) {
 
   fetch('/api/user/me?resource=invitations&id=' + encodeURIComponent(invId), {
     method:  'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _jwt },
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
     body:    JSON.stringify({ accept: accept }),
   })
   .then(function(r) { return r.json(); })
@@ -8342,7 +8357,7 @@ function submitAlipayDeposit() {
 
   fetch('/api/transactions/deposit', {
     method:  'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _jwt },
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
     body:    JSON.stringify({
       type:              'alipay',
       operator:          'alipay',
@@ -8398,11 +8413,11 @@ function initChineseUserUI() {
   var joinCode = params.get('joinCode');
   if (!joinCode) return;
 
-  /* Attendre que _jwt soit disponible */
+  /* Attendre que _authToken soit disponible */
   var tries = 0;
   var interval = setInterval(function() {
     tries++;
-    if (window._jwt) {
+    if (_authToken) {
       clearInterval(interval);
 
       /* Accepter l'invitation via le code */
@@ -8410,7 +8425,7 @@ function initChineseUserUI() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + window._jwt,
+          'Authorization': 'Bearer ' + _authToken,
         },
         body: JSON.stringify({ code: joinCode }),
       })
@@ -8460,10 +8475,10 @@ function initChineseUserUI() {
 function loadNotifications() {
   var list  = document.getElementById('notifList');
   var count = document.getElementById('notifCount');
-  if (!list || !_jwt) return;
+  if (!list || !_authToken) return;
 
   fetch('/api/user/me?resource=notifications', {
-    headers: { 'Authorization': 'Bearer ' + _jwt },
+    headers: { 'Authorization': 'Bearer ' + _authToken },
   })
   .then(function(r) { return r.json(); })
   .then(function(notifs) {
@@ -8500,7 +8515,7 @@ function loadNotifications() {
     if (unread > 0) {
       fetch('/api/user/me?resource=notifications', {
         method: 'PATCH',
-        headers: { 'Authorization': 'Bearer ' + _jwt },
+        headers: { 'Authorization': 'Bearer ' + _authToken },
       }).catch(function() {});
     }
   })
@@ -8512,7 +8527,7 @@ function loadNotifications() {
 function markNotifRead(id) {
   fetch('/api/user/me?resource=notifications&id=' + encodeURIComponent(id), {
     method: 'PATCH',
-    headers: { 'Authorization': 'Bearer ' + _jwt },
+    headers: { 'Authorization': 'Bearer ' + _authToken },
   }).then(function() { loadNotifications(); }).catch(function() {});
 }
 
@@ -8543,9 +8558,9 @@ function esc(str) {
   }
   /* Charger les invitations pour le badge */
   setTimeout(function() {
-    if (window._jwt) {
+    if (_authToken) {
       fetch('/api/user/me?resource=invitations', {
-        headers: { 'Authorization': 'Bearer ' + _jwt },
+        headers: { 'Authorization': 'Bearer ' + _authToken },
       })
       .then(function(r) { return r.json(); })
       .then(function(invs) {
@@ -8557,7 +8572,7 @@ function esc(str) {
 
       /* Charger notifications pour le badge */
       fetch('/api/user/me?resource=notifications', {
-        headers: { 'Authorization': 'Bearer ' + _jwt },
+        headers: { 'Authorization': 'Bearer ' + _authToken },
       })
       .then(function(r) { return r.json(); })
       .then(function(notifs) {
@@ -9034,7 +9049,7 @@ function updateDepositCap(amtStr) {
 <script>
 (function() {
   var notifPoll = setInterval(function() {
-    if (window._jwt && typeof loadNotifications === 'function') {
+    if (_authToken && typeof loadNotifications === 'function') {
       loadNotifications();
     }
   }, 15000); /* 15 secondes */
@@ -9044,7 +9059,7 @@ function updateDepositCap(amtStr) {
   if (origShowToast) {
     window.showToast = function(msg, type) {
       origShowToast.call(this, msg, type);
-      if (window._jwt && typeof loadNotifications === 'function') {
+      if (_authToken && typeof loadNotifications === 'function') {
         setTimeout(function() { loadNotifications(); }, 1000);
       }
     };
@@ -9054,7 +9069,7 @@ function updateDepositCap(amtStr) {
 /* Charger les notifications au démarrage */
 window.addEventListener('load', function() {
   setTimeout(function() {
-    if (window._jwt && typeof loadNotifications === 'function') {
+    if (_authToken && typeof loadNotifications === 'function') {
       loadNotifications();
     }
   }, 2000);

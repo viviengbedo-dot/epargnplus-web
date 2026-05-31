@@ -16,6 +16,7 @@
 const { supabaseRequest } = require('../_lib/supabase');
 const { verifyJWT, hashPin, verifyPin } = require('../_lib/auth');
 const { isProjectCollective, hasJoinedMembers } = require('../_lib/project');
+const { trigger: emailTrigger } = require('../_lib/email');
 const crypto = require('crypto');
 
 function parseBody(req) {
@@ -78,6 +79,7 @@ module.exports = async (req, res) => {
   if (resource === 'invitations')      return handleInvitations(req, res, payload, resourceId);
   if (resource === 'invitations_sent') return handleInvitationsSent(req, res, payload, resourceId);
   if (resource === 'invitations_send') return handleInvitationsSend(req, res, payload);
+  if (resource === 'invitations_resend') return handleInvitationsResend(req, res, payload);
   if (resource === 'settings')         return handleSettings(req, res);
   if (resource === 'tickets')          return handleTickets(req, res, payload, resourceId);
   if (resource === 'promos')           return handlePromos(req, res, payload);
@@ -1103,4 +1105,75 @@ async function handleInvitationsSend(req, res, payload) {
   }
 
   return res.status(405).json({ error: 'Méthode non autorisée pour /invitations_send' });
+}
+
+/* ── Renvoyer une invitation existante (notification + email) ── */
+async function handleInvitationsResend(req, res, payload) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'POST uniquement' });
+  }
+  const body = await parseBody(req);
+  const invitationId = body.invitationId;
+  if (!invitationId) return res.status(400).json({ error: 'invitationId requis' });
+
+  try {
+    /* Charger l'invitation (et vérifier que je suis l'inviteur) */
+    const invRows = await supabaseRequest('GET',
+      '/project_invitations?id=eq.' + encodeURIComponent(invitationId) +
+      '&inviter_id=eq.' + encodeURIComponent(payload.userId) +
+      '&select=id,project_id,invitee_email,invitee_phone,invitee_user_id,token,status');
+    if (!Array.isArray(invRows) || !invRows[0]) {
+      return res.status(404).json({ error: 'Invitation introuvable' });
+    }
+    const inv = invRows[0];
+    if (inv.status !== 'pending') {
+      return res.status(400).json({ error: 'Cette invitation ne peut plus être renvoyée' });
+    }
+
+    /* Charger le projet */
+    const projRows = await supabaseRequest('GET',
+      '/projects?id=eq.' + encodeURIComponent(inv.project_id) +
+      '&select=id,name,goal,invite_code');
+    const proj = (Array.isArray(projRows) && projRows[0]) ? projRows[0] : null;
+    const nom = proj ? proj.name : 'Épargne Collective';
+    const inviteUrl = 'https://www.epargnplus.com/join/' + (proj && proj.invite_code ? proj.invite_code : (inv.token || ''));
+
+    /* Prolonger l'expiration de 30 jours */
+    try {
+      await supabaseRequest('PATCH',
+        '/project_invitations?id=eq.' + encodeURIComponent(invitationId),
+        { expires_at: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString() });
+    } catch (e) {}
+
+    /* Notification in-app si l'invité a un compte */
+    if (inv.invitee_user_id) {
+      try {
+        await supabaseRequest('POST', '/notifications', {
+          user_id: inv.invitee_user_id,
+          type:    'invitation',
+          title:   '🤝 Rappel : invitation à rejoindre un groupe',
+          body:    'Vous êtes invité(e) à rejoindre « ' + nom + ' » sur Epargn+.',
+          data:    { project_id: inv.project_id, invitation_id: invitationId, invite_url: inviteUrl },
+          read:    false,
+        });
+      } catch (e) {}
+    }
+
+    /* Email si adresse connue */
+    let emailSent = false;
+    if (inv.invitee_email) {
+      try {
+        const r = await emailTrigger('collective_invite', inv.invitee_user_id || null, {
+          inviter:     '',
+          tontineName: nom,
+          inviteCode:  (proj && proj.invite_code) || '',
+        }, inv.invitee_email);
+        emailSent = !!(r && r.ok);
+      } catch (e) {}
+    }
+
+    return res.status(200).json({ ok: true, message: 'Invitation renvoyée', inviteUrl, emailSent });
+  } catch (e) {
+    return res.status(500).json({ error: 'Erreur renvoi invitation : ' + e.message });
+  }
 }
