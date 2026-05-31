@@ -57,12 +57,12 @@ module.exports = async (req, res) => {
     return res.status(400).json({ error: 'Montant minimum : ' + minAmount + (isAlipay ? ' CNY' : ' GNF') });
   }
 
-  /* ── Vérification plafond projet ── */
+  /* ── Vérification plafond projet + validation contribution type ── */
   if (projectId && !isAlipay) {
     try {
       const projRows = await supabaseRequest('GET',
         '/projects?id=eq.' + encodeURIComponent(projectId) +
-        '&select=id,name,goal,actuel,status&limit=1');
+        '&select=id,name,goal,actuel,status,contribution_type,min_contribution_amount,nb_membres_cible&limit=1');
       if (Array.isArray(projRows) && projRows[0]) {
         const proj = projRows[0];
         if (proj.status !== 'active') {
@@ -88,6 +88,31 @@ module.exports = async (req, res) => {
             actuel: proj.actuel,
             requested: amount,
           });
+        }
+
+        /* ── Validation selon type de contribution ── */
+        if (proj.contribution_type === 'minimal_cap') {
+          const minCap = proj.min_contribution_amount || 0;
+          if (amount < minCap) {
+            return res.status(400).json({
+              error: 'Contribution minimale requise: ' + minCap.toLocaleString('fr-FR') + ' GNF',
+              code: 'CONTRIBUTION_BELOW_MINIMUM',
+              minimum: minCap,
+              requested: amount,
+            });
+          }
+        }
+
+        if (proj.contribution_type === 'equal_share') {
+          const sharePerPerson = proj.goal / (proj.nb_membres_cible || 1);
+          if (amount !== Math.round(sharePerPerson)) {
+            return res.status(400).json({
+              error: 'Contribution obligatoire: ' + Math.round(sharePerPerson).toLocaleString('fr-FR') + ' GNF par personne',
+              code: 'CONTRIBUTION_MUST_EQUAL_SHARE',
+              required_amount: Math.round(sharePerPerson),
+              requested: amount,
+            });
+          }
         }
       }
     } catch (capErr) {

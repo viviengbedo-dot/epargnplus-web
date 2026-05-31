@@ -1561,6 +1561,38 @@
       <div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">Laissez vide pour commencer seul(e) et ajouter des membres plus tard.</div>
     </div>
 
+    <!-- Mode de contribution -->
+    <div class="form-group">
+      <label class="form-label">Mode de contribution <span style="color:#DC2626;">*</span></label>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <!-- Libre -->
+        <label style="display:flex;align-items:flex-start;gap:10px;padding:12px;border:2px solid #E5E7EB;border-radius:12px;cursor:pointer;transition:all .2s;" onchange="tontineAutoCalc()" id="label-free">
+          <input type="radio" name="tontine-contribution" value="free" checked style="margin-top:2px;cursor:pointer;" />
+          <div style="flex:1;">
+            <div style="font-weight:600;color:var(--primary);margin-bottom:2px;">Libre</div>
+            <div style="font-size:12px;color:var(--text-secondary);">Chacun contribue ce qu'il veut. Aucun minimum.</div>
+          </div>
+        </label>
+        <!-- Cap minimal -->
+        <label style="display:flex;align-items:flex-start;gap:10px;padding:12px;border:2px solid #E5E7EB;border-radius:12px;cursor:pointer;transition:all .2s;" id="label-minimal">
+          <input type="radio" name="tontine-contribution" value="minimal_cap" style="margin-top:2px;cursor:pointer;" onchange="toggleMinCapInput()" />
+          <div style="flex:1;">
+            <div style="font-weight:600;color:var(--primary);margin-bottom:2px;">Cap minimal</div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;">Chaque membre doit contribuer au minimum :</div>
+            <input class="form-input" id="tont-minAmount" type="number" min="1000" step="1000" placeholder="50 000" style="display:none;" oninput="tontineAutoCalc()" />
+          </div>
+        </label>
+        <!-- Parts égales -->
+        <label style="display:flex;align-items:flex-start;gap:10px;padding:12px;border:2px solid #E5E7EB;border-radius:12px;cursor:pointer;transition:all .2s;" id="label-equal">
+          <input type="radio" name="tontine-contribution" value="equal_share" style="margin-top:2px;cursor:pointer;" />
+          <div style="flex:1;">
+            <div style="font-weight:600;color:var(--primary);margin-bottom:2px;">Parts égales</div>
+            <div style="font-size:12px;color:var(--text-secondary);">Chaque membre paie objectif ÷ nb_membres (obligatoire).</div>
+          </div>
+        </label>
+      </div>
+    </div>
+
     <!-- Calcul automatique -->
     <div id="tont-calcBox" style="display:none;background:#EEF2FF;border-radius:12px;padding:14px 16px;margin-bottom:16px;border-left:3px solid var(--primary);">
       <div style="font-size:12px;font-weight:700;color:var(--primary);margin-bottom:8px;">📐 Calcul automatique</div>
@@ -4371,6 +4403,22 @@ function openProjectDetail(proj) {
         '</div>' +
       '</div>' +
     '</div>' +
+
+    // ── Règles de contribution (collectif uniquement)
+    (proj.is_tontine && proj.contribution_type ? (function() {
+      var contribRule = {
+        'free': { icon: '🆓', label: 'Libre', desc: 'Chacun contribue ce qu\'il veut' },
+        'minimal_cap': { icon: '🎯', label: 'Cap minimal', desc: 'Minimum: ' + (proj.min_contribution_amount || 0).toLocaleString('fr-FR') + ' ' + cur },
+        'equal_share': { icon: '⚖️', label: 'Parts égales', desc: 'Chacun: ' + Math.round((proj.cible || 0) / (proj.nb_membres_cible || 1)).toLocaleString('fr-FR') + ' ' + cur }
+      }[proj.contribution_type] || { icon: '❓', label: 'Inconnu', desc: '' };
+      return '<div style="background:#F9FAFB;border:1px solid var(--divider);border-radius:14px;padding:14px;margin-bottom:20px;">' +
+        '<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">' +
+          '<span style="font-size:20px;">' + contribRule.icon + '</span>' +
+          '<span style="font-size:13px;font-weight:800;color:var(--primary);">Mode de contribution</span>' +
+        '</div>' +
+        '<div style="font-size:12px;color:var(--text-secondary);margin-left:30px;">' + contribRule.desc + '</div>' +
+      '</div>';
+    })() : '') +
 
     // ── Motivational card
     '<div style="background:' + motBg + ';border-radius:20px;padding:20px 22px;margin-bottom:20px;color:#fff;position:relative;overflow:hidden;">' +
@@ -7496,6 +7544,20 @@ function renderUserTontines() {
   }).join('');
 }
 
+/* ── Afficher/masquer input montant minimum ── */
+function toggleMinCapInput() {
+  var selected = document.querySelector('input[name="tontine-contribution"]:checked').value;
+  var minInput = document.getElementById('tont-minAmount');
+  if (selected === 'minimal_cap') {
+    minInput.style.display = '';
+    minInput.focus();
+  } else {
+    minInput.style.display = 'none';
+    minInput.value = '';
+  }
+  tontineAutoCalc();
+}
+
 /* ── Créer une nouvelle tontine ── */
 function createTontine() {
   var nom        = ((document.getElementById('tont-nom')        || {}).value || '').trim();
@@ -7504,10 +7566,18 @@ function createTontine() {
   var depositDay = parseInt((document.getElementById('tont-depositDay') || {}).value || '10', 10);
   var freq       = (document.getElementById('tont-freq')      || {}).value || 'mensuelle';
   var mbStr      = (document.getElementById('tont-membres')   || {}).value || '';
+  var contributionType = document.querySelector('input[name="tontine-contribution"]:checked').value || 'free';
+  var minAmount = parseInt((document.getElementById('tont-minAmount') || {}).value || '0', 10);
 
   if (!nom)            { showToast('Donnez un nom à l\'épargne collective.', 'error'); return; }
   if (goalVal < 10000) { showToast('Objectif minimum : 10 000.', 'error'); return; }
   if (!dureeRaw)       { showToast('Choisissez une durée.', 'error'); return; }
+
+  /* Valider cap minimal si sélectionné */
+  if (contributionType === 'minimal_cap' && minAmount < 1000) {
+    showToast('Montant minimum doit être ≥ 1 000.', 'error');
+    return;
+  }
 
   var phones   = mbStr.split(',').map(function(s){ return s.trim(); }).filter(Boolean);
   var nb       = phones.length + 1; // +1 admin
@@ -7517,20 +7587,22 @@ function createTontine() {
   var cur      = (_currentUser && COUNTRY_LABELS[_currentUser.country]) ? COUNTRY_LABELS[_currentUser.country].currency : 'GNF';
 
   var tontine = {
-    id:         _tontineGenId(),
-    nom:        nom,
-    goal:       goalVal,
-    duree:      dureeRaw,
-    depositDay: depositDay,
-    freq:       freq,
-    mise:       mise,
-    membres:    nb,
-    phones:     phones,
-    payments:   {},
-    primes:     {},
-    projectId:  null,
-    status:     'active',
-    createdAt:  new Date().toISOString(),
+    id:                  _tontineGenId(),
+    nom:                 nom,
+    goal:                goalVal,
+    duree:               dureeRaw,
+    depositDay:          depositDay,
+    freq:                freq,
+    mise:                mise,
+    membres:             nb,
+    phones:              phones,
+    payments:            {},
+    primes:              {},
+    projectId:           null,
+    status:              'active',
+    createdAt:           new Date().toISOString(),
+    contribution_type:   contributionType,
+    min_contribution_amount: (contributionType === 'minimal_cap' ? minAmount : 0),
   };
 
   /* ── Créer le projet Supabase correspondant ── */
@@ -7538,7 +7610,14 @@ function createTontine() {
     fetch('/api/user/me?resource=projects', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
-      body: JSON.stringify({ nom: '🤝 ' + nom, cible: goalVal, duree: dureeRaw, color: '#0B1566' }),
+      body: JSON.stringify({
+        nom: '🤝 ' + nom,
+        cible: goalVal,
+        duree: dureeRaw,
+        color: '#0B1566',
+        contribution_type: contributionType,
+        min_contribution_amount: (contributionType === 'minimal_cap' ? minAmount : 0),
+      }),
     })
     .then(function(r){ return r.json(); })
     .then(function(proj) {

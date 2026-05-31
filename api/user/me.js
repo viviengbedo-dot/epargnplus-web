@@ -187,6 +187,10 @@ async function handleProjects(req, res, payload, resourceId) {
       status:      'active',
       color:       body.color || colors[colorIdx % colors.length],
       duree:       body.duree || 'm12',
+      contribution_type: body.contribution_type || 'free',
+      min_contribution_amount: (body.contribution_type === 'minimal_cap')
+        ? (parseInt(body.min_contribution_amount, 10) || 0)
+        : 0,
       ...(body.mise_mensuelle  ? { mise_mensuelle:   parseInt(body.mise_mensuelle, 10) }  : {}),
       ...(body.freq            ? { freq: body.freq }                                       : {}),
       ...(body.nb_membres      ? { nb_membres_cible: parseInt(body.nb_membres, 10) || 1 } : {}),
