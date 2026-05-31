@@ -7523,10 +7523,13 @@ function renderUserTontines() {
     var freqLbl   = _tontineFreqLabel(freq);
 
     /* ── Badge statut ── */
+    var _pendingClosure = (t.status === 'pending_delete' ||
+                           t.status === 'closure_requested' ||
+                           t.status === 'delete_requested');
     var statusBadge;
-    if      (t.status === 'pending_delete') statusBadge = '<span class="badge" style="background:#FEF2F2;color:#DC2626;border:1px solid #FECACA;">⏳ Suppression demandée</span>';
-    else if (prog.pct >= 100)              statusBadge = '<span class="badge badge-status-done">🏆 Objectif atteint</span>';
-    else                                   statusBadge = '<span class="badge badge-success">Active</span>';
+    if      (_pendingClosure)  statusBadge = '<span class="badge" style="background:#FEF2F2;color:#DC2626;border:1px solid #FECACA;">⏳ Clôture demandée (admin)</span>';
+    else if (prog.pct >= 100)  statusBadge = '<span class="badge badge-status-done">🏆 Objectif atteint</span>';
+    else                       statusBadge = '<span class="badge badge-success">Active</span>';
 
     /* ── Barre de progression ── */
     var barColor = prog.pct >= 100 ? '#22CC66' : prog.pct >= 60 ? '#3B82F6' : '#0B1566';
@@ -7583,15 +7586,19 @@ function renderUserTontines() {
       ? `<button class="btn btn-primary btn-sm" onclick="openDepositForProject('${t.projectId}','${t.nom.replace(/'/g,"\\'")}')">💰 Déposer</button>`
       : `<button class="btn btn-primary btn-sm" onclick="openDepositPicker()">💰 Déposer</button>`;
 
-    /* ── Bouton supprimer / annuler ── */
+    /* ── Bouton demande de clôture / annulation ──
+       Un projet collectif ne peut JAMAIS être supprimé directement par le
+       créateur : il demande une clôture, que SEUL l'admin peut valider.
+       En attente, on ne propose que l'annulation (pas de suppression forcée). */
+    var isPendingClosure = (t.status === 'pending_delete' ||
+                            t.status === 'closure_requested' ||
+                            t.status === 'delete_requested');
     var deleteBtn;
-    if (t.status === 'pending_delete') {
-      /* Demande en cours : proposer Annuler ou forcer la suppression */
+    if (isPendingClosure) {
       deleteBtn =
-        `<button class="btn btn-outline btn-sm" onclick="cancelTontineDeleteRequest(${idx})" style="color:#0B1566;border-color:#C7D2FE;font-size:12px;">↩ Annuler</button>` +
-        `<button class="btn btn-outline btn-sm" onclick="forceDeleteLocalTontine(${idx})" style="color:#DC2626;border-color:#FECACA;font-size:12px;margin-left:6px;">🗑 Supprimer</button>`;
+        `<button class="btn btn-outline btn-sm" onclick="cancelTontineDeleteRequest(${idx})" style="color:#0B1566;border-color:#C7D2FE;font-size:12px;">↩ Annuler la demande</button>`;
     } else {
-      deleteBtn = `<button class="btn btn-outline btn-sm" onclick="openTontineDeleteModal(${idx})" style="color:#DC2626;border-color:#FECACA;font-size:12px;">🗑 Supprimer</button>`;
+      deleteBtn = `<button class="btn btn-outline btn-sm" onclick="openTontineDeleteModal(${idx})" style="color:#DC2626;border-color:#FECACA;font-size:12px;">🗑 Demander la clôture</button>`;
     }
 
     return `<div class="card" style="border-left:4px solid ${barColor};padding:18px;">
@@ -7983,30 +7990,12 @@ function submitTontineDeleteRequest() {
 /* Alias pour compatibilité */
 function deleteTontine(idx) { openTontineDeleteModal(idx); }
 
-/* Suppression d'une tontine en attente (avec ou sans projectId Supabase) */
+/* DÉSACTIVÉ — un projet collectif ne peut pas être clôturé directement par
+   le créateur. La suppression locale + clôture directe contournait l'admin.
+   On redirige vers la demande de clôture (validée par l'admin uniquement). */
 function forceDeleteLocalTontine(idx) {
-  var t = TONTINES_USER[idx];
-  if (!t) return;
-  if (!confirm('Supprimer définitivement « ' + t.nom + ' » ?\n\nCette action est irréversible.')) return;
-
-  var projectId = t.projectId || null;
-
-  /* Supprimer du localStorage */
-  TONTINES_USER.splice(idx, 1);
-  localStorage.setItem('epargn_tontines', JSON.stringify(TONTINES_USER));
-
-  renderUserTontines();
-  renderTontineStats();
-  showToast('🗑 Épargne collective supprimée.', 'success');
-
-  /* Clôturer le projet Supabase en background si existant */
-  if (projectId && _authToken) {
-    fetch('/api/user/me?resource=projects&id=' + encodeURIComponent(projectId), {
-      method:  'PATCH',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
-      body:    JSON.stringify({ status: 'closed' }),
-    }).catch(function() {});
-  }
+  showToast('🔒 La clôture d\'un groupe collectif doit être validée par un administrateur.', 'info');
+  openTontineDeleteModal(idx);
 }
 
 /* Annuler une demande de suppression en attente */

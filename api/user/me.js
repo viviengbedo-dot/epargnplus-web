@@ -322,8 +322,37 @@ async function handleProjects(req, res, payload, resourceId) {
     if (body.current !== undefined) patch.actuel = parseInt(body.current, 10);
     if (body.nom)                   patch.name   = String(body.nom).trim();
     if (body.cible)                 patch.goal   = parseInt(body.cible, 10);
-    if (body.status)                patch.status = String(body.status);
     if (body.color)                 patch.color  = String(body.color);
+
+    /* ── Changement de statut : garde-fou anti-contournement ──
+       Un utilisateur ne peut JAMAIS clôturer ('closed') un projet COLLECTIF
+       lui-même. Toute tentative est convertie en demande de clôture admin. */
+    if (body.status !== undefined) {
+      const requested = String(body.status);
+      /* Charger le projet pour savoir s'il est collectif */
+      let proj = null;
+      try {
+        const pRows = await supabaseRequest('GET',
+          '/projects?id=eq.' + encodeURIComponent(resourceId) +
+          '&user_id=eq.' + encodeURIComponent(payload.userId) +
+          '&select=id,name,invite_code,invite_token,members_count&limit=1');
+        if (Array.isArray(pRows) && pRows[0]) proj = pRows[0];
+      } catch (e) {}
+
+      if (proj && isProjectCollective(proj)) {
+        /* Collectif : seuls 'closure_requested', 'delete_requested' (demande)
+           et 'active' (annulation) sont permis. 'closed' → forcé en demande. */
+        if (requested === 'closed') {
+          patch.status = 'closure_requested';
+        } else if (['closure_requested', 'delete_requested', 'active'].includes(requested)) {
+          patch.status = requested;
+        }
+        /* tout autre statut est ignoré pour un collectif */
+      } else {
+        /* Projet individuel : statut libre */
+        patch.status = requested;
+      }
+    }
 
     /* Régénérer le lien d'invitation si demandé */
     if (body.regenerate_invite) {
