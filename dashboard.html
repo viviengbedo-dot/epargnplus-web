@@ -1137,9 +1137,28 @@
     <div id="depStep1">
       <!-- Badge projet cible (visible seulement si dépôt lié à un projet) -->
       <div id="depositProjectLabel" style="display:none;background:#EEF2FF;color:#3730A3;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:700;margin-bottom:14px;"></div>
+      <!-- Infos objectif (visible si dépôt lié à un projet) -->
+      <div id="depProjectCap" style="display:none;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+          <div><span style="color:#6B7280;">Objectif</span><br><strong id="depCapGoal" style="color:#0B1566;">—</strong></div>
+          <div><span style="color:#6B7280;">Déjà épargné</span><br><strong id="depCapActuel" style="color:#0B1566;">—</strong></div>
+          <div><span style="color:#6B7280;">Maximum autorisé</span><br><strong id="depCapRemaining" style="color:#16A34A;">—</strong></div>
+          <div><span style="color:#6B7280;">Progression</span><br>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:2px;">
+              <div style="flex:1;height:6px;background:#E5E7EB;border-radius:3px;">
+                <div id="depCapBar" style="height:6px;background:#16A34A;border-radius:3px;width:0%;transition:width .3s;"></div>
+              </div>
+              <strong id="depCapPct" style="color:#16A34A;font-size:12px;">0%</strong>
+            </div>
+          </div>
+        </div>
+        <div id="depCapWarning" style="display:none;margin-top:8px;color:#DC2626;font-size:12px;font-weight:700;"></div>
+      </div>
+
       <div class="form-group">
         <label class="form-label">Montant <span id="depCurrencyLabel" data-currency>GNF</span></label>
-        <input class="form-input" type="number" id="depositAmount" placeholder="Ex: 50 000" min="1000" />
+        <input class="form-input" type="number" id="depositAmount" placeholder="Ex: 50 000" min="1000"
+          oninput="updateDepositCap(this.value)" />
       </div>
       <div class="form-group">
         <label class="form-label">📱 Numéro ayant servi au dépôt <span style="color:#DC2626;">*</span></label>
@@ -4095,7 +4114,7 @@ function renderProjectCards() {
       <div style="display:flex;gap:8px;padding-top:10px;border-top:1px solid var(--divider);">
         ${actionBtn}
         ${!isCollectif ? `<button class="btn btn-outline btn-sm" onclick="openProjectDetail(PROJETS[${idx}])" style="font-size:13px;padding:11px 14px;" title="Voir les détails">📊</button>` : ''}
-        ${!isCollectif ? `<button class="btn btn-outline btn-sm" onclick="deleteProject(${idx})" style="color:#DC2626;border-color:#FECACA;font-size:13px;padding:11px 14px;" title="Supprimer">🗑</button>` : ''}
+        ${(!isCollectif && (p.actuel || 0) === 0) ? `<button class="btn btn-outline btn-sm" onclick="deleteProject(${idx})" style="color:#DC2626;border-color:#FECACA;font-size:13px;padding:11px 14px;" title="Supprimer">🗑</button>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -4648,26 +4667,62 @@ function openRetraitForProject(projectId, nom, montant) {
 function deleteProject(idx) {
   var proj = PROJETS[idx];
   if (!proj) return;
-  if (!confirm('Supprimer le projet « ' + proj.nom + ' » ? Cette action est irréversible.')) return;
 
-  /* Suppression locale immédiate pour UX réactive */
-  PROJETS.splice(idx, 1);
-  localStorage.setItem('epargn_projets', JSON.stringify(PROJETS));
-  renderProjectCards();
-  renderHomeProjects();
-  updateHomeOverview();
-  if (typeof updateProgressionGauge === 'function') updateProgressionGauge();
-  showToast('Projet supprimé.', 'info');
+  /* ── Vérification fonds côté client ── */
+  var hasFunds = (proj.actuel || proj.current || 0) > 0;
+  var isCollective = String(proj.nom || '').startsWith('🤝');
 
-  /* Suppression en DB si projet a un id */
+  if (hasFunds && !isCollective) {
+    showToast(
+      'Ce projet ne peut plus être supprimé car des fonds y sont déjà associés.\n' +
+      'Vous pouvez uniquement le clôturer ou l\'archiver.',
+      'error'
+    );
+    return;
+  }
+
+  if (isCollective && hasFunds) {
+    if (!confirm(
+      'Demande de clôture de l\'épargne collective « ' + proj.nom + ' »\n\n' +
+      'Les remboursements seront traités par l\'administrateur.\n\n' +
+      'Confirmer ?'
+    )) return;
+  } else {
+    if (!confirm('Supprimer le projet « ' + proj.nom + ' » ? Cette action est irréversible.')) return;
+  }
+
+  /* Suppression en DB */
   if (proj.id && _authToken) {
     fetch('/api/user/me?resource=projects&id=' + encodeURIComponent(proj.id), {
       method:  'DELETE',
       headers: { 'Authorization': 'Bearer ' + _authToken },
     })
     .then(function(r) { return r.json(); })
-    .then(function(data) { if (!data.ok) console.warn('[deleteProject] DB:', data.error); })
-    .catch(function(err) { console.warn('[deleteProject] réseau:', err.message); });
+    .then(function(data) {
+      if (data.code === 'PROJECT_HAS_FUNDS') {
+        showToast('Ce projet ne peut pas être supprimé — des fonds y sont associés.', 'error');
+        return;
+      }
+      if (data.action === 'delete_requested') {
+        showToast('✅ Demande de clôture envoyée. L\'admin traitera les remboursements.', 'success');
+        /* Mettre à jour le statut local */
+        if (PROJETS[idx]) PROJETS[idx].status = 'delete_requested';
+        renderProjectCards();
+        return;
+      }
+      if (data.ok) {
+        PROJETS.splice(idx, 1);
+        localStorage.setItem('epargn_projets', JSON.stringify(PROJETS));
+        renderProjectCards();
+        renderHomeProjects();
+        updateHomeOverview();
+        if (typeof updateProgressionGauge === 'function') updateProgressionGauge();
+        showToast('Projet supprimé.', 'info');
+      } else {
+        showToast(data.error || 'Erreur suppression', 'error');
+      }
+    })
+    .catch(function() { showToast('Erreur réseau', 'error'); });
   }
 }
 
@@ -5507,6 +5562,8 @@ function openModal(id) {
     /* Réinitialiser step */
     var s1 = document.getElementById('depStep1'); if (s1) s1.style.display = '';
     var s2 = document.getElementById('depStep2'); if (s2) s2.style.display = 'none';
+    /* Afficher le cap si projet pré-sélectionné */
+    updateDepositCap('');
   }
 }
 function closeModal(id) {
@@ -5526,6 +5583,29 @@ function confirmDeposit() {
   var _depCur = (_currentUser && (COUNTRY_LABELS[_currentUser.country] || COUNTRY_LABELS.gn).currency) || 'GNF';
   var _depMin = DEPOT_MINS[_depCur] || 1000;
   if (!amt || amt < _depMin) { showToast('Montant minimum : ' + fmt(_depMin) + ' ' + _depCur, 'error'); return; }
+
+  /* ── Vérification plafond projet côté client ── */
+  if (_currentDepositProjectId) {
+    var proj = PROJETS.find(function(p) { return p.id === _currentDepositProjectId; });
+    if (proj) {
+      var remaining = Math.max(0, (proj.cible || proj.goal || 0) - (proj.actuel || proj.current || 0));
+      if (remaining === 0) {
+        showToast('Cet objectif est déjà atteint ! Créez un nouveau projet.', 'info');
+        closeModal('modal-deposit');
+        return;
+      }
+      if (amt > remaining) {
+        showToast(
+          'Montant maximum autorisé pour cet objectif : ' + fmt(remaining) + ' ' + _depCur + '.',
+          'error'
+        );
+        var el = document.getElementById('depositAmount');
+        if (el) { el.focus(); el.style.borderColor = '#DC2626'; }
+        return;
+      }
+    }
+  }
+
   if (!senderRaw) {
     showToast('Veuillez saisir le numéro Mobile Money ayant servi au dépôt.', 'error');
     document.getElementById('depSenderPhone').focus();
@@ -5577,7 +5657,27 @@ function confirmDeposit() {
     body:    JSON.stringify(depositBody)
   })
   .then(function(r) { return r.json(); })
-  .then(function(data) {
+  .then(function(r) {
+    /* Gestion erreurs de plafond */
+    if (!r.ok) {
+      if (btn) { btn.disabled = false; btn.innerHTML = origText; }
+      var errMsg = r.error || 'Erreur serveur';
+      if (r.code === 'DEPOSIT_EXCEEDS_REMAINING') {
+        var maxAllowed = r.remaining || 0;
+        showToast('Montant maximum : ' + fmt(maxAllowed) + ' ' + _depCur, 'error');
+        var el = document.getElementById('depositAmount');
+        if (el) { el.focus(); el.style.borderColor = '#DC2626'; }
+        updateDepositCap(String(amt));
+        return;
+      }
+      if (r.code === 'PROJECT_COMPLETED') {
+        showToast('🎉 Cet objectif est déjà atteint !', 'info');
+        closeModal('modal-deposit');
+        return;
+      }
+      showToast(errMsg, 'error');
+      return;
+    }
     showPending();
     /* Sauvegarder le dépôt en attente pour mise à jour projet à l'approbation */
     var pendingInfo = { amount: amt, projectId: _currentDepositProjectId || null };
@@ -8193,6 +8293,84 @@ function applyPromoCode() {
       if (id === 'support') loadMyTickets();
     };
   }
+})();
+
+/* ════════════════════════════════════════════════════
+   COHÉRENCE SOLDES — affichage cap dépôt + protection suppression
+   ════════════════════════════════════════════════════ */
+
+/* Mise à jour temps réel du plafond projet dans le modal dépôt */
+function updateDepositCap(amtStr) {
+  var capDiv     = document.getElementById('depProjectCap');
+  var warningEl  = document.getElementById('depCapWarning');
+  if (!capDiv) return;
+
+  if (!_currentDepositProjectId) { capDiv.style.display = 'none'; return; }
+
+  var proj = (typeof PROJETS !== 'undefined' ? PROJETS : [])
+    .find(function(p) { return p.id === _currentDepositProjectId; });
+  if (!proj) { capDiv.style.display = 'none'; return; }
+
+  var goal      = proj.cible || proj.goal    || 0;
+  var actuel    = proj.actuel || proj.current || 0;
+  var remaining = Math.max(0, goal - actuel);
+  var pct       = goal > 0 ? Math.min(100, Math.round(actuel / goal * 100)) : 0;
+  var cur       = (typeof _currentUser !== 'undefined' && _currentUser)
+    ? ((typeof COUNTRY_LABELS !== 'undefined' && COUNTRY_LABELS[_currentUser.country])
+        ? COUNTRY_LABELS[_currentUser.country].currency : 'GNF')
+    : 'GNF';
+
+  capDiv.style.display = '';
+  var el;
+  el = document.getElementById('depCapGoal');      if(el) el.textContent = fmt(goal) + ' ' + cur;
+  el = document.getElementById('depCapActuel');    if(el) el.textContent = fmt(actuel) + ' ' + cur;
+  el = document.getElementById('depCapRemaining'); if(el) el.textContent = fmt(remaining) + ' ' + cur;
+  el = document.getElementById('depCapPct');       if(el) el.textContent = pct + '%';
+  el = document.getElementById('depCapBar');       if(el) el.style.width = pct + '%';
+
+  var amt = parseInt(amtStr, 10) || 0;
+  if (warningEl) {
+    if (remaining === 0) {
+      warningEl.style.display = '';
+      warningEl.textContent = '🎉 Objectif déjà atteint !';
+      warningEl.style.color = '#16A34A';
+    } else if (amt > remaining) {
+      warningEl.style.display = '';
+      warningEl.textContent = '⚠ Maximum : ' + fmt(remaining) + ' ' + cur;
+      warningEl.style.color = '#DC2626';
+    } else if (amt > 0) {
+      var newPct = goal > 0 ? Math.min(100, Math.round((actuel + amt) / goal * 100)) : 0;
+      warningEl.style.display = '';
+      warningEl.textContent = '✅ Après ce dépôt : ' + newPct + '%';
+      warningEl.style.color = '#16A34A';
+    } else {
+      warningEl.style.display = 'none';
+    }
+  }
+}
+
+/* Réinitialiser le cap display à l'ouverture du modal */
+(function patchOpenModal() {
+  var origOpen = window.openModal;
+  if (typeof origOpen !== 'function') return;
+  window.openModal = function(id) {
+    origOpen(id);
+    if (id === 'deposit') {
+      updateDepositCap('');
+    }
+  };
+})();
+
+/* Message surplus après création projet */
+(function patchNewProject() {
+  /* Les réponses API de création projet incluent surplus_message si applicable */
+  /* Ce hook s'applique sur les callbacks de création de projet dans le code existant */
+  document.addEventListener('epargnplus:project_created', function(e) {
+    var data = e.detail || {};
+    if (data.surplus_message && data.surplus_injected > 0) {
+      showToast('♻️ ' + data.surplus_message, 'success');
+    }
+  });
 })();
 </script>
 
