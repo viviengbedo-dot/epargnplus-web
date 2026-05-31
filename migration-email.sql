@@ -150,11 +150,11 @@ SELECT 'reminder_7d','Rappel — 7 jours sans dépôt','Un petit dépôt vous ra
 WHERE NOT EXISTS (SELECT 1 FROM email_templates WHERE trigger='reminder_7d' AND language='fr');
 
 INSERT INTO email_templates (trigger, name, subject, body_html, language)
-SELECT 'collective_invite','Invitation épargne collective','Vous êtes invité(e) à rejoindre un groupe d\'épargne','<p>Template géré par le moteur JS</p>','fr'
+SELECT 'collective_invite','Invitation épargne collective','Vous êtes invité(e) à rejoindre un groupe d''épargne','<p>Template géré par le moteur JS</p>','fr'
 WHERE NOT EXISTS (SELECT 1 FROM email_templates WHERE trigger='collective_invite' AND language='fr');
 
 INSERT INTO email_templates (trigger, name, subject, body_html, language)
-SELECT 'collective_closed','Épargne collective clôturée','Votre groupe d\'épargne a été clôturé','<p>Template géré par le moteur JS</p>','fr'
+SELECT 'collective_closed','Épargne collective clôturée','Votre groupe d''épargne a été clôturé','<p>Template géré par le moteur JS</p>','fr'
 WHERE NOT EXISTS (SELECT 1 FROM email_templates WHERE trigger='collective_closed' AND language='fr');
 
 INSERT INTO email_templates (trigger, name, subject, body_html, language)
