@@ -233,6 +233,11 @@
         <span class="nav-badge" id="navSupportBadge" style="display:none;">0</span>
       </button>
 
+      <div class="nav-section-title">COMMUNICATION</div>
+      <button class="nav-item" onclick="showAdminSection('emails', this)">
+        <span class="nav-icon">✉️</span> Emails
+        <span class="nav-badge" id="navEmailsBadge" style="display:none;">0</span>
+      </button>
       <div class="nav-section-title">SYSTÈME</div>
       <button class="nav-item" onclick="showAdminSection('parametres', this)">
         <span class="nav-icon">⚙️</span> Paramètres
@@ -1193,6 +1198,143 @@
 
       </section>
 
+      <!-- ════════ EMAILS ════════ -->
+      <section id="sec-emails" style="display:none;">
+        <div class="flex-between mb-6">
+          <div>
+            <h2 style="font-size:22px;font-weight:800;color:var(--primary);">✉️ Centre Email</h2>
+            <p class="text-muted" id="emailSubtitle">Chargement…</p>
+          </div>
+          <div class="flex-gap">
+            <button class="btn btn-accent btn-sm" onclick="openAdminModal('amodal-newCampaign')">📢 Campagne</button>
+            <button class="btn btn-outline btn-sm" onclick="reloadAdminData()">🔄 Actualiser</button>
+          </div>
+        </div>
+
+        <!-- KPIs email -->
+        <div class="stat-cards" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px;">
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#EEF2FF;">📤</div>
+            <div class="stat-card-info"><div class="stat-card-value" id="emailStatSent">0</div><div class="stat-card-label">Envoyés</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#D1FAE5;">👁</div>
+            <div class="stat-card-info"><div class="stat-card-value" id="emailStatOpen">0%</div><div class="stat-card-label">Taux d'ouverture</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#FEE2E2;">❌</div>
+            <div class="stat-card-info"><div class="stat-card-value" id="emailStatFailed">0</div><div class="stat-card-label">Échecs</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#FFFBEB;">📋</div>
+            <div class="stat-card-info"><div class="stat-card-value" id="emailStatTemplates">0</div><div class="stat-card-label">Templates actifs</div></div>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <div style="display:flex;gap:8px;margin-bottom:20px;border-bottom:2px solid var(--divider);padding-bottom:0;">
+          <button id="emailTab-templates" onclick="switchEmailTab('templates')"
+            style="padding:10px 18px;border:none;background:none;cursor:pointer;font-family:inherit;font-size:14px;font-weight:700;color:var(--primary);border-bottom:3px solid var(--primary);margin-bottom:-2px;">
+            Templates (14)
+          </button>
+          <button id="emailTab-logs" onclick="switchEmailTab('logs')"
+            style="padding:10px 18px;border:none;background:none;cursor:pointer;font-family:inherit;font-size:14px;font-weight:600;color:var(--text-secondary);border-bottom:3px solid transparent;margin-bottom:-2px;">
+            Logs
+          </button>
+          <button id="emailTab-campaigns" onclick="switchEmailTab('campaigns')"
+            style="padding:10px 18px;border:none;background:none;cursor:pointer;font-family:inherit;font-size:14px;font-weight:600;color:var(--text-secondary);border-bottom:3px solid transparent;margin-bottom:-2px;">
+            Campagnes
+          </button>
+          <button id="emailTab-test" onclick="switchEmailTab('test')"
+            style="padding:10px 18px;border:none;background:none;cursor:pointer;font-family:inherit;font-size:14px;font-weight:600;color:var(--text-secondary);border-bottom:3px solid transparent;margin-bottom:-2px;">
+            🧪 Test
+          </button>
+        </div>
+
+        <!-- Tab: Templates -->
+        <div id="emailPane-templates">
+          <div class="card" style="padding:0;">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Déclencheur</th><th>Nom</th><th>Sujet</th><th>Langue</th><th>Actif</th><th>Actions</th></tr>
+                </thead>
+                <tbody id="emailTemplatesTbody">
+                  <tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted);">Chargement…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: Logs -->
+        <div id="emailPane-logs" style="display:none;">
+          <div class="card" style="padding:0;">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Déclencheur</th><th>Destinataire</th><th>Sujet</th><th>Statut</th><th>Ouvert</th><th>Date</th></tr>
+                </thead>
+                <tbody id="emailLogsTbody">
+                  <tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted);">Chargement…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: Campagnes -->
+        <div id="emailPane-campaigns" style="display:none;">
+          <div class="card" style="padding:0;">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Nom</th><th>Segment</th><th>Statut</th><th>Envoyés</th><th>Ouverts</th><th>Date</th><th></th></tr>
+                </thead>
+                <tbody id="emailCampaignsTbody">
+                  <tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted);">Aucune campagne</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: Test -->
+        <div id="emailPane-test" style="display:none;">
+          <div class="card" style="max-width:560px;">
+            <div class="card-title">🧪 Envoi de test</div>
+            <p style="font-size:13px;color:var(--text-secondary);margin-bottom:20px;">Testez n'importe quel template email en l'envoyant à une adresse de test.</p>
+            <div class="form-group">
+              <label class="form-label">Template / Déclencheur</label>
+              <select class="form-input form-select" id="testEmailTrigger">
+                <option value="welcome">Bienvenue</option>
+                <option value="deposit_confirmed">Dépôt reçu</option>
+                <option value="deposit_approved">Dépôt validé</option>
+                <option value="deposit_rejected">Dépôt rejeté</option>
+                <option value="withdrawal_requested">Retrait demandé</option>
+                <option value="withdrawal_confirmed">Retrait confirmé</option>
+                <option value="kyc_received">KYC reçu</option>
+                <option value="kyc_approved">KYC validé</option>
+                <option value="kyc_rejected">KYC rejeté</option>
+                <option value="goal_reached">Objectif atteint</option>
+                <option value="reminder_7d">Rappel 7 jours</option>
+                <option value="collective_invite">Invitation collective</option>
+                <option value="collective_closed">Épargne clôturée</option>
+                <option value="ai_suggestion">Conseil IA</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Adresse email de test <span style="color:#DC2626;">*</span></label>
+              <input class="form-input" type="email" id="testEmailAddress" placeholder="admin@exemple.com" />
+            </div>
+            <div id="testEmailResult" style="display:none;margin-bottom:16px;padding:10px 14px;border-radius:10px;font-size:13px;font-weight:600;"></div>
+            <button class="btn btn-primary" onclick="sendTestEmail()" id="testEmailBtn">
+              📤 Envoyer le test →
+            </button>
+          </div>
+        </div>
+      </section>
+
       <!-- ════════ LOGS ════════ -->
       <section id="sec-logs" style="display:none;">
         <div class="flex-between mb-6">
@@ -1360,6 +1502,81 @@
     </div>
 
     <button class="btn btn-accent" style="width:100%;margin-top:4px;" onclick="submitCreatePromo()">Créer le code promo →</button>
+  </div>
+</div>
+
+<!-- Edit Email Template -->
+<div class="modal-overlay" id="amodal-editTemplate" onclick="handleOverlayClick(event,'amodal-editTemplate')">
+  <div class="modal" style="max-width:640px;">
+    <button class="modal-close" onclick="closeAdminModal('amodal-editTemplate')">✕</button>
+    <div class="modal-title">✉️ Modifier le template</div>
+    <div id="editTemplateTrigger" class="modal-sub">—</div>
+
+    <div class="form-group">
+      <label class="form-label">Sujet <span style="color:#6B7280;font-size:11px;">supports {{prenom}}, {{montant}}, etc.</span></label>
+      <input class="form-input" type="text" id="editTemplateSubject" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Corps HTML
+        <span style="color:#6B7280;font-size:11px;font-weight:400;"> — variables : {{prenom}} {{montant}} {{nouveauSolde}} {{reference}} {{operateur}} {{date}} {{motif}} {{projet}} {{progression}} {{tontineName}} {{inviter}} {{mise}} {{jours}} {{conseil}}</span>
+      </label>
+      <textarea class="form-input" id="editTemplateBody" rows="12"
+        style="font-family:'Courier New',monospace;font-size:12px;resize:vertical;"></textarea>
+    </div>
+    <div class="form-group">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;font-weight:600;">
+        <input type="checkbox" id="editTemplateActive" style="width:16px;height:16px;" />
+        Template actif
+      </label>
+    </div>
+    <input type="hidden" id="editTemplateId" />
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-primary" style="flex:1;" onclick="saveEmailTemplate()">Enregistrer →</button>
+      <button class="btn btn-outline" onclick="previewEmailTemplate()">👁 Aperçu</button>
+    </div>
+  </div>
+</div>
+
+<!-- New Campaign -->
+<div class="modal-overlay" id="amodal-newCampaign" onclick="handleOverlayClick(event,'amodal-newCampaign')">
+  <div class="modal" style="max-width:480px;">
+    <button class="modal-close" onclick="closeAdminModal('amodal-newCampaign')">✕</button>
+    <div class="modal-title">📢 Nouvelle campagne email</div>
+    <div class="modal-sub">Envoyez un email ciblé à un segment d'utilisateurs</div>
+
+    <div class="form-group">
+      <label class="form-label">Nom de la campagne <span style="color:#DC2626;">*</span></label>
+      <input class="form-input" type="text" id="newCampName" placeholder="Ex: Lancement pilote Guinée" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Template</label>
+      <select class="form-input form-select" id="newCampTemplate">
+        <option value="">— Choisir un template —</option>
+        <option value="welcome">Bienvenue</option>
+        <option value="reminder_7d">Rappel 7 jours</option>
+        <option value="ai_suggestion">Conseil IA</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Segment cible</label>
+      <select class="form-input form-select" id="newCampSegment">
+        <option value="all">🌍 Tous les utilisateurs avec email</option>
+        <option value="gn">🇬🇳 Guinée</option>
+        <option value="bj">🇧🇯 Bénin</option>
+        <option value="ci">🇨🇮 Côte d'Ivoire</option>
+        <option value="cn">🇨🇳 Chine</option>
+        <option value="kyc_verified">✅ KYC vérifié</option>
+        <option value="kyc_pending">⏳ KYC en attente</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Date/heure d'envoi (optionnel — vide = immédiat)</label>
+      <input class="form-input" type="datetime-local" id="newCampScheduled" />
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <button class="btn btn-outline" onclick="createCampaignDraft()">💾 Enregistrer brouillon</button>
+      <button class="btn btn-primary" onclick="createAndRunCampaign()">🚀 Lancer maintenant →</button>
+    </div>
   </div>
 </div>
 
@@ -2143,7 +2360,7 @@ function setupResponsiveSidebar() {
 const ADMIN_TITLES = {
   overview: 'Tableau de bord', analytics: 'Analytiques', users: 'Utilisateurs',
   transactions: 'Transactions', projets: 'Projets', tontines: 'Épargne Collective',
-  kyc: 'KYC en attente', support: 'Support', parametres: 'Paramètres', logs: 'Logs système'
+  kyc: 'KYC en attente', support: 'Support', emails: 'Centre Email', parametres: 'Paramètres', logs: 'Logs système'
 };
 /* Sections qui déclenchent un rechargement des données à l'ouverture */
 const RELOAD_ON_OPEN = ['users', 'transactions', 'kyc', 'overview', 'projets', 'tontines'];
@@ -3469,6 +3686,148 @@ function fmtAdmin(n) {
   return String(Math.round(n||0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 }
 
+
+
+/* ════════════════════════════════════════════════════════════
+   EMAIL SYSTEM — Templates, Logs, Campaigns, Test
+   ════════════════════════════════════════════════════════════ */
+
+let EMAIL_TEMPLATES = [];
+let EMAIL_LOGS      = [];
+let EMAIL_CAMPAIGNS = [];
+
+function populateEmailData(data) {
+  EMAIL_TEMPLATES = data.emailTemplates || [];
+  EMAIL_LOGS      = data.emailLogs      || [];
+  EMAIL_CAMPAIGNS = data.emailCampaigns || [];
+  var stats = (data.stats || {}).emails || {};
+  var el;
+  el = document.getElementById('emailStatSent');      if(el) el.textContent = stats.sent      || 0;
+  el = document.getElementById('emailStatOpen');      if(el) el.textContent = (stats.openRate || 0) + '%';
+  el = document.getElementById('emailStatFailed');    if(el) el.textContent = stats.failed    || 0;
+  el = document.getElementById('emailStatTemplates'); if(el) el.textContent = EMAIL_TEMPLATES.filter(function(t){return t.active;}).length;
+  var subEl = document.getElementById('emailSubtitle');
+  if (subEl) subEl.textContent = EMAIL_TEMPLATES.length + ' templates \u00b7 ' + (stats.sent||0) + ' emails envoy\u00e9s \u00b7 ' + (stats.openRate||0) + '% ouverture';
+  var badge = document.getElementById('navEmailsBadge');
+  if (badge) { var f=stats.failed||0; badge.textContent=f; badge.style.display=f>0?'':'none'; }
+  var tabBtn = document.getElementById('emailTab-templates');
+  if (tabBtn) tabBtn.textContent = 'Templates (' + EMAIL_TEMPLATES.length + ')';
+  renderEmailTemplates();
+  renderEmailLogs();
+  renderEmailCampaigns();
+}
+
+function switchEmailTab(tab) {
+  ['templates','logs','campaigns','test'].forEach(function(t) {
+    var pane=document.getElementById('emailPane-'+t);
+    var btn=document.getElementById('emailTab-'+t);
+    if(pane) pane.style.display=t===tab?'':'none';
+    if(btn) { btn.style.fontWeight=t===tab?'700':'600'; btn.style.color=t===tab?'var(--primary)':'var(--text-secondary)'; btn.style.borderBottomColor=t===tab?'var(--primary)':'transparent'; }
+  });
+}
+
+var TRIGGER_LABELS = {
+  welcome:'Bienvenue',deposit_confirmed:'D\u00e9p\u00f4t re\u00e7u',deposit_approved:'D\u00e9p\u00f4t valid\u00e9 \u2705',
+  deposit_rejected:'D\u00e9p\u00f4t rejet\u00e9',withdrawal_requested:'Retrait demand\u00e9',
+  withdrawal_confirmed:'Retrait confirm\u00e9 \u2705',kyc_received:'KYC re\u00e7u',
+  kyc_approved:'KYC valid\u00e9 \u2705',kyc_rejected:'KYC rejet\u00e9',goal_reached:'Objectif atteint \U0001f389',
+  reminder_7d:'Rappel 7j',collective_invite:'Invitation collective',
+  collective_closed:'\u00c9pargne cl\u00f4tur\u00e9e',ai_suggestion:'Conseil IA'
+};
+
+function renderEmailTemplates() {
+  var tbody=document.getElementById('emailTemplatesTbody'); if(!tbody) return;
+  if(!EMAIL_TEMPLATES.length){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted);">Aucun template \u2014 ex\u00e9cutez migration-email.sql</td></tr>';return;}
+  tbody.innerHTML=EMAIL_TEMPLATES.map(function(t){
+    return '<tr>'+
+      '<td><code style="font-size:11px;background:#F3F4F6;padding:2px 6px;border-radius:4px;">'+esc(t.trigger)+'</code></td>'+
+      '<td style="font-weight:600;">'+esc(t.name||'\u2014')+'</td>'+
+      '<td style="font-size:12px;color:var(--text-secondary);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc(t.subject||'\u2014')+'</td>'+
+      '<td><span style="background:#EEF2FF;color:#3730A3;padding:2px 7px;border-radius:6px;font-size:11px;font-weight:700;">'+(t.language||'fr').toUpperCase()+'</span></td>'+
+      '<td><label class="toggle" style="transform:scale(.8);transform-origin:left center;"><input type="checkbox" '+(t.active?'checked':'')+' onchange="toggleEmailTemplate(\''+t.id+'\',this.checked)" /><span class="slider"></span></label></td>'+
+      '<td><div class="action-col"><button class="btn btn-sm" style="font-size:11px;padding:4px 10px;" onclick="openEditTemplate(\''+t.id+'\')">\u270f\ufe0f \u00c9diter</button><button class="btn btn-sm btn-outline" style="font-size:11px;padding:4px 10px;" onclick="quickTestTemplate(\''+t.trigger+'\')">\U0001f9ea</button></div></td>'+
+    '</tr>';
+  }).join('');
+}
+
+function openEditTemplate(id) {
+  var t=EMAIL_TEMPLATES.find(function(x){return x.id===id;}); if(!t) return;
+  document.getElementById('editTemplateId').value=id;
+  document.getElementById('editTemplateTrigger').textContent=(TRIGGER_LABELS[t.trigger]||t.trigger)+' \u00b7 '+(t.language||'fr').toUpperCase();
+  document.getElementById('editTemplateSubject').value=t.subject||'';
+  document.getElementById('editTemplateActive').checked=t.active!==false;
+  document.getElementById('editTemplateBody').value=t.body_html||'';
+  openAdminModal('amodal-editTemplate');
+}
+
+function toggleEmailTemplate(id,active) {
+  fetch('/api/admin/update-balance',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+_adminToken},body:JSON.stringify({action:'update_email_template',templateId:id,active:active})})
+  .then(function(r){return r.json();}).then(function(d){if(d.ok){var t=EMAIL_TEMPLATES.find(function(x){return x.id===id;});if(t)t.active=active;showAdminToast(active?'\u2705 Activ\u00e9':'\u23f8 D\u00e9sactiv\u00e9','success');}else{showAdminToast('Erreur','error');renderEmailTemplates();}}).catch(function(){renderEmailTemplates();});
+}
+
+function saveEmailTemplate() {
+  var id=document.getElementById('editTemplateId').value;
+  var subject=document.getElementById('editTemplateSubject').value.trim();
+  var body=document.getElementById('editTemplateBody').value;
+  var active=document.getElementById('editTemplateActive').checked;
+  if(!id||!subject){showAdminToast('Sujet requis','error');return;}
+  fetch('/api/admin/update-balance',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+_adminToken},body:JSON.stringify({action:'update_email_template',templateId:id,subject:subject,body_html:body,active:active})})
+  .then(function(r){return r.json();}).then(function(d){if(d.ok){var t=EMAIL_TEMPLATES.find(function(x){return x.id===id;});if(t){t.subject=subject;t.body_html=body;t.active=active;}closeAdminModal('amodal-editTemplate');renderEmailTemplates();showAdminToast('\u2705 Template sauvegard\u00e9','success');}else{showAdminToast('Erreur: '+(d.error||'inconnue'),'error');}}).catch(function(){showAdminToast('Erreur r\u00e9seau','error');});
+}
+
+function previewEmailTemplate(){var body=document.getElementById('editTemplateBody').value;var win=window.open('','_blank');if(win){win.document.write(body);win.document.close();}}
+
+function quickTestTemplate(trigger){document.getElementById('testEmailTrigger').value=trigger;switchEmailTab('test');}
+
+function renderEmailLogs() {
+  var tbody=document.getElementById('emailLogsTbody'); if(!tbody) return;
+  if(!EMAIL_LOGS.length){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted);">Aucun log</td></tr>';return;}
+  var sb=function(s){var c={sent:'#EEF2FF;color:#3730A3:\U0001f4e4 Envoy\u00e9',delivered:'#D1FAE5;color:#065F46:\u2705 D\u00e9livr\u00e9',opened:'#C8E600;color:#0B1566:\U0001f441 Ouvert',failed:'#FEE2E2;color:#991B1B:\u274c \u00c9chec',bounced:'#FEF3C7;color:#92400E:\u21a9 Bounce'};var p=(c[s]||'#F3F4F6;color:#6B7280:? '+s).split(':');return '<span style="background:'+p[0]+';padding:2px 7px;border-radius:100px;font-size:11px;font-weight:700;">'+p[1]+'</span>';};
+  tbody.innerHTML=EMAIL_LOGS.slice(0,100).map(function(l){var date=l.created_at?new Date(l.created_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'\u2014';return '<tr><td><code style="font-size:11px;background:#F3F4F6;padding:2px 6px;border-radius:4px;">'+esc(l.trigger||'\u2014')+'</code></td><td style="font-size:12px;">'+esc(l.to_email||'\u2014')+'</td><td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc(l.subject||'\u2014')+'</td><td>'+sb(l.status)+'</td><td style="font-size:12px;">'+(l.opened_at?'\u2705':'\u2014')+'</td><td style="font-size:11px;color:var(--text-muted);">'+date+'</td></tr>';}).join('');
+}
+
+function renderEmailCampaigns() {
+  var tbody=document.getElementById('emailCampaignsTbody'); if(!tbody) return;
+  if(!EMAIL_CAMPAIGNS.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted);">Aucune campagne</td></tr>';return;}
+  var sl=function(s){return{all:'\U0001f30d Tous',gn:'\U0001f1ec\U0001f1f3 Guin\u00e9e',bj:'\U0001f1e7\U0001f1ef B\u00e9nin',ci:'\U0001f1e8\U0001f1ee CI',cn:'\U0001f1e8\U0001f1f3 Chine',kyc_verified:'\u2705 KYC OK',kyc_pending:'\u23f3 KYC att.'}[s]||s;};
+  var sb2=function(s){var c={draft:'#F3F4F6;color:#374151:\U0001f4dd Brouillon',running:'#EEF2FF;color:#3730A3:\u26a1 En cours',done:'#D1FAE5;color:#065F46:\u2705 Termin\u00e9e',cancelled:'#FEE2E2;color:#991B1B:\u274c Annul\u00e9e'};var p=(c[s]||'#F3F4F6;color:#6B7280:? '+s).split(':');return '<span style="background:'+p[0]+';padding:2px 7px;border-radius:100px;font-size:11px;font-weight:700;">'+p[1]+'</span>';};
+  tbody.innerHTML=EMAIL_CAMPAIGNS.map(function(c){var date=c.created_at?new Date(c.created_at).toLocaleDateString('fr-FR'):'\u2014';var or=c.sent_count>0?Math.round(c.open_count/c.sent_count*100)+'%':'\u2014';return '<tr><td style="font-weight:600;">'+esc(c.name||'\u2014')+'</td><td>'+sl(c.segment)+'</td><td>'+sb2(c.status)+'</td><td>'+(c.sent_count||0)+'</td><td>'+or+'</td><td style="font-size:12px;color:var(--text-muted);">'+date+'</td><td>'+(c.status==='draft'?'<button class="btn btn-sm" style="font-size:11px;" onclick="runCampaign(\''+c.id+'\')">\U0001f680 Lancer</button>':'')+'</td></tr>';}).join('');
+}
+
+function runCampaign(id) {
+  if(!confirm('Lancer cette campagne ?')) return;
+  fetch('/api/admin/update-balance',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+_adminToken},body:JSON.stringify({action:'run_email_campaign',campaignId:id})})
+  .then(function(r){return r.json();}).then(function(d){if(d.ok){showAdminToast('\u26a1 Campagne lanc\u00e9e !','success');reloadAdminData();}else{showAdminToast('Erreur: '+(d.error||'inconnue'),'error');}}).catch(function(){showAdminToast('Erreur r\u00e9seau','error');});
+}
+
+function createCampaignDraft(){_createCampaign(false);}
+function createAndRunCampaign(){_createCampaign(true);}
+function _createCampaign(runNow) {
+  var name=(document.getElementById('newCampName').value||'').trim();
+  var segment=document.getElementById('newCampSegment').value;
+  var scheduled=document.getElementById('newCampScheduled').value;
+  if(!name){showAdminToast('Nom requis','error');return;}
+  fetch('/api/admin/update-balance',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+_adminToken},body:JSON.stringify({action:'create_email_campaign',name:name,segment:segment,scheduled_at:scheduled?new Date(scheduled).toISOString():null})})
+  .then(function(r){return r.json();}).then(function(d){if(d.ok){closeAdminModal('amodal-newCampaign');if(runNow&&d.campaign&&d.campaign.id)runCampaign(d.campaign.id);else{showAdminToast('\u2705 Campagne cr\u00e9\u00e9e','success');reloadAdminData();}}else{showAdminToast('Erreur: '+(d.error||'inconnue'),'error');}}).catch(function(){showAdminToast('Erreur r\u00e9seau','error');});
+}
+
+function sendTestEmail() {
+  var trigger=document.getElementById('testEmailTrigger').value;
+  var email=(document.getElementById('testEmailAddress').value||'').trim();
+  var btn=document.getElementById('testEmailBtn');
+  var result=document.getElementById('testEmailResult');
+  if(!email){showAdminToast('Adresse email requise','error');return;}
+  if(btn){btn.disabled=true;btn.textContent='Envoi en cours\u2026';}
+  if(result) result.style.display='none';
+  fetch('/api/admin/update-balance',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+_adminToken},body:JSON.stringify({action:'send_test_email',trigger:trigger,toEmail:email})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(btn){btn.disabled=false;btn.textContent='\U0001f4e4 Envoyer le test \u2192';}
+    if(result){result.style.display='';result.style.borderRadius='10px';result.style.padding='10px 14px';
+    if(d.ok){result.style.background='#D1FAE5';result.style.color='#065F46';result.textContent='\u2705 Email envoy\u00e9 ! (ID: '+(d.emailId||'OK')+')';}
+    else{result.style.background='#FEE2E2';result.style.color='#991B1B';result.textContent='\u274c Erreur : '+(d.error||'inconnue');}}
+  }).catch(function(){if(btn){btn.disabled=false;btn.textContent='\U0001f4e4 Envoyer le test \u2192';}showAdminToast('Erreur r\u00e9seau','error');});
+}
+
 /* ════════════════════════════════════════════════════════════
    PILOT FEATURES — Support, Promos, Broadcast, Logs, Checklist
    ════════════════════════════════════════════════════════════ */
@@ -3482,6 +3841,9 @@ function populatePilotData(data) {
   SUPPORT_TICKETS = data.supportTickets || [];
   PROMO_CODES     = data.promoCodes     || [];
   BROADCASTS      = data.broadcasts     || [];
+
+  /* Email system */
+  populateEmailData(data);
 
   renderSupportTickets();
   renderPromos();

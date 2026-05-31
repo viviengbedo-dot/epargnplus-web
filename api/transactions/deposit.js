@@ -8,8 +8,9 @@
  * type = 'deposit'  → dépôt Mobile Money (défaut)
  */
 
-const { supabaseRequest } = require('../_lib/supabase');
-const { verifyJWT }       = require('../_lib/auth');
+const { supabaseRequest }   = require('../_lib/supabase');
+const { verifyJWT }         = require('../_lib/auth');
+const { trigger: emailTrig } = require('../_lib/email');
 
 function parseBody(req) {
   if (req.body && typeof req.body === 'object') return Promise.resolve(req.body);
@@ -59,7 +60,7 @@ module.exports = async (req, res) => {
   let user;
   try {
     const rows = await supabaseRequest('GET',
-      '/users?id=eq.' + encodeURIComponent(jwtPayload.userId) + '&select=id,phone,prenom,country,currency');
+      '/users?id=eq.' + encodeURIComponent(jwtPayload.userId) + '&select=id,phone,prenom,country,currency,email');
     if (!Array.isArray(rows) || rows.length === 0) {
       return res.status(404).json({ error: 'Compte introuvable' });
     }
@@ -118,6 +119,18 @@ module.exports = async (req, res) => {
       return res.status(500).json({ error: 'Erreur enregistrement. Réessayez.' });
     }
     console.warn('[deposit] pending_deposit:', pdErr.message);
+  }
+
+  /* ── Email confirmation dépôt ── */
+  if (user.email) {
+    const cur = user.currency || currency || 'GNF';
+    emailTrig('deposit_confirmed', user.id, {
+      prenom:    user.prenom || '',
+      montant:   amount.toLocaleString('fr-FR') + ' ' + cur,
+      operateur: operator,
+      reference: ref,
+      date:      new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' }),
+    }, user.email).catch(() => {});
   }
 
   const msg = isAlipay

@@ -203,13 +203,16 @@ module.exports = async (req, res) => {
     if (!safeUser.country) safeUser.country = country;
     if (!safeUser.currency) safeUser.currency = countryCfg.currency;
 
-    /* Email de bienvenue */
-    if (cleanEmail && process.env.RESEND_API_KEY) {
-      sendEmail({
-        to:      cleanEmail,
-        subject: `Bienvenue sur Epargn+, ${prenom.trim()} !`,
-        html:    welcomeEmailHtml(prenom.trim(), fullPhone),
-      }).catch(() => {});
+    /* Email de bienvenue via moteur v7 */
+    if (cleanEmail) {
+      const { trigger: emailTrigger } = require('../_lib/email');
+      const countryLabels = { gn:'Guinée', bj:'Bénin', ci:"Côte d'Ivoire", cn:'Chine' };
+      emailTrigger('welcome', user.id, {
+        prenom:       prenom.trim(),
+        phone:        fullPhone,
+        country:      country,
+        countryLabel: countryLabels[country] || '',
+      }, cleanEmail).catch(() => {});
     }
 
     return res.status(201).json({ token, user: safeUser });

@@ -22,7 +22,8 @@
  *   send_broadcast     — envoyer une notification à un segment d'utilisateurs
  */
 
-const { supabaseRequest } = require('../_lib/supabase');
+const { supabaseRequest }    = require('../_lib/supabase');
+const { trigger: emailTrig } = require('../_lib/email');
 const ADMIN_SECRET = process.env.ADMIN_SECRET || 'epargn-admin-dev-2026';
 if (!process.env.ADMIN_SECRET) {
   console.warn('[SECURITY] ADMIN_SECRET non défini — secret par défaut actif, DANGER en production !');
@@ -235,6 +236,21 @@ module.exports = async (req, res) => {
         { txn_id: txnId, amount: txn.amount }
       );
 
+      /* Email retrait confirmé */
+      try {
+        const uRows = await supabaseRequest('GET',
+          '/users?id=eq.' + encodeURIComponent(txn.user_id) + '&select=email,prenom,epargne,currency&limit=1');
+        const u = Array.isArray(uRows) && uRows[0];
+        if (u && u.email) {
+          const cur = u.currency || 'GNF';
+          emailTrig('withdrawal_confirmed', txn.user_id, {
+            prenom:       u.prenom || '',
+            montant:      (txn.amount || 0).toLocaleString('fr-FR') + ' ' + cur,
+            nouveauSolde: (u.epargne || 0).toLocaleString('fr-FR') + ' ' + cur,
+          }, u.email).catch(() => {});
+        }
+      } catch {}
+
       console.log('[confirm-withdrawal] txn=' + txnId + ' user=' + txn.user_id);
       return res.status(200).json({ ok: true, action: 'confirm-withdrawal', txnId });
 
@@ -427,6 +443,75 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ok: true, action: 'update-settings' });
     } catch (err) {
       return res.status(500).json({ error: 'Erreur sauvegarde paramètres : ' + err.message });
+    }
+  }
+
+  /* ════════════ EMAIL TEMPLATE MANAGEMENT ════════════ */
+
+  if (action === 'update_email_template') {
+    const { templateId, subject, body_html, body_text, active } = body;
+    if (!templateId) return res.status(400).json({ error: 'templateId requis' });
+    try {
+      const patch = { updated_at: now };
+      if (subject !== undefined)   patch.subject   = subject;
+      if (body_html !== undefined) patch.body_html  = body_html;
+      if (body_text !== undefined) patch.body_text  = body_text;
+      if (active !== undefined)    patch.active     = Boolean(active);
+      await supabaseRequest('PATCH',
+        '/email_templates?id=eq.' + encodeURIComponent(templateId), patch);
+      return res.status(200).json({ ok: true, action: 'update_email_template' });
+    } catch (err) {
+      return res.status(500).json({ error: 'Erreur template: ' + err.message });
+    }
+  }
+
+  if (action === 'send_test_email') {
+    const { trigger: trigName, toEmail, vars: templateVars } = body;
+    if (!trigName || !toEmail) return res.status(400).json({ error: 'trigger et toEmail requis' });
+    try {
+      const { trigger: emailTrigFn } = require('../_lib/email');
+      const result = await emailTrigFn(trigName, null, templateVars || {
+        prenom: 'Test Admin', montant: '100 000 GNF', nouveauSolde: '500 000 GNF',
+        reference: 'TEST-001', operateur: 'Orange Money',
+        date: new Date().toLocaleDateString('fr-FR'),
+        motif: 'Test motif', projet: 'Mon projet test', progression: '65',
+        tontineName: 'Groupe Test', inviter: 'Admin', mise: '50 000 GNF',
+        sujet: 'Conseil test', conseil: 'Épargnez régulièrement pour atteindre vos objectifs.',
+        jours: 7,
+      }, toEmail);
+      return res.status(200).json({ ok: result.ok, emailId: result.id, error: result.error });
+    } catch (err) {
+      return res.status(500).json({ error: 'Erreur envoi test: ' + err.message });
+    }
+  }
+
+  if (action === 'create_email_campaign') {
+    const { name: campName, template_id, segment, scheduled_at } = body;
+    if (!campName) return res.status(400).json({ error: 'name requis' });
+    try {
+      const created = await supabaseRequest('POST', '/email_campaigns', {
+        name: campName, template_id: template_id || null,
+        segment: segment || 'all', status: 'draft',
+        scheduled_at: scheduled_at || null,
+      });
+      return res.status(200).json({ ok: true, action: 'create_email_campaign', campaign: Array.isArray(created) ? created[0] : created });
+    } catch (err) {
+      return res.status(500).json({ error: 'Erreur campagne: ' + err.message });
+    }
+  }
+
+  if (action === 'run_email_campaign') {
+    const { campaignId } = body;
+    if (!campaignId) return res.status(400).json({ error: 'campaignId requis' });
+    try {
+      await supabaseRequest('PATCH',
+        '/email_campaigns?id=eq.' + encodeURIComponent(campaignId),
+        { status: 'running' });
+      const { runCampaign } = require('../_lib/email');
+      runCampaign(campaignId).catch(e => console.error('[run_campaign]', e.message));
+      return res.status(200).json({ ok: true, action: 'run_email_campaign', campaignId, status: 'running' });
+    } catch (err) {
+      return res.status(500).json({ error: 'Erreur lancement campagne: ' + err.message });
     }
   }
 
@@ -691,6 +776,34 @@ module.exports = async (req, res) => {
         `Votre dépôt de ${depositAmount.toLocaleString('fr-FR')} GNF a été validé.`,
         { amount: depositAmount, projectId });
 
+      /* Email dépôt validé */
+      try {
+        const uRows = await supabaseRequest('GET',
+          '/users?id=eq.' + encodeURIComponent(userId) + '&select=email,prenom,country,currency&limit=1');
+        const u = Array.isArray(uRows) && uRows[0];
+        if (u && u.email) {
+          const cur = u.currency || 'GNF';
+          let projName = null, progression = null;
+          if (projectId) {
+            try {
+              const pr = await supabaseRequest('GET',
+                '/projects?id=eq.' + encodeURIComponent(projectId) + '&select=name,goal,actuel&limit=1');
+              if (Array.isArray(pr) && pr[0]) {
+                projName = pr[0].name;
+                progression = pr[0].goal > 0 ? Math.round((pr[0].actuel || 0) / pr[0].goal * 100) : 0;
+              }
+            } catch {}
+          }
+          emailTrig('deposit_approved', userId, {
+            prenom:       u.prenom || '',
+            montant:      depositAmount.toLocaleString('fr-FR') + ' ' + cur,
+            nouveauSolde: newEpargne.toLocaleString('fr-FR') + ' ' + cur,
+            projet:       projName || '',
+            progression:  progression !== null ? String(progression) : '',
+          }, u.email).catch(() => {});
+        }
+      } catch {}
+
       console.log('[approve] user=' + userId + ' deposit=' + depositAmount + ' epargne=' + newEpargne);
       return res.status(200).json({
         ok: true, action: 'approved', epargne: newEpargne, depositAmount, projectId: projectId || null,
@@ -712,6 +825,19 @@ module.exports = async (req, res) => {
       await createNotification(userId, 'deposit', '❌ Dépôt rejeté',
         'Votre demande de dépôt a été rejetée. Contactez le support.',
         { txnId });
+
+      /* Email dépôt rejeté */
+      try {
+        const uRows = await supabaseRequest('GET',
+          '/users?id=eq.' + encodeURIComponent(userId) + '&select=email,prenom,currency&limit=1');
+        const u = Array.isArray(uRows) && uRows[0];
+        if (u && u.email) {
+          emailTrig('deposit_rejected', userId, {
+            prenom:  u.prenom || '',
+            montant: (body.amount || 0).toLocaleString('fr-FR') + ' ' + (u.currency || 'GNF'),
+          }, u.email).catch(() => {});
+        }
+      } catch {}
 
       return res.status(200).json({ ok: true, action: 'rejected' });
 

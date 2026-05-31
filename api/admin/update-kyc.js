@@ -7,7 +7,8 @@
  * Corps   : { userId, status: 'verified'|'rejected'|'pending'|'none', rejectionReason? }
  */
 
-const { supabaseRequest } = require('../_lib/supabase');
+const { supabaseRequest }    = require('../_lib/supabase');
+const { trigger: emailTrig } = require('../_lib/email');
 
 const ADMIN_SECRET = process.env.ADMIN_SECRET || 'epargn-admin-dev-2026';
 
@@ -71,6 +72,24 @@ module.exports = async (req, res) => {
         '/users?id=eq.' + encodeURIComponent(userId),
         { kyc_status: status, updated_at: now });
     }
+    /* Email KYC */
+    try {
+      const uRows = await supabaseRequest('GET',
+        '/users?id=eq.' + encodeURIComponent(userId) + '&select=email,prenom&limit=1');
+      const u = Array.isArray(uRows) && uRows[0];
+      if (u && u.email) {
+        const trigName = status === 'verified' ? 'kyc_approved'
+                       : status === 'rejected' ? 'kyc_rejected'
+                       : null;
+        if (trigName) {
+          emailTrig(trigName, userId, {
+            prenom: u.prenom || '',
+            motif:  rejectionReason || '',
+          }, u.email).catch(() => {});
+        }
+      }
+    } catch {}
+
     console.log('[update-kyc] userId=' + userId + ' → ' + status + (rejectionReason ? ' raison: ' + rejectionReason : ''));
     return res.status(200).json({ ok: true, kyc_status: status });
   } catch (err) {

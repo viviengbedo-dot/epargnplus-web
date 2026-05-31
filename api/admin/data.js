@@ -8,8 +8,10 @@
  *     notifications[], stats: {...} }
  */
 
-const { supabaseRequest } = require('../_lib/supabase');
-const ADMIN_SECRET = process.env.ADMIN_SECRET || 'epargn-admin-dev-2026';
+const { supabaseRequest }   = require('../_lib/supabase');
+const { runReminderCron }   = require('../_lib/email');
+const ADMIN_SECRET  = process.env.ADMIN_SECRET  || 'epargn-admin-dev-2026';
+const CRON_SECRET   = process.env.CRON_SECRET   || '';
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -18,6 +20,22 @@ module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'GET uniquement' });
+
+  /* ── Cron endpoint (protection par CRON_SECRET) ── */
+  const cronParam = (req.query || {}).cron;
+  if (cronParam) {
+    const cronAuth = (req.headers['authorization'] || '').replace('Bearer ', '');
+    if (!CRON_SECRET || cronAuth !== CRON_SECRET) {
+      return res.status(401).json({ error: 'Non autorisé' });
+    }
+    try {
+      const result = await runReminderCron();
+      console.log('[cron/reminders]', result);
+      return res.status(200).json({ ok: true, cron: 'reminders', result });
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
 
   const auth  = req.headers['authorization'] || '';
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
@@ -236,6 +254,26 @@ module.exports = async (req, res) => {
     const invitePending  = allInvitations.filter(i => i.status === 'pending').length;
     const inviteRejected = allInvitations.filter(i => i.status === 'rejected').length;
 
+    /* ── 6e. Email templates + logs + campaigns ── */
+    let emailTemplates = [], emailLogs = [], emailCampaigns = [];
+    try {
+      emailTemplates = await supabaseRequest('GET',
+        '/email_templates?select=id,trigger,name,subject,language,active,updated_at&order=trigger.asc&limit=100');
+      if (!Array.isArray(emailTemplates)) emailTemplates = [];
+    } catch (e) { console.warn('[admin/data] email_templates:', e.message); }
+
+    try {
+      emailLogs = await supabaseRequest('GET',
+        '/email_logs?select=id,user_id,trigger,to_email,subject,status,opened_at,created_at&order=created_at.desc&limit=200');
+      if (!Array.isArray(emailLogs)) emailLogs = [];
+    } catch (e) { console.warn('[admin/data] email_logs:', e.message); }
+
+    try {
+      emailCampaigns = await supabaseRequest('GET',
+        '/email_campaigns?select=id,name,segment,status,scheduled_at,sent_count,open_count,click_count,created_at&order=created_at.desc&limit=50');
+      if (!Array.isArray(emailCampaigns)) emailCampaigns = [];
+    } catch (e) { console.warn('[admin/data] email_campaigns:', e.message); }
+
     /* Support stats */
     const ticketsOpen       = supportTickets.filter(t => t.status === 'open').length;
     const ticketsInProgress = supportTickets.filter(t => t.status === 'in_progress').length;
@@ -259,6 +297,9 @@ module.exports = async (req, res) => {
       supportTickets,
       promoCodes,
       broadcasts,
+      emailTemplates,
+      emailLogs,
+      emailCampaigns,
       stats: {
         total, epargneTotal, kycPending, kycVerified, pendingCount, byCountry,
         alipay: { pending: alipayPending, confirmed: alipayConfirmed, total: alipayTotal },
@@ -266,6 +307,16 @@ module.exports = async (req, res) => {
         invitations: { accepted: inviteAccepted, pending: invitePending, rejected: inviteRejected },
         support: { open: ticketsOpen, inProgress: ticketsInProgress, resolved: ticketsResolved, urgent: ticketsUrgent },
         promos: { active: promoActive, expired: promoExpired, total: promoCodes.length },
+        emails: {
+          sent:      emailLogs.filter(l => l.status !== 'failed').length,
+          failed:    emailLogs.filter(l => l.status === 'failed').length,
+          opened:    emailLogs.filter(l => l.opened_at).length,
+          openRate:  emailLogs.length > 0
+            ? Math.round(emailLogs.filter(l => l.opened_at).length / emailLogs.length * 100)
+            : 0,
+          templates: emailTemplates.length,
+          campaigns: emailCampaigns.length,
+        },
       },
     });
 

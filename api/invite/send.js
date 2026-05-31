@@ -401,18 +401,18 @@ module.exports = async (req, res) => {
     }
   }
 
-  /* Email */
+  /* Email invitation via moteur v7 */
   let emailSent = false;
-  if (inviteeEmail && process.env.RESEND_API_KEY) {
-    const emailHtml = buildInviteEmailHtml({
-      creatorName: creator, nom, mise, freq, goal: goal || project.goal,
-      deadline, inviteUrl, inviteeName,
-    });
-    const result = await sendEmail({
-      to:      inviteeEmail,
-      subject: `${creator} vous invite à rejoindre « ${nom} » sur Epargn+`,
-      html:    emailHtml,
-    });
+  if (inviteeEmail) {
+    const { trigger: emailTrig } = require('../_lib/email');
+    const result = await emailTrig('collective_invite', inviteeUserId || null, {
+      prenom:      inviteeName || '',
+      inviter:     creator,
+      tontineName: nom,
+      mise:        (mise || 0).toLocaleString('fr-FR') + ' GNF',
+      freq:        freq || 'Mensuelle',
+      inviteCode:  inviteCode || '',
+    }, inviteeEmail);
     emailSent = result.ok;
   }
 

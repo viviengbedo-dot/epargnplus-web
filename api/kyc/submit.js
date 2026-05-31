@@ -161,6 +161,17 @@ module.exports = async (req, res) => {
         '/users?id=eq.' + encodeURIComponent(payload.userId), patch);
     }
 
+    /* Email KYC reçu */
+    try {
+      const { trigger: emailTrig } = require('../_lib/email');
+      const uRows = await supabaseRequest('GET',
+        '/users?id=eq.' + encodeURIComponent(payload.userId) + '&select=email,prenom&limit=1');
+      const u = Array.isArray(uRows) && uRows[0];
+      if (u && u.email) {
+        emailTrig('kyc_received', payload.userId, { prenom: u.prenom || '' }, u.email).catch(() => {});
+      }
+    } catch {}
+
     console.log('[kyc/submit] userId=' + payload.userId +
       ' doc=' + (documentUrl ? '✓' : '—') + ' selfie=' + (selfieUrl ? '✓' : '—') + ' → pending');
     return res.status(200).json({ ok: true, kyc_status: 'pending' });
