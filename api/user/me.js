@@ -324,6 +324,23 @@ async function handleProjects(req, res, payload, resourceId) {
     if (body.cible)                 patch.goal   = parseInt(body.cible, 10);
     if (body.color)                 patch.color  = String(body.color);
 
+    /* ── Garde-fou : 'actuel' ne peut JAMAIS dépasser l'objectif effectif ──
+       (objectif × 1,03 = marge Epargn+). Empêche un client de gonfler le
+       montant d'un projet via un PATCH direct (cause des sur-financements). */
+    if (patch.actuel !== undefined) {
+      if (isNaN(patch.actuel) || patch.actuel < 0) patch.actuel = 0;
+      try {
+        const gRows = await supabaseRequest('GET',
+          '/projects?id=eq.' + encodeURIComponent(resourceId) +
+          '&user_id=eq.' + encodeURIComponent(payload.userId) +
+          '&select=goal&limit=1');
+        if (Array.isArray(gRows) && gRows[0]) {
+          const maxActuel = Math.round((Number(gRows[0].goal) || 0) * 1.03);
+          if (maxActuel > 0 && patch.actuel > maxActuel) patch.actuel = maxActuel;
+        }
+      } catch (e) {}
+    }
+
     /* ── Changement de statut : garde-fou anti-contournement ──
        Un utilisateur ne peut JAMAIS clôturer ('closed') un projet COLLECTIF
        lui-même. Toute tentative est convertie en demande de clôture admin. */

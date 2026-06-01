@@ -465,7 +465,9 @@ module.exports = async (req, res) => {
           const totalDeposited = Array.isArray(txns)
             ? txns.reduce((s, t) => s + (Number(t.amount) || 0), 0)
             : 0;
-          const cappedActuel = Math.min(totalDeposited, proj.goal || Infinity);
+          /* Plafond = objectif × 1,03 (marge Epargn+ intégrée) */
+          const maxActuel = proj.goal ? Math.round(proj.goal * 1.03) : Infinity;
+          const cappedActuel = Math.min(totalDeposited, maxActuel);
           if (Math.abs(cappedActuel - (proj.actuel || 0)) > 1) {
             await supabaseRequest('PATCH',
               '/projects?id=eq.' + encodeURIComponent(proj.id),
@@ -878,7 +880,9 @@ module.exports = async (req, res) => {
             '/projects?id=eq.' + encodeURIComponent(projectId) + '&select=id,actuel,goal,status');
           if (Array.isArray(projRows) && projRows[0]) {
             const proj = projRows[0];
-            const maxAllowed = Math.max(0, (Number(proj.goal) || 0) - (Number(proj.actuel) || 0));
+            /* Plafond = objectif × 1,03 (marge Epargn+) − déjà déposé */
+            const effTarget  = Math.round((Number(proj.goal) || 0) * 1.03);
+            const maxAllowed = Math.max(0, effTarget - (Number(proj.actuel) || 0));
 
             /* Vérification admin : bloquer si dépasse le plafond */
             if (netForServer > maxAllowed && maxAllowed >= 0) {
