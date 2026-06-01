@@ -582,6 +582,81 @@ module.exports = async (req, res) => {
     }
   }
 
+  /* ════════════ AUTO-REATTRIBUTE — remplir les projets avec l'excédent ════════════
+     Répartit l'excédent LIBRE de l'utilisateur (solde − Σ actuel) dans ses
+     projets actifs encore incomplets, en comblant d'abord ceux les plus
+     proches de leur objectif (× 1,03). N'utilise QUE l'argent hors projet. */
+  if (action === 'reattribute_auto') {
+    const surplusUserId = body.targetUserId;
+    if (!surplusUserId) return res.status(400).json({ error: 'targetUserId requis' });
+    try {
+      const uRows = await supabaseRequest('GET',
+        '/users?id=eq.' + encodeURIComponent(surplusUserId) + '&select=id,epargne');
+      const u = Array.isArray(uRows) && uRows[0];
+      if (!u) return res.status(404).json({ error: 'Utilisateur introuvable' });
+
+      const projs = await supabaseRequest('GET',
+        '/projects?user_id=eq.' + encodeURIComponent(surplusUserId) +
+        '&status=eq.active&select=id,name,goal,actuel');
+      const list = Array.isArray(projs) ? projs : [];
+
+      const solde       = Number(u.epargne) || 0;
+      const dansProjets = list.reduce((s, p) => s + (Number(p.actuel) || 0), 0);
+      let freeBalance   = Math.max(0, solde - dansProjets);
+
+      if (freeBalance <= 0) {
+        return res.status(400).json({ error: 'Aucun excédent libre : tout le solde est déjà placé.' });
+      }
+
+      /* Projets incomplets, comblés du plus proche de l'objectif au plus loin */
+      const targets = list.map((p) => {
+        const goal      = Number(p.goal) || 0;
+        const actuel    = Number(p.actuel) || 0;
+        const effTarget = Math.round(goal * 1.03);
+        return { id: p.id, name: p.name, actuel, room: Math.max(0, effTarget - actuel) };
+      }).filter((t) => t.room > 0).sort((a, b) => a.room - b.room);
+
+      let totalInjected = 0;
+      const filled = [];
+      for (const t of targets) {
+        if (freeBalance <= 0) break;
+        const inject = Math.min(freeBalance, t.room);
+        if (inject <= 0) continue;
+        const newActuel = t.actuel + inject;
+        await supabaseRequest('PATCH',
+          '/projects?id=eq.' + encodeURIComponent(t.id),
+          { actuel: newActuel, has_funds: true, updated_at: now });
+        const ref = 'SURPLUS-' + now.slice(0, 10).replace(/-/g, '') +
+          '-' + Math.random().toString(36).substr(2, 5).toUpperCase();
+        await supabaseRequest('POST', '/transactions', {
+          user_id: surplusUserId, type: 'reattribution', amount: inject,
+          is_credit: true, project_id: t.id, statut: 'completed', status: 'success',
+          label: ref + ' · Auto-remplissage excédent (admin)',
+        });
+        freeBalance   -= inject;
+        totalInjected += inject;
+        filled.push({ name: t.name, amount: inject });
+      }
+
+      if (totalInjected <= 0) {
+        return res.status(400).json({ error: 'Aucun projet en cours à remplir (tous déjà pleins).' });
+      }
+
+      try {
+        await createNotification(surplusUserId, 'deposit', '💰 Excédent réparti',
+          totalInjected.toLocaleString('fr-FR') + ' GNF de votre solde ont été répartis dans vos projets en cours.',
+          { amount: totalInjected });
+      } catch {}
+
+      return res.status(200).json({
+        ok: true, action: 'reattribute_auto',
+        injected: totalInjected, remaining: freeBalance, filled,
+      });
+    } catch (err) {
+      return res.status(500).json({ error: 'Erreur auto-réattribution : ' + err.message });
+    }
+  }
+
   /* ════════════ EMAIL TEMPLATE MANAGEMENT ════════════ */
 
   if (action === 'update_email_template') {

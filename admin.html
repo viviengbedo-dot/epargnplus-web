@@ -3920,12 +3920,16 @@ function runMigration() {
 }
 
 function openReattributeModal(userId, phone, excedent) {
-  var projectId = prompt('Réattribution de '+excedent.toLocaleString('fr-FR')+' GNF pour '+phone+'\n\nID du projet cible :');
-  if (!projectId || !projectId.trim()) return;
-  fetch('/api/admin/update-balance',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+_adminToken},body:JSON.stringify({action:'reattribute_surplus',targetUserId:userId,projectId:projectId.trim()})})
+  if (!confirm('Répartir automatiquement l\'excédent de ' + excedent.toLocaleString('fr-FR') +
+    ' GNF de ' + phone + ' dans ses projets en cours ?\n\n' +
+    'Les projets les plus proches de leur objectif sont comblés en premier.')) return;
+  fetch('/api/admin/update-balance',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+_adminToken},body:JSON.stringify({action:'reattribute_auto',targetUserId:userId})})
   .then(function(r){return r.json();}).then(function(d){
-    if(d.ok){showAdminToast('✅ '+(d.injection||0).toLocaleString('fr-FR')+' GNF réattribués !','success');reloadAdminData();}
-    else{showAdminToast('Erreur : '+(d.error||'inconnue'),'error');}
+    if(d.ok){
+      var detail = (d.filled||[]).map(function(f){return f.name+' (+'+f.amount.toLocaleString('fr-FR')+')';}).join(', ');
+      showAdminToast('✅ '+(d.injected||0).toLocaleString('fr-FR')+' GNF répartis'+(detail?' : '+detail:'')+(d.remaining>0?' · reste '+d.remaining.toLocaleString('fr-FR')+' libre':''),'success');
+      reloadAdminData();
+    } else {showAdminToast('Erreur : '+(d.error||'inconnue'),'error');}
   }).catch(function(){showAdminToast('Erreur réseau','error');});
 }
 
