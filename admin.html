@@ -1445,7 +1445,7 @@
         <!-- Tableau excédents -->
         <div class="card" style="padding:0;">
           <div style="padding:16px 20px;border-bottom:1px solid var(--divider);">
-            <div class="card-title" style="margin:0;">💰 Utilisateurs avec excédent non affecté</div>
+            <div class="card-title" style="margin:0;">💰 Utilisateurs avec excédent au-delà des objectifs</div>
           </div>
           <div class="table-wrap">
             <table>
@@ -1453,8 +1453,8 @@
                 <tr>
                   <th>Utilisateur</th>
                   <th>Solde</th>
-                  <th>Alloué aux projets</th>
-                  <th>Excédent</th>
+                  <th>Dans les projets</th>
+                  <th>Excédent (au-delà des objectifs)</th>
                   <th>Projets actifs</th>
                   <th>Action</th>
                 </tr>
@@ -3890,7 +3890,7 @@ function renderCoherenceTable() {
     return '<tr>'+
       '<td><div style="font-weight:600;">'+esc(u.prenom||'—')+'</div><div style="font-size:11px;color:var(--text-muted);">'+esc(u.phone||'')+'</div></td>'+
       '<td style="font-weight:700;color:var(--primary);">'+(u.solde_actuel||0).toLocaleString('fr-FR')+' GNF</td>'+
-      '<td>'+(u.alloue != null ? u.alloue : Math.max(0,(u.solde_actuel||0)-(u.excedent||0))).toLocaleString('fr-FR')+' GNF</td>'+
+      '<td>'+(u.dans_projets != null ? u.dans_projets : (u.alloue != null ? u.alloue : Math.max(0,(u.solde_actuel||0)-(u.excedent||0)))).toLocaleString('fr-FR')+' GNF</td>'+
       '<td><span style="background:#FEF3C7;color:#92400E;padding:3px 10px;border-radius:100px;font-size:12px;font-weight:700;">⚠ '+(u.excedent||0).toLocaleString('fr-FR')+' GNF</span></td>'+
       '<td style="text-align:center;">'+(u.nb_projets_actifs||0)+'</td>'+
       '<td><button class="btn btn-sm" style="font-size:11px;" onclick="openReattributeModal(\''+esc(u.user_id)+'\',\''+esc(u.phone||'')+'\','+(u.excedent||0)+')">♻️ Réattribuer</button></td>'+

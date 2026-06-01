@@ -488,19 +488,21 @@ module.exports = async (req, res) => {
             const userProjs = await supabaseRequest('GET',
               '/projects?user_id=eq.' + encodeURIComponent(u.id) +
               '&status=eq.active&select=goal,actuel');
-            let allocated = 0, capacite = 0;
+            let allocated = 0, capacite = 0, dansProjets = 0;
             (Array.isArray(userProjs) ? userProjs : []).forEach((p) => {
               const actuel = Number(p.actuel) || 0;
               const target = Math.round((Number(p.goal) || 0) * 1.03);
-              allocated += Math.min(actuel, target);
-              capacite  += Math.max(target - actuel, 0);
+              allocated   += Math.min(actuel, target);
+              capacite    += Math.max(target - actuel, 0);
+              dansProjets += actuel;
             });
             const solde    = Number(u.epargne) || 0;
             const excedent = Math.max(0, solde - allocated);
             if (excedent > 100) surplusUsers.push({
               user_id: u.id, phone: u.phone, prenom: u.prenom || '',
-              solde_actuel: solde, alloue: allocated, capacite_restante: capacite,
-              excedent, nb_projets_actifs: (Array.isArray(userProjs) ? userProjs.length : 0),
+              solde_actuel: solde, dans_projets: dansProjets, alloue: allocated,
+              capacite_restante: capacite, excedent,
+              nb_projets_actifs: (Array.isArray(userProjs) ? userProjs.length : 0),
             });
           } catch {}
         }

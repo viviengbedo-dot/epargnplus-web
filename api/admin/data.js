@@ -208,13 +208,18 @@ module.exports = async (req, res) => {
       surplusUsers = (users || []).map((u) => {
         const solde = Number(u.epargne) || 0;
         const projs = projByUser[u.id] || [];
-        let allocated = 0;   /* Σ min(actuel, objectif effectif) */
-        let capacite  = 0;   /* Σ max(objectif effectif − actuel, 0) */
+        let allocated   = 0;   /* Σ min(actuel, objectif effectif) — dans les objectifs */
+        let dansProjets = 0;   /* Σ actuel — argent réellement présent dans les projets */
+        let objectifs   = 0;   /* Σ goal — total des objectifs des projets */
+        let capacite    = 0;   /* Σ max(objectif effectif − actuel, 0) */
         projs.forEach((p) => {
           const actuel  = Number(p.actuel) || 0;
-          const target  = Math.round((Number(p.goal) || 0) * FEE);
-          allocated += Math.min(actuel, target);
-          capacite  += Math.max(target - actuel, 0);
+          const goal    = Number(p.goal) || 0;
+          const target  = Math.round(goal * FEE);
+          allocated   += Math.min(actuel, target);
+          dansProjets += actuel;
+          objectifs   += goal;
+          capacite    += Math.max(target - actuel, 0);
         });
         const excedent = Math.max(0, solde - allocated);
         return {
@@ -222,9 +227,11 @@ module.exports = async (req, res) => {
           phone:             u.phone,
           prenom:            u.prenom,
           solde_actuel:      solde,
-          alloue:            allocated,   /* argent réellement placé dans les projets */
+          dans_projets:      dansProjets, /* Σ actuel — réellement dans les projets */
+          objectifs_total:   objectifs,   /* Σ goal — total des objectifs */
+          alloue:            allocated,   /* Σ min(actuel, objectif) — dans les objectifs */
           capacite_restante: capacite,    /* room restante (info) */
-          excedent:          excedent,    /* = solde − alloué */
+          excedent:          excedent,    /* solde au-delà des objectifs, à réattribuer */
           nb_projets_actifs: projs.length,
         };
       })
