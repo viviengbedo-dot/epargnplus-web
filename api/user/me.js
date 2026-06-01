@@ -579,16 +579,9 @@ async function handleTransactions(req, res, payload) {
             { epargne: currentEpargne - deduct, updated_at: now });
         } catch (e) {}
 
-        /* Marge Epargn+ (3%) — enregistrée séparément (revenu plateforme) */
-        if (margin > 0) {
-          try {
-            await supabaseRequest('POST', '/transactions', {
-              user_id: payload.userId, type: 'fee', amount: margin, operator: 'Epargn+',
-              is_credit: false, project_id: projectId, statut: 'completed', status: 'success',
-              label: ref + ' · Frais de gestion Epargn+ (3%)',
-            });
-          } catch (e) {}
-        }
+        /* Marge Epargn+ (3%) : retenue implicitement — le solde est débité du
+           montant total du projet alors que le client ne reçoit que le capital.
+           Pas de transaction 'fee' (type non autorisé par la contrainte DB). */
 
         if (projectId) {
           try {

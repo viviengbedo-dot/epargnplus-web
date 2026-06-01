@@ -555,7 +555,7 @@ module.exports = async (req, res) => {
       const ref = 'SURPLUS-' + now.slice(0,10).replace(/-/g,'') +
         '-' + Math.random().toString(36).substr(2,5).toUpperCase();
       await supabaseRequest('POST', '/transactions', {
-        user_id:   surplusUserId, type: 'reattribution', amount: injection,
+        user_id:   surplusUserId, type: 'deposit', amount: injection,
         is_credit: true, project_id: targetProjectId,
         statut: 'completed', status: 'success',
         label: ref + ' · Réattribution excédent (admin)',
@@ -629,7 +629,7 @@ module.exports = async (req, res) => {
         const ref = 'SURPLUS-' + now.slice(0, 10).replace(/-/g, '') +
           '-' + Math.random().toString(36).substr(2, 5).toUpperCase();
         await supabaseRequest('POST', '/transactions', {
-          user_id: surplusUserId, type: 'reattribution', amount: inject,
+          user_id: surplusUserId, type: 'deposit', amount: inject,
           is_credit: true, project_id: t.id, statut: 'completed', status: 'success',
           label: ref + ' · Auto-remplissage excédent (admin)',
         });
@@ -701,7 +701,7 @@ module.exports = async (req, res) => {
           const ref = 'SURPLUS-' + now.slice(0, 10).replace(/-/g, '') +
             '-' + Math.random().toString(36).substr(2, 5).toUpperCase();
           await supabaseRequest('POST', '/transactions', {
-            user_id: u.id, type: 'reattribution', amount: inject,
+            user_id: u.id, type: 'deposit', amount: inject,
             is_credit: true, project_id: t.id, statut: 'completed', status: 'success',
             label: ref + ' · Auto-remplissage excédent (lot)',
           });
