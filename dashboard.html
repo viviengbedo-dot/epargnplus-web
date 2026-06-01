@@ -2862,7 +2862,19 @@ function projReached(actuel, cible) {
   return t > 0 && (Number(actuel) || 0) >= t;
 }
 
-let TONTINES_USER = (function() { try { return JSON.parse(localStorage.getItem('epargn_tontines') || '[]'); } catch(e) { return []; } })();
+/* ── Normalisation téléphone au format E.164 (ex. +224622442830) ──
+   "622442830", "+224 622 44 28 30", "00224622442830" → "+224622442830".
+   Permet de dédupliquer et de matcher le format stocké en base. */
+var COUNTRY_DIAL = { gn:'224', bj:'229', ci:'225', cn:'86' };
+function normalizePhoneE164(raw) {
+  var d = String(raw || '').replace(/[^\d]/g, '');
+  if (!d) return '';
+  if (d.indexOf('00') === 0) d = d.slice(2);
+  var country = (_currentUser && _currentUser.country) || (typeof _userCountry !== 'undefined' ? _userCountry : 'gn') || 'gn';
+  var dial = COUNTRY_DIAL[country] || '224';
+  if (d.indexOf(dial) !== 0) d = dial + d;   /* numéro local → préfixer l'indicatif */
+  return '+' + d;
+}
 
 /* Notifications — générées depuis les transactions réelles */
 let NOTIFS = [];
@@ -7723,11 +7735,15 @@ function renderUserTontines() {
     var primesHtml = totalPrimes > 0 ? `<div style="background:#FFFBEB;border-radius:8px;padding:8px 12px;font-size:12px;color:#92400E;font-weight:700;margin-top:8px;">
       🏅 ${fmt(totalPrimes)} ${cur} de primes de ponctualité distribuées</div>` : '';
 
-    /* ── Durée restante ── */
-    var created   = new Date(t.createdAt || now);
-    var endDate   = new Date(created.getFullYear(), created.getMonth() + duree, created.getDate());
-    var moisRest  = Math.max(0, Math.ceil((endDate - now) / (30.44 * 86400000)));
-    var durationHtml = `<span style="font-size:12px;color:var(--text-secondary);">🗓 ${moisRest} mois restants sur ${duree}</span>`;
+    /* ── Durée restante (gère m/w, plus de NaN) ── */
+    var _pu      = _parseDuree(t.duree);
+    var _created = new Date(t.createdAt || now);
+    var _endDate = new Date(_created);
+    if (_pu.unit === 'w') _endDate.setDate(_endDate.getDate() + _pu.n * 7);
+    else                  _endDate.setMonth(_endDate.getMonth() + _pu.n);
+    var _daysRest  = Math.max(0, Math.ceil((_endDate - now) / 86400000));
+    var _restLabel = _daysRest >= 60 ? (Math.ceil(_daysRest / 30) + ' mois') : (_daysRest + ' jour' + (_daysRest > 1 ? 's' : ''));
+    var durationHtml = `<span style="font-size:12px;color:var(--text-secondary);">🗓 ${_restLabel} restants · ${_dureeLabel(t.duree)}</span>`;
 
     /* ── Bouton dépôt (lié au projet Supabase si disponible) ── */
     var depositBtn = t.projectId
@@ -8180,18 +8196,28 @@ function openAddTontineMember(idx) {
 
 function addTontineMember() {
   var idx   = parseInt(document.getElementById('addMemberTontineIdx').value, 10);
-  var phone = (document.getElementById('addMemberPhone').value || '').trim();
-  if (!phone) { showToast('Saisissez un numéro de téléphone.', 'error'); return; }
+  var phoneRaw = (document.getElementById('addMemberPhone').value || '').trim();
+  if (!phoneRaw) { showToast('Saisissez un numéro de téléphone.', 'error'); return; }
 
   var t = TONTINES_USER[idx];
   if (!t) { showToast('Épargne collective introuvable.', 'error'); return; }
 
+  /* Normaliser au format E.164 (+224XXXXXXXXX pour la Guinée) */
+  var phone = normalizePhoneE164(phoneRaw);
+  var phoneKey = phone.replace(/[^\d]/g, '');
+
   if (!t.phones) t.phones = [];
-  if (t.phones.includes(phone)) {
+  /* Dédup par numéro normalisé (mêmes chiffres = même personne, peu importe le format) */
+  var dup = t.phones.some(function(p) {
+    return normalizePhoneE164(p).replace(/[^\d]/g, '') === phoneKey;
+  });
+  /* Ne pas s'ajouter soi-même non plus */
+  var myKey = (_currentUser && _currentUser.phone) ? String(_currentUser.phone).replace(/[^\d]/g, '') : '';
+  if (dup || (myKey && myKey === phoneKey)) {
     showToast('Ce numéro est déjà membre de ce groupe.', 'error'); return;
   }
 
-  /* Ajouter le membre */
+  /* Ajouter le membre (au format normalisé) */
   t.phones.push(phone);
   t.membres = t.phones.length + 1;
   t.mise = _tontineCalcMise(t.goal || 0, parseInt(t.duree || 12, 10), t.membres, t.freq || 'mensuelle');

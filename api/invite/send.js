@@ -425,11 +425,25 @@ module.exports = async (req, res) => {
   let inviteeUserId = null;
 
   if (phone) {
-    const phoneClean = phone.replace(/[\s\-]/g, '');
+    /* Essayer plusieurs formats pour retrouver le compte (le numéro peut être
+       saisi en local "622442830" alors qu'il est stocké en "+224622442830"). */
+    const digits = String(phone).replace(/[^\d]/g, '').replace(/^00/, '');
+    const cands = new Set();
+    cands.add(phone.trim());
+    cands.add(digits);
+    cands.add('+' + digits);
+    if (digits.length > 9) {                 /* a un indicatif pays */
+      const local = digits.slice(-9);
+      cands.add(local);
+      cands.add('+224' + local); cands.add('224' + local);
+      cands.add('+' + digits.slice(0, digits.length - 9) + local);
+    } else {                                  /* numéro local → préfixer 224 */
+      cands.add('+224' + digits); cands.add('224' + digits);
+    }
+    const list = [...cands].filter(Boolean).map(encodeURIComponent).join(',');
     try {
       const found = await supabaseRequest('GET',
-        '/users?phone=eq.' + encodeURIComponent(phoneClean) +
-        '&select=id,email,prenom,nom&limit=1');
+        '/users?phone=in.(' + list + ')&select=id,email,prenom,nom&limit=1');
       if (Array.isArray(found) && found[0]) {
         inviteeEmail  = inviteeEmail || found[0].email || null;
         inviteeName   = found[0].prenom || null;
