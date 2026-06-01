@@ -4246,14 +4246,16 @@ function renderProjectCards() {
   const R = 38, CIRC = +(2 * Math.PI * R).toFixed(1);
 
   grid.innerHTML = PROJETS.map((p, idx) => {
+   try {
+    const nom      = String(p.nom || p.name || 'Projet');
     const pct      = projPct(p.actuel, p.cible);
-    const ic_pre   = projectIcon(p.nom);
+    const ic_pre   = projectIcon(nom);
     const color    = p.color || ic_pre.color || COLORS[idx % COLORS.length];
     const gcol     = pct >= 100 ? '#22CC66' : color;
     const dash     = +(pct / 100 * CIRC).toFixed(1);
     const gap      = +(CIRC - dash).toFixed(1);
-    const restant  = Math.max(0, p.cible - p.actuel);
-    const safeNom  = p.nom.replace(/'/g, '\\\'');
+    const restant  = Math.max(0, (p.cible || 0) - (p.actuel || 0));
+    const safeNom  = nom.replace(/'/g, '\\\'');
     const ic       = ic_pre; /* déjà calculé */
     const ins      = projectInsight(pct, p.actuel);
 
@@ -4384,6 +4386,10 @@ function renderProjectCards() {
         ${(p.status !== 'closure_requested' && !projectHasJoinedMembers(p) && (p.actuel || 0) === 0) ? `<button class="btn btn-outline btn-sm" onclick="deleteProject(${idx})" style="color:#DC2626;border-color:#FECACA;font-size:13px;padding:11px 14px;" title="Supprimer">🗑</button>` : ''}
       </div>
     </div>`;
+   } catch (e) {
+    console.warn('[renderProjectCards] projet ignoré:', e && e.message);
+    return '';   /* Un projet mal formé ne casse plus tout l'écran */
+   }
   }).join('');
 }
 
@@ -7688,6 +7694,8 @@ function renderUserTontines() {
   var now = new Date();
 
   box.innerHTML = visible.map(function(t, vidx) {
+   try {
+    if (!t.nom) t.nom = 'Épargne Collective';   /* garde-fou anti-crash */
     /* Retrouver l'index réel dans TONTINES_USER */
     var idx    = TONTINES_USER.indexOf(t);
     var period = _tontinePeriod(now, t.freq);
@@ -7837,6 +7845,10 @@ function renderUserTontines() {
         ${t.isJoined ? '' : deleteBtn}
       </div>
     </div>`;
+   } catch (e) {
+    console.warn('[renderUserTontines] groupe ignoré:', e && e.message);
+    return '';
+   }
   }).join('');
 }
 
@@ -7863,11 +7875,9 @@ function loadMyGroups() {
         changed = true;
         return;
       }
-      /* Les groupes que JE possède viennent du localStorage local — ne pas dupliquer */
-      if (g.is_creator) return;
-
-      /* Groupe REJOINT : l'ajouter pour qu'il apparaisse chez le membre */
-      var nom = String(g.name || '').replace(/^🤝\s*/, '');
+      /* Pas encore en local → l'ajouter (créateur OU membre), pour que le
+         groupe réapparaisse même si le localStorage a été vidé. */
+      var nom = String(g.name || 'Épargne Collective').replace(/^🤝\s*/, '');
       TONTINES_USER.push({
         id:                _tontineGenId(),
         projectId:         g.id,
@@ -7885,8 +7895,8 @@ function loadMyGroups() {
         status:            g.status || 'active',
         createdAt:         g.created_at || new Date().toISOString(),
         contribution_type: g.contribution_type || 'free',
-        role:              g.role || 'member',
-        isJoined:          true,
+        role:              g.is_creator ? 'creator' : (g.role || 'member'),
+        isJoined:          !g.is_creator,   /* créateur = pas "membre rejoint" */
         inviteCode:        g.invite_code || null,
       });
       changed = true;
