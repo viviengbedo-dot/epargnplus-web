@@ -2747,13 +2747,23 @@ function fetchMerchantSettings() {
   .then(function(data) {
     if (!data || !data.merchant_config) return;
     var cfg = data.merchant_config;
-    /* Mettre à jour l'objet MERCHANT avec les valeurs de la DB */
+    /* Mettre à jour MERCHANT — UNIQUEMENT avec des valeurs non vides, pour ne
+       jamais effacer un numéro par défaut avec une config DB incomplète. */
     ['orange','mtn','wave','moov','celtiis','coris'].forEach(function(op) {
       if (cfg[op] && typeof cfg[op] === 'object') {
         MERCHANT[op] = MERCHANT[op] || {};
-        Object.assign(MERCHANT[op], cfg[op]);
+        Object.keys(cfg[op]).forEach(function(country) {
+          var val = cfg[op][country];
+          if (val !== undefined && val !== null && String(val).trim() !== '') {
+            MERCHANT[op][country] = val;
+          }
+        });
       }
     });
+    /* Rafraîchir le sélecteur d'opérateurs si le modal de dépôt est déjà affiché */
+    if (typeof initDepositModal === 'function') {
+      try { initDepositModal(); } catch (e) {}
+    }
     /* Config Alipay */
     if (cfg.alipay) {
       var alipayIdEl = document.getElementById('alipayAccountId');
@@ -5516,11 +5526,18 @@ function buildDepOpBtn(opId, country, isFirst) {
 
 /* Initialise le modal dépôt selon le pays de l'utilisateur */
 function initDepositModal() {
-  const country = _userCountry;
+  let country = _userCountry || 'gn';
   /* Uniquement les opérateurs qui ont un numéro marchand défini pour ce pays */
-  const ops = (COUNTRY_OPS[country] || COUNTRY_OPS.gn).filter(function(opId) {
+  let ops = (COUNTRY_OPS[country] || COUNTRY_OPS.gn).filter(function(opId) {
     return MERCHANT[opId] && MERCHANT[opId][country];
   });
+  /* Filet de sécurité : si rien pour ce pays, retomber sur la Guinée */
+  if (ops.length === 0 && country !== 'gn') {
+    country = 'gn';
+    ops = COUNTRY_OPS.gn.filter(function(opId) {
+      return MERCHANT[opId] && MERCHANT[opId].gn;
+    });
+  }
   const container = document.getElementById('depOpSelector');
   if (container) {
     if (ops.length === 0) {
