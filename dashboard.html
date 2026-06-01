@@ -5144,11 +5144,33 @@ function updateKYCProfileAction() {
   } else {
     /* ── NONE : pas encore soumis ── */
     box.innerHTML =
-      '<button class="btn btn-accent" style="width:100%;" onclick="showSection(\'kyc\',null);setBottomNav(\'\')">' +
+      '<button class="btn btn-accent" style="width:100%;" onclick="startSmileKyc()">' +
         '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>' +
-        ' Compléter la vérification KYC' +
+        ' Vérifier mon identité' +
       '</button>';
   }
+}
+
+/* ── Lancer la vérification d'identité Smile ID (avec fallback manuel) ── */
+function startSmileKyc() {
+  if (!_authToken) { showToast('Session expirée — reconnectez-vous', 'error'); return; }
+  showToast('⏳ Préparation de la vérification…', 'info');
+  fetch('/api/user/me?resource=kyc', {
+    headers: { 'Authorization': 'Bearer ' + _authToken },
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d && d.configured && d.smile_url) {
+      /* Page de vérification hébergée par Smile ID (pièce + selfie + liveness) */
+      window.location.href = d.smile_url;
+    } else {
+      /* Smile ID pas configuré → flux manuel existant */
+      showSection('kyc', null); setBottomNav('');
+    }
+  })
+  .catch(function() {
+    showSection('kyc', null); setBottomNav('');
+  });
 }
 
 /* ── Réinitialiser le flux KYC pour re-soumission ── */

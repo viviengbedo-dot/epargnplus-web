@@ -81,6 +81,7 @@ module.exports = async (req, res) => {
   if (resource === 'invitations_send') return handleInvitationsSend(req, res, payload);
   if (resource === 'invitations_resend') return handleInvitationsResend(req, res, payload);
   if (resource === 'my_groups')        return handleMyGroups(req, res, payload);
+  if (resource === 'kyc')              return handleKyc(req, res, payload);
   if (resource === 'settings')         return handleSettings(req, res);
   if (resource === 'tickets')          return handleTickets(req, res, payload, resourceId);
   if (resource === 'promos')           return handlePromos(req, res, payload);
@@ -1334,4 +1335,18 @@ async function handleMyGroups(req, res, payload) {
   } catch (e) {
     return res.status(200).json([]);
   }
+}
+
+/* ── KYC : fournit l'URL de vérification Smile ID (pré-remplie avec user_id) ── */
+async function handleKyc(req, res, payload) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'GET uniquement' });
+  const base = process.env.SMILE_LINK_URL || '';
+  if (!base) {
+    /* Smile ID pas encore configuré → le frontend bascule sur la validation manuelle */
+    return res.status(200).json({ ok: true, configured: false, smile_url: null });
+  }
+  /* Passer le user_id à Smile (devient partner_params.user_id, renvoyé au webhook) */
+  const sep = base.indexOf('?') === -1 ? '?' : '&';
+  const smileUrl = base + sep + 'user_id=' + encodeURIComponent(payload.userId);
+  return res.status(200).json({ ok: true, configured: true, smile_url: smileUrl });
 }
