@@ -7671,22 +7671,21 @@ function renderTontineStats() {
 function renderUserTontines() {
   var box = document.getElementById('tontineGrid');
   if (!box) return;
-  var cur = (_currentUser && COUNTRY_LABELS[_currentUser.country]) ? COUNTRY_LABELS[_currentUser.country].currency : 'GNF';
-  var visible = TONTINES_USER.filter(function(t) { return t.status !== 'closed'; });
-
-  if (!visible.length) {
-    box.innerHTML = `<div style="text-align:center;padding:44px 24px;background:var(--bg-light);border-radius:var(--radius-lg);border:2px dashed var(--divider);">
+  var emptyHtml = `<div style="text-align:center;padding:44px 24px;background:var(--bg-light);border-radius:var(--radius-lg);border:2px dashed var(--divider);">
       <div style="font-size:52px;margin-bottom:12px;">🤝</div>
       <div style="font-size:17px;font-weight:800;color:var(--primary);margin-bottom:6px;">Aucune épargne collective pour le moment</div>
       <div style="font-size:13px;color:var(--text-secondary);margin-bottom:20px;line-height:1.5;">Créez votre premier groupe d'épargne<br>avec vos proches ou collègues.</div>
       <button class="btn btn-accent" style="padding:13px 28px;font-size:14px;font-weight:700;" onclick="openModal('newTontine')">+ Créer une épargne collective</button>
     </div>`;
-    return;
-  }
+  try {
+  var cur = (_currentUser && COUNTRY_LABELS[_currentUser.country]) ? COUNTRY_LABELS[_currentUser.country].currency : 'GNF';
+  var visible = TONTINES_USER.filter(function(t) { return t && t.status !== 'closed'; });
+
+  if (!visible.length) { box.innerHTML = emptyHtml; return; }
 
   var now = new Date();
 
-  box.innerHTML = visible.map(function(t, vidx) {
+  var _tontHtml = visible.map(function(t, vidx) {
    try {
     if (!t.nom) t.nom = 'Épargne Collective';   /* garde-fou anti-crash */
     /* Retrouver l'index réel dans TONTINES_USER */
@@ -7843,6 +7842,12 @@ function renderUserTontines() {
     return '';
    }
   }).join('');
+  /* Si tout a échoué (HTML vide), afficher l'état vide plutôt qu'un écran blanc */
+  box.innerHTML = (_tontHtml && _tontHtml.trim()) ? _tontHtml : emptyHtml;
+  } catch (e) {
+    console.error('[renderUserTontines] erreur globale:', e);
+    box.innerHTML = emptyHtml;
+  }
 }
 
 /* ── Charger les groupes collectifs où je suis MEMBRE (depuis le serveur) ──
