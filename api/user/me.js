@@ -538,8 +538,31 @@ async function handleTransactions(req, res, payload) {
     const label = body.label || (ref + ' · Retrait ' + operator);
 
     try {
+      /* ── Retrait d'un projet : le client reçoit le CAPITAL (objectif),
+         la plateforme garde la marge de 3% (actuel − objectif). ── */
+      let payout = amount;   /* montant réellement reçu par le client */
+      let deduct = amount;   /* montant qui quitte le solde (epargne) */
+      let margin = 0;
+      if (type === 'withdrawal' && projectId) {
+        try {
+          const pRows = await supabaseRequest('GET',
+            '/projects?id=eq.' + encodeURIComponent(projectId) +
+            '&user_id=eq.' + encodeURIComponent(payload.userId) +
+            '&select=actuel,goal&limit=1');
+          if (Array.isArray(pRows) && pRows[0]) {
+            const projActuel = Number(pRows[0].actuel) || 0;
+            const projGoal   = Number(pRows[0].goal)   || 0;
+            /* Capital rendu = objectif (plafonné à ce qui est dans le projet) */
+            payout = projGoal > 0 ? Math.min(projActuel, projGoal) : projActuel;
+            deduct = projActuel;                 /* tout le projet quitte le solde */
+            margin = Math.max(0, projActuel - payout);
+          }
+        } catch (e) {}
+      }
+
+      /* Transaction principale = montant reçu par le client */
       await supabaseRequest('POST', '/transactions', {
-        user_id: payload.userId, type, amount, operator, is_credit: isCredit,
+        user_id: payload.userId, type, amount: payout, operator, is_credit: isCredit,
         label, project_id: projectId, statut: 'completed', status: 'success',
       });
 
@@ -549,13 +572,23 @@ async function handleTransactions(req, res, payload) {
             '/users?id=eq.' + encodeURIComponent(payload.userId) + '&select=epargne');
           const currentEpargne = (Array.isArray(users) && users[0] && users[0].epargne)
             ? Number(users[0].epargne) : 0;
-          if (amount > currentEpargne) {
-            return res.status(400).json({ error: 'Solde insuffisant. Votre épargne disponible est de ' + currentEpargne + '.' });
-          }
+          /* Sécurité : ne jamais descendre sous 0 */
+          if (deduct > currentEpargne) deduct = currentEpargne;
           await supabaseRequest('PATCH',
             '/users?id=eq.' + encodeURIComponent(payload.userId),
-            { epargne: currentEpargne - amount, updated_at: now });
+            { epargne: currentEpargne - deduct, updated_at: now });
         } catch (e) {}
+
+        /* Marge Epargn+ (3%) — enregistrée séparément (revenu plateforme) */
+        if (margin > 0) {
+          try {
+            await supabaseRequest('POST', '/transactions', {
+              user_id: payload.userId, type: 'fee', amount: margin, operator: 'Epargn+',
+              is_credit: false, project_id: projectId, statut: 'completed', status: 'success',
+              label: ref + ' · Frais de gestion Epargn+ (3%)',
+            });
+          } catch (e) {}
+        }
 
         if (projectId) {
           try {
@@ -567,7 +600,7 @@ async function handleTransactions(req, res, payload) {
         }
       }
 
-      return res.status(201).json({ ok: true, ref });
+      return res.status(201).json({ ok: true, ref, payout, margin });
     } catch (e) {
       return res.status(500).json({ error: 'Erreur enregistrement : ' + e.message });
     }

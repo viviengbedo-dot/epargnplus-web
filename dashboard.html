@@ -4937,8 +4937,7 @@ function openRetraitForProject(projectId, nom, montant) {
   var _proj = (typeof PROJETS !== 'undefined' ? PROJETS : [])
     .find(function(p) { return p.id === projectId; });
   if (_proj) {
-    var _pct = (_proj.cible > 0) ? (_proj.actuel / _proj.cible * 100) : 0;
-    if (_pct < 100) {
+    if (!projReached(_proj.actuel, _proj.cible)) {
       showToast('Le retrait nécessite un objectif atteint à 100%.', 'error');
       return;
     }
@@ -4947,6 +4946,10 @@ function openRetraitForProject(projectId, nom, montant) {
       return;
     }
   }
+
+  /* Le client reçoit le CAPITAL (objectif), pas le montant brut épargné.
+     La marge Epargn+ (3%) est retenue par la plateforme au retrait. */
+  if (_proj && _proj.cible > 0) montant = _proj.cible;
 
   _retraitProjectId  = projectId;
   _retraitProjectNom = nom;
@@ -6898,13 +6901,15 @@ function showReceptionMsg(amount) {
     .then(r => r.json())
     .then(data => {
       if (data.ok) {
-        /* Mettre à jour l'affichage local */
+        /* Le montant TOTAL du projet quitte le solde (capital reçu + marge 3%
+           retenue par la plateforme). On déduit donc l'actuel complet. */
+        const proj = PROJETS.find(p => p.id === _retraitProjectId);
+        const fullLeaving = proj ? (Number(proj.actuel) || amount) : amount;
         if (_currentUser) {
-          _currentUser.epargne = Math.max(0, (_currentUser.epargne || 0) - amount);
+          _currentUser.epargne = Math.max(0, (_currentUser.epargne || 0) - fullLeaving);
           updateBalanceDisplay();
         }
         /* Réinitialiser le projet localement */
-        const proj = PROJETS.find(p => p.id === _retraitProjectId);
         if (proj) { proj.actuel = 0; }
         renderProjectCards();
         renderHomeProjects();
