@@ -3191,33 +3191,26 @@ function refreshDashboardData(silent) {
         status: p.status || 'active', createdAt: p.created_at,
       }));
 
-      /* Vérifier si une valeur a changé */
-      const changed = updated.some((p, i) => {
-        const old = PROJETS[i];
-        return !old || old.actuel !== p.actuel || old.cible !== p.cible;
-      }) || updated.length !== PROJETS.length;
+      /* Détecter les dépôts validés → notifier l'utilisateur (avant d'écraser) */
+      updated.forEach(newP => {
+        const oldP = PROJETS.find(p => p.id === newP.id);
+        if (oldP && newP.actuel > oldP.actuel) {
+          const diff = newP.actuel - oldP.actuel;
+          _notifyDepositApproved(diff, newP.nom, newP.actuel, newP.cible);
+        }
+      });
 
-      if (changed) {
-        /* Détecter les dépôts validés → notifier l'utilisateur */
-        updated.forEach(newP => {
-          const oldP = PROJETS.find(p => p.id === newP.id);
-          if (oldP && newP.actuel > oldP.actuel) {
-            const diff = newP.actuel - oldP.actuel;
-            _notifyDepositApproved(diff, newP.nom, newP.actuel, newP.cible);
-          }
-        });
-
-        PROJETS = updated;
-        localStorage.setItem('epargn_projets', JSON.stringify(PROJETS));
-        syncBalanceFromProjects(); /* ← recalcule le solde global depuis les projets */
-        renderProjectCards();
-        renderHomeProjects();
-        updateHomeOverview();
-        if (typeof updateProgressionGauge === 'function') updateProgressionGauge();
-        _showSyncBadge('✓ Données à jour', '#22CC66');
-      } else {
-        _showSyncBadge('✓ À jour', '#22CC66');
-      }
+      /* TOUJOURS re-rendre (ne pas conditionner au "changed" : sinon les
+         écrans Projets/Épargne Collective restent vides si le cache == serveur). */
+      PROJETS = updated;
+      localStorage.setItem('epargn_projets', JSON.stringify(PROJETS));
+      syncBalanceFromProjects(); /* recalcule le solde global depuis les projets */
+      renderProjectCards();
+      renderHomeProjects();
+      updateHomeOverview();
+      if (typeof updateProgressionGauge === 'function') updateProgressionGauge();
+      if (typeof loadMyGroups === 'function') loadMyGroups(); /* sync Épargne Collective */
+      _showSyncBadge('✓ À jour', '#22CC66');
     })
     .catch(() => { _showSyncBadge('', ''); });
 
