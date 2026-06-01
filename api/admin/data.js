@@ -186,16 +186,52 @@ module.exports = async (req, res) => {
       console.warn('[admin/data] invitations:', e.message);
     }
 
-    /* ── 6a. Cohérence soldes — surplus users ── */
+    /* ── 6a. Cohérence soldes — surplus users (calculé en code) ──
+       L'ancienne vue v_balance_coherence utilisait SUM(goal - actuel) qui
+       devient NÉGATIF quand un projet est sur-financé (actuel > goal), ce qui
+       comptait le solde deux fois (ex : dépôt 25M → excédent affiché 47M).
+
+       Formule correcte :
+         capacité absorbable d'un projet = min(actuel, objectif effectif)
+           où objectif effectif = goal × 1,03 (marge Epargn+ intégrée)
+         excédent = solde − Σ min(actuel, objectif effectif)
+                  = argent au-delà des objectifs des projets, à réattribuer. */
     let surplusUsers = [];
     try {
-      const usersWithSurplus = await supabaseRequest('GET',
-        '/v_balance_coherence?select=user_id,phone,prenom,solde_actuel,capacite_restante,excedent,nb_projets_actifs' +
-        '&order=excedent.desc&limit=50');
-      if (Array.isArray(usersWithSurplus)) surplusUsers = usersWithSurplus;
+      const FEE = 1.03;
+      const projByUser = {};
+      (allProjects || []).forEach((p) => {
+        if (!p || p.status !== 'active') return;
+        (projByUser[p.user_id] = projByUser[p.user_id] || []).push(p);
+      });
+
+      surplusUsers = (users || []).map((u) => {
+        const solde = Number(u.epargne) || 0;
+        const projs = projByUser[u.id] || [];
+        let allocated = 0;   /* Σ min(actuel, objectif effectif) */
+        let capacite  = 0;   /* Σ max(objectif effectif − actuel, 0) */
+        projs.forEach((p) => {
+          const actuel  = Number(p.actuel) || 0;
+          const target  = Math.round((Number(p.goal) || 0) * FEE);
+          allocated += Math.min(actuel, target);
+          capacite  += Math.max(target - actuel, 0);
+        });
+        const excedent = Math.max(0, solde - allocated);
+        return {
+          user_id:           u.id,
+          phone:             u.phone,
+          prenom:            u.prenom,
+          solde_actuel:      solde,
+          capacite_restante: capacite,
+          excedent:          excedent,
+          nb_projets_actifs: projs.length,
+        };
+      })
+      .filter((r) => r.excedent > 0)
+      .sort((a, b) => b.excedent - a.excedent)
+      .slice(0, 50);
     } catch (e) {
-      /* Vue optionnelle — pas bloquant */
-      console.warn('[admin/data] v_balance_coherence:', e.message);
+      console.warn('[admin/data] surplus calc:', e.message);
     }
 
     /* ── 6b. Support Tickets ── */
