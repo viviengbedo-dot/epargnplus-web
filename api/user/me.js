@@ -341,6 +341,32 @@ async function handleProjects(req, res, payload, resourceId) {
       } catch (e) {}
     }
 
+    /* ── Garde-fou : l'objectif ne peut PAS être réduit sous le montant déjà
+       déposé. Empêche de créer un sur-financement en baissant la cible
+       (ex : projet à 25M rempli, puis cible baissée à 2M). */
+    if (patch.goal !== undefined) {
+      if (isNaN(patch.goal) || patch.goal < 1000) {
+        return res.status(400).json({ error: 'Objectif invalide (minimum 1 000).' });
+      }
+      try {
+        const aRows = await supabaseRequest('GET',
+          '/projects?id=eq.' + encodeURIComponent(resourceId) +
+          '&user_id=eq.' + encodeURIComponent(payload.userId) +
+          '&select=actuel&limit=1');
+        if (Array.isArray(aRows) && aRows[0]) {
+          const actuel = Number(aRows[0].actuel) || 0;
+          if (patch.goal < actuel) {
+            return res.status(400).json({
+              error: 'L\'objectif ne peut pas être inférieur au montant déjà épargné (' +
+                actuel.toLocaleString('fr-FR') + ' GNF).',
+              code: 'GOAL_BELOW_SAVED',
+              actuel: actuel,
+            });
+          }
+        }
+      } catch (e) {}
+    }
+
     /* ── Changement de statut : garde-fou anti-contournement ──
        Un utilisateur ne peut JAMAIS clôturer ('closed') un projet COLLECTIF
        lui-même. Toute tentative est convertie en demande de clôture admin. */
