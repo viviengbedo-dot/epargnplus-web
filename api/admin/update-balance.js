@@ -883,7 +883,9 @@ module.exports = async (req, res) => {
         } catch (e) {}
       }
 
-      const netForServer = Math.floor(depositAmount * 0.98);
+      /* Crédit intégral du dépôt — aucun frais (la marge Epargn+ de 3% est
+         intégrée silencieusement au seuil des 100%, pas prélevée sur le dépôt). */
+      const netForServer = depositAmount;
       const newEpargne   = (Number(user.epargne) || 0) + netForServer;
       await supabaseRequest('PATCH',
         '/users?id=eq.' + encodeURIComponent(userId),
@@ -911,17 +913,17 @@ module.exports = async (req, res) => {
                 await supabaseRequest('PATCH',
                   '/projects?id=eq.' + encodeURIComponent(projectId),
                   { actuel: newActuel, has_funds: true, updated_at: now,
-                    ...(newActuel >= proj.goal ? { status: 'completed' } : {}) });
+                    ...(newActuel >= effTarget ? { status: 'completed' } : {}) });
               }
             } else if (netForServer > 0) {
               const newActuel = Math.min(
                 (Number(proj.actuel) || 0) + netForServer,
-                Number(proj.goal) || Infinity
+                effTarget || Infinity
               );
               await supabaseRequest('PATCH',
                 '/projects?id=eq.' + encodeURIComponent(projectId),
                 { actuel: newActuel, has_funds: true, updated_at: now,
-                  ...(newActuel >= (proj.goal || Infinity) ? { status: 'completed' } : {}) });
+                  ...(newActuel >= (effTarget || Infinity) ? { status: 'completed' } : {}) });
             }
           }
         } catch (projErr) {
