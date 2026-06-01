@@ -222,8 +222,9 @@ module.exports = async (req, res) => {
           phone:             u.phone,
           prenom:            u.prenom,
           solde_actuel:      solde,
-          capacite_restante: capacite,
-          excedent:          excedent,
+          alloue:            allocated,   /* argent réellement placé dans les projets */
+          capacite_restante: capacite,    /* room restante (info) */
+          excedent:          excedent,    /* = solde − alloué */
           nb_projets_actifs: projs.length,
         };
       })

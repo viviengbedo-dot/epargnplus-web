@@ -477,9 +477,10 @@ module.exports = async (req, res) => {
         } catch { errors++; }
       }
 
-      /* Identifier les utilisateurs en excédent */
+      /* Identifier les utilisateurs en excédent — même logique que /api/admin/data :
+         alloué = Σ min(actuel, objectif × 1,03) ; excédent = solde − alloué. */
       const users = await supabaseRequest('GET',
-        '/users?select=id,phone,epargne&limit=1000');
+        '/users?select=id,phone,prenom,epargne&limit=1000');
       const surplusUsers = [];
       if (Array.isArray(users)) {
         for (const u of users) {
@@ -487,14 +488,24 @@ module.exports = async (req, res) => {
             const userProjs = await supabaseRequest('GET',
               '/projects?user_id=eq.' + encodeURIComponent(u.id) +
               '&status=eq.active&select=goal,actuel');
-            const capacite = Array.isArray(userProjs)
-              ? userProjs.reduce((s, p) => s + Math.max(0, (p.goal || 0) - (p.actuel || 0)), 0)
-              : 0;
-            const surplus = (u.epargne || 0) - capacite;
-            if (surplus > 100) surplusUsers.push({ userId: u.id, phone: u.phone, surplus, capacite });
+            let allocated = 0, capacite = 0;
+            (Array.isArray(userProjs) ? userProjs : []).forEach((p) => {
+              const actuel = Number(p.actuel) || 0;
+              const target = Math.round((Number(p.goal) || 0) * 1.03);
+              allocated += Math.min(actuel, target);
+              capacite  += Math.max(target - actuel, 0);
+            });
+            const solde    = Number(u.epargne) || 0;
+            const excedent = Math.max(0, solde - allocated);
+            if (excedent > 100) surplusUsers.push({
+              user_id: u.id, phone: u.phone, prenom: u.prenom || '',
+              solde_actuel: solde, alloue: allocated, capacite_restante: capacite,
+              excedent, nb_projets_actifs: (Array.isArray(userProjs) ? userProjs.length : 0),
+            });
           } catch {}
         }
       }
+      surplusUsers.sort((a, b) => b.excedent - a.excedent);
 
       console.log('[migrate_balances] recalculated=' + recalculated + ' errors=' + errors +
         ' surplusUsers=' + surplusUsers.length);
@@ -525,7 +536,9 @@ module.exports = async (req, res) => {
       if (!u || !proj) return res.status(404).json({ error: 'Utilisateur ou projet introuvable' });
       if (proj.status !== 'active') return res.status(400).json({ error: 'Projet non actif' });
 
-      const remaining = Math.max(0, (proj.goal || 0) - (proj.actuel || 0));
+      /* Plafond = objectif × 1,03 (marge Epargn+) − déjà déposé */
+      const effTarget = Math.round((Number(proj.goal) || 0) * 1.03);
+      const remaining = Math.max(0, effTarget - (Number(proj.actuel) || 0));
       const injection = Math.min(Number(u.epargne) || 0, remaining);
 
       if (injection <= 0) return res.status(400).json({ error: 'Aucun excédent à réattribuer ou projet plein' });
