@@ -8194,6 +8194,43 @@ function openAddTontineMember(idx) {
   setTimeout(function() { document.getElementById('addMemberPhone').focus(); }, 300);
 }
 
+/* Renvoyer l'invitation à un membre déjà présent (via le numéro normalisé) */
+function _tontineResendInvite(t, phone) {
+  if (!_authToken || !t || !t.projectId) {
+    showToast('Impossible de renvoyer (projet non lié). Partagez plutôt le lien d\'invitation.', 'error');
+    return;
+  }
+  var creatorName = (_currentUser && _currentUser.prenom) ? _currentUser.prenom : 'Un membre';
+  showToast('⏳ Envoi de l\'invitation…', 'info');
+  fetch('/api/invite/send', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
+    body:    JSON.stringify({
+      projectId:   t.projectId,
+      phone:       phone,
+      tontineName: t.nom,
+      mise:        t.mise,
+      freq:        t.freq || 'mensuelle',
+      creatorName: creatorName,
+    }),
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    var ch = [];
+    if (d.invitationId) ch.push('🔔 notification');
+    if (d.emailSent)    ch.push('📧 email');
+    if (d.smsSent && !d.demo) ch.push('📱 SMS');
+    if (d.ok && ch.length) {
+      showToast('✅ Invitation renvoyée (' + ch.join(' · ') + ')', 'success');
+    } else if (d.ok) {
+      showToast('Invitation enregistrée. Si la personne n\'a pas de compte, partagez le lien.', 'info');
+    } else {
+      showToast('❌ ' + (d.error || 'Échec de l\'envoi'), 'error');
+    }
+  })
+  .catch(function() { showToast('Erreur réseau', 'error'); });
+}
+
 function addTontineMember() {
   var idx   = parseInt(document.getElementById('addMemberTontineIdx').value, 10);
   var phoneRaw = (document.getElementById('addMemberPhone').value || '').trim();
@@ -8213,8 +8250,16 @@ function addTontineMember() {
   });
   /* Ne pas s'ajouter soi-même non plus */
   var myKey = (_currentUser && _currentUser.phone) ? String(_currentUser.phone).replace(/[^\d]/g, '') : '';
-  if (dup || (myKey && myKey === phoneKey)) {
-    showToast('Ce numéro est déjà membre de ce groupe.', 'error'); return;
+  if (myKey && myKey === phoneKey) {
+    showToast('Vous ne pouvez pas vous inviter vous-même.', 'error'); return;
+  }
+  if (dup) {
+    /* Déjà membre → proposer de RENVOYER l'invitation (utile si elle n'était pas arrivée) */
+    if (confirm('Ce numéro est déjà membre du groupe.\n\nRenvoyer l\'invitation à ' + phone + ' ?')) {
+      _tontineResendInvite(t, phone);
+    }
+    closeModal('modal-addTontineMember');
+    return;
   }
 
   /* Ajouter le membre (au format normalisé) */
