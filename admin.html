@@ -1444,8 +1444,9 @@
 
         <!-- Tableau excédents -->
         <div class="card" style="padding:0;">
-          <div style="padding:16px 20px;border-bottom:1px solid var(--divider);">
+          <div style="padding:16px 20px;border-bottom:1px solid var(--divider);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
             <div class="card-title" style="margin:0;">💰 Utilisateurs avec excédent hors projets</div>
+            <button class="btn btn-sm" style="background:#059669;color:#fff;border:none;font-weight:700;padding:8px 14px;border-radius:8px;cursor:pointer;" onclick="reattributeAll()">♻️ Tout réattribuer</button>
           </div>
           <div class="table-wrap">
             <table>
@@ -3917,6 +3918,18 @@ function runMigration() {
       }
     }
   }).catch(function(){if(btn){btn.disabled=false;btn.textContent='🔄 Recalculer';}showAdminToast('Erreur réseau','error');});
+}
+
+function reattributeAll() {
+  if (!confirm('Répartir automatiquement l\'excédent hors projet de TOUS les utilisateurs concernés dans leurs projets en cours ?\n\nChaque projet est comblé jusqu\'à son objectif, le plus proche d\'abord.')) return;
+  showAdminToast('⏳ Réattribution en cours…','info');
+  fetch('/api/admin/update-balance',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+_adminToken},body:JSON.stringify({action:'reattribute_all'})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d.ok){
+      showAdminToast('✅ '+(d.totalInjected||0).toLocaleString('fr-FR')+' GNF répartis · '+(d.usersProcessed||0)+' utilisateur(s) · '+(d.projectsFilled||0)+' projet(s) comblé(s)','success');
+      reloadAdminData();
+    } else {showAdminToast('Erreur : '+(d.error||'inconnue'),'error');}
+  }).catch(function(){showAdminToast('Erreur réseau','error');});
 }
 
 function openReattributeModal(userId, phone, excedent) {

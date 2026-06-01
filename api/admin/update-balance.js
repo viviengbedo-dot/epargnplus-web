@@ -657,6 +657,80 @@ module.exports = async (req, res) => {
     }
   }
 
+  /* ════════════ AUTO-REATTRIBUTE ALL — tous les utilisateurs en excédent ════════════
+     Pour CHAQUE utilisateur ayant un excédent libre (solde − Σ actuel),
+     répartit cet excédent dans ses projets actifs incomplets (les plus
+     proches de l'objectif × 1,03 d'abord). Opération en lot. */
+  if (action === 'reattribute_all') {
+    try {
+      const allUsers = await supabaseRequest('GET',
+        '/users?select=id,phone,epargne&limit=1000');
+      const allProjs = await supabaseRequest('GET',
+        '/projects?status=eq.active&select=id,user_id,name,goal,actuel&limit=2000');
+
+      const byUser = {};
+      (Array.isArray(allProjs) ? allProjs : []).forEach((p) => {
+        (byUser[p.user_id] = byUser[p.user_id] || []).push(p);
+      });
+
+      let usersProcessed = 0, totalInjected = 0, projectsFilled = 0;
+
+      for (const u of (Array.isArray(allUsers) ? allUsers : [])) {
+        const projs = byUser[u.id] || [];
+        if (!projs.length) continue;
+        const solde       = Number(u.epargne) || 0;
+        const dansProjets = projs.reduce((s, p) => s + (Number(p.actuel) || 0), 0);
+        let freeBalance   = Math.max(0, solde - dansProjets);
+        if (freeBalance <= 0) continue;
+
+        const targets = projs.map((p) => {
+          const goal      = Number(p.goal) || 0;
+          const actuel    = Number(p.actuel) || 0;
+          const effTarget = Math.round(goal * 1.03);
+          return { id: p.id, actuel, room: Math.max(0, effTarget - actuel) };
+        }).filter((t) => t.room > 0).sort((a, b) => a.room - b.room);
+
+        let userInjected = 0;
+        for (const t of targets) {
+          if (freeBalance <= 0) break;
+          const inject = Math.min(freeBalance, t.room);
+          if (inject <= 0) continue;
+          await supabaseRequest('PATCH',
+            '/projects?id=eq.' + encodeURIComponent(t.id),
+            { actuel: t.actuel + inject, has_funds: true, updated_at: now });
+          const ref = 'SURPLUS-' + now.slice(0, 10).replace(/-/g, '') +
+            '-' + Math.random().toString(36).substr(2, 5).toUpperCase();
+          await supabaseRequest('POST', '/transactions', {
+            user_id: u.id, type: 'reattribution', amount: inject,
+            is_credit: true, project_id: t.id, statut: 'completed', status: 'success',
+            label: ref + ' · Auto-remplissage excédent (lot)',
+          });
+          freeBalance   -= inject;
+          userInjected  += inject;
+          totalInjected += inject;
+          projectsFilled++;
+        }
+        if (userInjected > 0) {
+          usersProcessed++;
+          try {
+            await createNotification(u.id, 'deposit', '💰 Excédent réparti',
+              userInjected.toLocaleString('fr-FR') + ' GNF de votre solde ont été répartis dans vos projets en cours.',
+              { amount: userInjected });
+          } catch {}
+        }
+      }
+
+      console.log('[reattribute_all] users=' + usersProcessed +
+        ' injected=' + totalInjected + ' projects=' + projectsFilled);
+      return res.status(200).json({
+        ok: true, action: 'reattribute_all',
+        usersProcessed, projectsFilled, totalInjected,
+      });
+    } catch (err) {
+      return res.status(500).json({ error: 'Erreur réattribution globale : ' + err.message });
+    }
+  }
+
   /* ════════════ EMAIL TEMPLATE MANAGEMENT ════════════ */
 
   if (action === 'update_email_template') {
