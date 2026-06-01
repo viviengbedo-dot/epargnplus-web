@@ -497,7 +497,8 @@ module.exports = async (req, res) => {
               dansProjets += actuel;
             });
             const solde    = Number(u.epargne) || 0;
-            const excedent = Math.max(0, solde - allocated);
+            /* Excédent = argent hors projet (solde − Σ actuel) */
+            const excedent = Math.max(0, solde - dansProjets);
             if (excedent > 100) surplusUsers.push({
               user_id: u.id, phone: u.phone, prenom: u.prenom || '',
               solde_actuel: solde, dans_projets: dansProjets, alloue: allocated,

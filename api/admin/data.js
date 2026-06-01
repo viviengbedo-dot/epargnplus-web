@@ -221,7 +221,9 @@ module.exports = async (req, res) => {
           objectifs   += goal;
           capacite    += Math.max(target - actuel, 0);
         });
-        const excedent = Math.max(0, solde - allocated);
+        /* Excédent = argent du solde NON placé dans un projet.
+           L'argent déjà placé (même au-delà d'un objectif) n'est PAS un excédent. */
+        const excedent = Math.max(0, solde - dansProjets);
         return {
           user_id:           u.id,
           phone:             u.phone,
@@ -229,9 +231,9 @@ module.exports = async (req, res) => {
           solde_actuel:      solde,
           dans_projets:      dansProjets, /* Σ actuel — réellement dans les projets */
           objectifs_total:   objectifs,   /* Σ goal — total des objectifs */
-          alloue:            allocated,   /* Σ min(actuel, objectif) — dans les objectifs */
+          alloue:            allocated,   /* Σ min(actuel, objectif) — info */
           capacite_restante: capacite,    /* room restante (info) */
-          excedent:          excedent,    /* solde au-delà des objectifs, à réattribuer */
+          excedent:          excedent,    /* = solde − dans les projets (argent hors projet) */
           nb_projets_actifs: projs.length,
         };
       })
