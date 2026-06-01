@@ -1281,8 +1281,10 @@ async function handleInvitationsResend(req, res, payload) {
 /* ── Groupes collectifs où l'utilisateur est membre (créateur OU invité accepté) ── */
 async function handleMyGroups(req, res, payload) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'GET uniquement' });
+  const SELECT = 'id,user_id,name,goal,actuel,members_count,status,invite_code,' +
+    'invite_token,invite_active,mise_mensuelle,freq,duree,contribution_type,created_at';
   try {
-    /* 1. Adhésions de l'utilisateur */
+    /* 1. Adhésions de l'utilisateur (groupes rejoints) */
     let members = [];
     try {
       members = await supabaseRequest('GET',
@@ -1292,26 +1294,38 @@ async function handleMyGroups(req, res, payload) {
     } catch (e) {
       console.warn('[my_groups] project_members:', e.message);
     }
-
-    const ids = [...new Set(members.map(m => m.project_id).filter(Boolean))];
-    if (ids.length === 0) return res.status(200).json([]);
-
-    /* 2. Détails des projets (filtre PostgREST in.(...)) */
-    const inList = '(' + ids.map(encodeURIComponent).join(',') + ')';
-    let projects = [];
-    try {
-      projects = await supabaseRequest('GET',
-        '/projects?id=in.' + inList +
-        '&select=id,user_id,name,goal,actuel,members_count,status,invite_code,' +
-        'invite_active,mise_mensuelle,freq,duree,contribution_type,created_at');
-      if (!Array.isArray(projects)) projects = [];
-    } catch (e) {
-      console.warn('[my_groups] projects:', e.message);
-    }
-
-    /* 3. Fusionner le rôle de l'utilisateur */
     const roleMap = {};
     members.forEach(m => { roleMap[m.project_id] = m.role || 'member'; });
+
+    /* 2. Projets COLLECTIFS dont l'utilisateur est PROPRIÉTAIRE
+       (rattrape les anciens groupes absents de project_members). */
+    let owned = [];
+    try {
+      owned = await supabaseRequest('GET',
+        '/projects?user_id=eq.' + encodeURIComponent(payload.userId) +
+        '&status=neq.closed&select=' + SELECT);
+      if (!Array.isArray(owned)) owned = [];
+    } catch (e) {
+      console.warn('[my_groups] owned:', e.message);
+    }
+    const ownedCollective = owned.filter(p => isProjectCollective(p));
+
+    /* 3. Union des IDs (rejoints + possédés collectifs) */
+    const have = {};
+    let projects = [];
+    ownedCollective.forEach(p => { have[p.id] = true; projects.push(p); });
+
+    const missing = [...new Set(members.map(m => m.project_id).filter(Boolean))]
+      .filter(id => !have[id]);
+    if (missing.length) {
+      try {
+        const more = await supabaseRequest('GET',
+          '/projects?id=in.(' + missing.map(encodeURIComponent).join(',') + ')&select=' + SELECT);
+        if (Array.isArray(more)) projects = projects.concat(more);
+      } catch (e) { console.warn('[my_groups] missing:', e.message); }
+    }
+
+    if (projects.length === 0) return res.status(200).json([]);
 
     const result = projects.map(p => ({
       id:                p.id,
@@ -1327,7 +1341,7 @@ async function handleMyGroups(req, res, payload) {
       duree:             p.duree || 'm12',
       contribution_type: p.contribution_type || 'free',
       created_at:        p.created_at,
-      role:              roleMap[p.id] || 'member',
+      role:              (p.user_id === payload.userId) ? 'creator' : (roleMap[p.id] || 'member'),
       is_creator:        p.user_id === payload.userId,
     }));
 
