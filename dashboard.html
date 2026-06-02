@@ -2882,6 +2882,27 @@ function projReached(actuel, cible) {
    "622442830", "+224 622 44 28 30", "00224622442830" → "+224622442830".
    Permet de dédupliquer et de matcher le format stocké en base. */
 var COUNTRY_DIAL = { gn:'224', bj:'229', ci:'225', cn:'86' };
+/* Longueur du numéro NATIONAL (sans indicatif) + exemple, par pays */
+var COUNTRY_PHONE = {
+  gn: { len: 9,  ex: '620 12 34 56',  ph: '+224 6XX XX XX XX' },
+  bj: { len: 10, ex: '01 12 34 56 78', ph: '+229 XX XX XX XX' },
+  ci: { len: 10, ex: '07 12 34 56 78', ph: '+225 XX XX XX XX' },
+  cn: { len: 11, ex: '138 0000 0000',  ph: '+86 1XX XXXX XXXX' },
+};
+/* Valide la longueur nationale ; renvoie {ok, e164, msg} */
+function validatePhoneForCountry(raw, country) {
+  country = country || 'gn';
+  var e164 = normalizePhoneE164(raw);
+  var dial = COUNTRY_DIAL[country] || '224';
+  var nat  = e164.replace(/[^\d]/g, '');
+  if (nat.indexOf(dial) === 0) nat = nat.slice(dial.length);
+  var spec = COUNTRY_PHONE[country] || COUNTRY_PHONE.gn;
+  if (nat.length !== spec.len) {
+    return { ok: false, e164: e164, msg: 'Numéro invalide. Format attendu : ' +
+      spec.len + ' chiffres (ex. ' + spec.ex + ').' };
+  }
+  return { ok: true, e164: e164, msg: '' };
+}
 function normalizePhoneE164(raw) {
   var d = String(raw || '').replace(/[^\d]/g, '');
   if (!d) return '';
@@ -8317,7 +8338,11 @@ function openAddTontineMember(idx) {
   if (!t) return;
   document.getElementById('addMemberTontineIdx').value  = idx;
   document.getElementById('addMemberGroupName').textContent = '🤝 ' + t.nom;
-  document.getElementById('addMemberPhone').value = '';
+  var pInput = document.getElementById('addMemberPhone');
+  pInput.value = '';
+  /* Placeholder adapté au pays de l'utilisateur */
+  var ctry = (_currentUser && _currentUser.country) || _userCountry || 'gn';
+  pInput.setAttribute('placeholder', (COUNTRY_PHONE[ctry] || COUNTRY_PHONE.gn).ph);
   openModal('addTontineMember');
   setTimeout(function() { document.getElementById('addMemberPhone').focus(); }, 300);
 }
@@ -8367,8 +8392,11 @@ function addTontineMember() {
   var t = TONTINES_USER[idx];
   if (!t) { showToast('Épargne collective introuvable.', 'error'); return; }
 
-  /* Normaliser au format E.164 (+224XXXXXXXXX pour la Guinée) */
-  var phone = normalizePhoneE164(phoneRaw);
+  /* Normaliser + valider la longueur selon le pays */
+  var ctry = (_currentUser && _currentUser.country) || _userCountry || 'gn';
+  var chk = validatePhoneForCountry(phoneRaw, ctry);
+  if (!chk.ok) { showToast(chk.msg, 'error'); return; }
+  var phone = chk.e164;
   var phoneKey = phone.replace(/[^\d]/g, '');
 
   if (!t.phones) t.phones = [];
