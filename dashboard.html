@@ -3832,12 +3832,12 @@ function getProjectStorySuggestions(now, cur) {
       return;
     }
 
-    /* ── En cours : rythme conseillé (sans révéler le restant ; on garde le
-       montant uniquement loin de la fin, pour ne pas exposer la marge 3%) ── */
-    var paceMsg = '';
+    /* ── En cours : rythme conseillé → affiché dans la box "Votre plan"
+       (montants arrondis), plus dans le texte (évite les nombres illisibles). */
+    var planAmt = 0, planMo = 0;
     if (daysLeft > 0 && remaining > 0 && pct < 90) {
-      var perMonth = Math.ceil(remaining / Math.max(1, daysLeft / 30));
-      paceMsg = ' Pour tenir l\'échéance, vise ~' + fmt(perMonth) + ' ' + cur + '/mois.';
+      planMo  = Math.max(1, Math.round(daysLeft / 30));
+      planAmt = remaining;
     }
 
     var tag, tc, tb, desc;
@@ -3846,25 +3846,26 @@ function getProjectStorySuggestions(now, cur) {
       desc = 'L\'échéance de « ' + p.nom + ' » est passée. Relance les dépôts pour le boucler, ou ajuste l\'objectif.';
     } else if (pct === 0) {
       tag = 'À LANCER'; tc = '#B45309'; tb = '#FFFBEB';
-      desc = 'Tu n\'as pas encore démarré « ' + p.nom + ' ». Un premier dépôt, même modeste, enclenche la dynamique vers ton objectif de ' + fmt(p.cible) + ' ' + cur + '.' + paceMsg;
+      desc = 'Tu n\'as pas encore démarré « ' + p.nom + ' ». Un premier dépôt, même modeste, enclenche la dynamique vers ton objectif de ' + fmt(p.cible) + ' ' + cur + '.';
     } else if (pct >= 90) {
       tag = pct + '% • DERNIÈRE LIGNE'; tc = '#6D28D9'; tb = '#F5F3FF';
       desc = 'Tu es à ' + pct + '% de « ' + p.nom + ' ». Plus qu\'un petit effort pour le boucler — continue, tu y es presque !';
     } else if (pct >= 75) {
       tag = pct + '% • BIENTÔT'; tc = '#6D28D9'; tb = '#F5F3FF';
-      desc = 'Belle avancée sur « ' + p.nom + ' » : tu es déjà à ' + pct + '%. Garde le rythme pour atteindre les 100% !' + paceMsg;
+      desc = 'Belle avancée sur « ' + p.nom + ' » : tu es déjà à ' + pct + '%. Garde le rythme pour atteindre les 100% !';
     } else if (daysLeft <= 14) {
       tag = 'J−' + daysLeft + ' ⚡'; tc = '#DC2626'; tb = '#FEF2F2';
-      desc = 'Échéance proche pour « ' + p.nom + ' » (' + pct + '% atteint) : plus que ' + daysLeft + ' jour' + (daysLeft > 1 ? 's' : '') + ' pour finir.' + paceMsg;
+      desc = 'Échéance proche pour « ' + p.nom + ' » (' + pct + '% atteint) : plus que ' + daysLeft + ' jour' + (daysLeft > 1 ? 's' : '') + ' pour finir.';
     } else {
       tag = pct + '% ATTEINT'; tc = '#1D4ED8'; tb = '#EFF6FF';
-      desc = 'Tu es à ' + pct + '% de « ' + p.nom + ' » (objectif ' + fmt(p.cible) + ' ' + cur + '). Continue sur ta lancée !' + paceMsg;
+      desc = 'Tu es à ' + pct + '% de « ' + p.nom + ' » (objectif ' + fmt(p.cible) + ' ' + cur + '). Continue sur ta lancée !';
     }
 
     out.push({ emoji: emoji, priority: 3, tag: tag, tc: tc, tb: tb,
       title: p.nom,
       desc: desc,
       action: pct + '% • objectif ' + fmt(p.cible) + ' ' + cur,
+      planAmount: planAmt, planMonths: planMo,
       cta: '+ Déposer', onClick: "openDepositForProject('" + (p.id || '') + "','" + safeNom + "')" });
   });
   return out;
@@ -4046,13 +4047,20 @@ function _suggExtractAmount(txt) {
 
 /* Ligne instructive : "le rêve devient un petit geste mensuel" */
 function _suggPlanLine(s, cur) {
-  /* Si l'action exprime déjà une cadence (mensuelle, annuelle) ou un rendement,
-     ne pas recalculer un plan — on afficherait un chiffre faux. */
   if (s.noPlan) return '';
-  if (s.planAmount === undefined && /mois|\bans?\b|\/\s*an|%|place|membre|seulement/i.test(s.action || '')) return '';
-  var amount = s.planAmount || _suggExtractAmount(s.action);
+  var amount, months;
+  if (s.planAmount !== undefined) {
+    /* Plan explicite fourni par la suggestion (0 = pas de plan à afficher) */
+    amount = s.planAmount;
+    months = s.planMonths || 12;
+  } else {
+    /* Sinon on tente d'extraire l'objectif du texte — sauf si l'action exprime
+       déjà une cadence (mensuelle/annuelle), un rendement, ou pas d'objectif. */
+    if (/mois|\bans?\b|\/\s*an|%|place|membre|seulement/i.test(s.action || '')) return '';
+    amount = _suggExtractAmount(s.action);
+    months = 12;
+  }
   if (!amount || amount < 1000) return '';
-  var months = s.planMonths || 12;
   var perMonth = Math.ceil(amount / months / 1000) * 1000; /* arrondi au millier sup. */
   var perDay   = Math.ceil(amount / (months * 30) / 100) * 100;
   return '<div class="sugg-plan">💡 <strong>Votre plan :</strong> ~' + fmt(perMonth) + ' ' + cur +
