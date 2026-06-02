@@ -1623,7 +1623,7 @@
         placeholder="+224 620 xx xx xx"
         onkeydown="if(event.key==='Enter')addTontineMember()" />
       <div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">
-        Le membre sera ajouté immédiatement et pourra commencer à verser dès la prochaine période.
+        Une invitation sera générée pour ce numéro. Partagez-la (WhatsApp / SMS) pour que le membre rejoigne le projet et puisse verser. S'il a déjà un compte Epargn+, il est rattaché directement.
       </div>
     </div>
     <button class="btn btn-accent" style="width:100%;padding:14px;font-weight:700;" onclick="addTontineMember()">Ajouter ce membre →</button>
@@ -1636,7 +1636,7 @@
   <div class="modal" style="text-align:center;">
     <button class="modal-close" onclick="closeModal('modal-inviteShare')">✕</button>
     <div style="font-size:42px;margin-bottom:8px;">📨</div>
-    <div class="modal-title">Membre ajouté !</div>
+    <div class="modal-title">Invitation prête 📨</div>
     <div class="modal-sub" id="inviteShareSub" style="margin-bottom:20px;"></div>
 
     <!-- SMS envoyé badge -->
@@ -8405,13 +8405,18 @@ function addTontineMember() {
   var cur = (_currentUser && COUNTRY_LABELS[_currentUser.country]) ? COUNTRY_LABELS[_currentUser.country].currency : 'GNF';
   var freqLbl = t.freq === 'journalier' ? 'par jour' : t.freq === 'hebdomadaire' ? 'par semaine' : t.freq === 'bimensuelle' ? '2× par mois' : 'par mois';
   var creatorName = (_currentUser && _currentUser.prenom) ? _currentUser.prenom : 'Un membre';
-  var inviteMsg = creatorName + ' vous a ajouté(e) au groupe d\'épargne « ' + t.nom + ' » sur Epargn+.\n' +
+  /* Lien d'invitation personnalisé (/join/<code>) — sinon page de connexion */
+  var inviteCode = t.inviteCode || t.invite_code || t.invite_token || null;
+  var joinUrl = inviteCode
+    ? (window.location.origin + '/join/' + inviteCode)
+    : 'https://epargnplus.com/connexion';
+  var inviteMsg = creatorName + ' vous invite à rejoindre le groupe d\'épargne « ' + t.nom + ' » sur Epargn+.\n' +
     'Mise : ' + fmt(t.mise) + ' ' + cur + ' ' + freqLbl + '.\n' +
-    'Rejoignez l\'app : https://epargnplus.com/connexion';
+    'Rejoignez le projet : ' + joinUrl;
 
   /* Mettre à jour le modal de partage */
   var sub = document.getElementById('inviteShareSub');
-  if (sub) sub.textContent = phone + ' a été ajouté(e) au groupe « ' + t.nom + ' ».';
+  if (sub) sub.textContent = 'Invitation prête pour ' + phone + '. Partagez-la (WhatsApp / SMS) pour qu\'il/elle rejoigne « ' + t.nom + ' ».';
 
   /* WhatsApp */
   var waLink = document.getElementById('inviteWhatsApp');
