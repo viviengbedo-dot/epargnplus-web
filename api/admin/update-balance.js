@@ -198,6 +198,99 @@ module.exports = async (req, res) => {
     }
   }
 
+  /* ════════════ QUICK CLOSE + REFUND ════════════
+     Suppression rapide d'un projet (collectif OU individuel) avec remboursement
+     IMMÉDIAT des fonds épargnés (transactions 'completed', pas 'pending').
+     Body: { projectId } */
+  if (action === 'quick_close_refund') {
+    const { projectId } = body;
+    if (!projectId) return res.status(400).json({ error: 'projectId requis' });
+    try {
+      const projRows = await supabaseRequest('GET',
+        '/projects?id=eq.' + encodeURIComponent(projectId) +
+        '&select=id,name,goal,actuel,user_id,status');
+      if (!Array.isArray(projRows) || !projRows[0]) return res.status(404).json({ error: 'Projet introuvable' });
+      const project = projRows[0];
+      if (project.status === 'closed') return res.status(400).json({ error: 'Projet déjà clôturé' });
+
+      const totalActuel = Number(project.actuel) || 0;
+
+      /* Membres (collectif) ou propriétaire (individuel) */
+      let members = [];
+      try {
+        members = await supabaseRequest('GET',
+          '/project_members?project_id=eq.' + encodeURIComponent(projectId) +
+          '&status=eq.active&select=user_id');
+        if (!Array.isArray(members)) members = [];
+      } catch (e) {}
+      if (members.length === 0 && project.user_id) members = [{ user_id: project.user_id }];
+
+      /* Répartition réelle d'après les dépôts complétés de chaque membre */
+      let deposits = [];
+      try {
+        deposits = await supabaseRequest('GET',
+          '/transactions?project_id=eq.' + encodeURIComponent(projectId) +
+          '&is_credit=eq.true&statut=eq.completed&select=user_id,amount&limit=500');
+        if (!Array.isArray(deposits)) deposits = [];
+      } catch (e) {}
+      const byUser = {};
+      deposits.forEach(t => { byUser[t.user_id] = (byUser[t.user_id] || 0) + (Number(t.amount) || 0); });
+      const sumDeposits = Object.values(byUser).reduce((s, v) => s + v, 0);
+
+      let refunded = 0;
+      const refunds = [];
+      for (const m of members) {
+        /* Part = dépôts réels du membre ; sinon répartition égale du collecté */
+        let share = byUser[m.user_id] != null ? byUser[m.user_id]
+          : (sumDeposits === 0 ? Math.floor(totalActuel / members.length) : 0);
+        share = Math.min(share, totalActuel); /* sécurité */
+        if (share <= 0) continue;
+
+        /* Réduire l'épargne du membre */
+        try {
+          const uRows = await supabaseRequest('GET',
+            '/users?id=eq.' + encodeURIComponent(m.user_id) + '&select=epargne');
+          const ep = (Array.isArray(uRows) && uRows[0]) ? (Number(uRows[0].epargne) || 0) : 0;
+          await supabaseRequest('PATCH',
+            '/users?id=eq.' + encodeURIComponent(m.user_id),
+            { epargne: Math.max(0, ep - share), updated_at: now });
+        } catch (e) {}
+
+        /* Transaction de remboursement COMPLÉTÉE (versement effectué) */
+        const ref = 'RB-' + now.slice(0, 10).replace(/-/g, '') + '-' + Math.random().toString(36).substr(2, 5).toUpperCase();
+        try {
+          await supabaseRequest('POST', '/transactions', {
+            user_id: m.user_id, type: 'retrait_projet_collectif', amount: share,
+            operator: 'Mobile Money', is_credit: false,
+            label: ref + ' · Remboursement — Clôture ' + (project.name || 'Projet'),
+            note: 'Suppression du projet + remboursement par l\'administrateur',
+            project_id: projectId, statut: 'completed', status: 'success',
+          });
+        } catch (e) {}
+
+        try {
+          await createNotification(m.user_id, 'withdrawal', '💸 Remboursement effectué',
+            share.toLocaleString('fr-FR') + ' GNF vous ont été remboursés (clôture du projet « ' + (project.name || '') + ' »).',
+            { project_id: projectId, amount: share });
+        } catch (e) {}
+
+        refunded += share;
+        refunds.push({ user_id: m.user_id, amount: share });
+      }
+
+      /* Clôturer le projet + remettre actuel à 0 */
+      await supabaseRequest('PATCH',
+        '/projects?id=eq.' + encodeURIComponent(projectId),
+        { status: 'closed', actuel: 0, updated_at: now });
+
+      console.log('[quick_close_refund] project=' + projectId + ' refunded=' + refunded + ' members=' + refunds.length);
+      return res.status(200).json({ ok: true, action: 'quick_close_refund', projectId, refunded, refunds });
+    } catch (err) {
+      console.error('[quick_close_refund]', err.message);
+      return res.status(500).json({ error: 'Erreur clôture + remboursement : ' + err.message });
+    }
+  }
+
   /* ════════════ CONFIRM-WITHDRAWAL (Module 1) ════════════
      Confirme qu'un retrait collectif a été envoyé via Mobile Money.
   */

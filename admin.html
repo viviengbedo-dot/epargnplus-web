@@ -2134,10 +2134,15 @@ function populateAdminData(data) {
               'style="font-size:12px;width:auto;padding:0 8px;height:26px;border-radius:6px;background:#F5F3FF;border:1px solid #DDD6FE;color:#6D28D9;font-weight:600;cursor:pointer;">' +
               '📊 Historique' +
             '</button>' +
-            '<button class="btn-icon danger" title="Clôturer ce groupe" ' +
+            '<button class="btn-icon danger" title="Clôturer ce groupe (détail remboursements)" ' +
               'onclick="openDeleteApprovalModal(\'' + t.id + '\',\'' + safeNom + '\',\'' + (t.userId||'') + '\',' + t.actuel + ',\'' + safeUser + '\',\'force\')" ' +
               'style="font-size:12px;width:auto;padding:0 8px;height:26px;border-radius:6px;background:rgba(220,38,38,.07);border:1px solid rgba(220,38,38,.25);color:#DC2626;font-weight:600;cursor:pointer;">' +
               '🗑 Clôturer' +
+            '</button>' +
+            '<button title="Supprimer + rembourser immédiatement" ' +
+              'onclick="adminQuickCloseRefund(\'' + t.id + '\',\'' + safeNom + '\',' + t.actuel + ')" ' +
+              'style="font-size:12px;width:auto;padding:0 8px;height:26px;border-radius:6px;background:#DC2626;border:1px solid #DC2626;color:#fff;font-weight:700;cursor:pointer;">' +
+              '⚡ Rembourser' +
             '</button>' +
           '</div></td>' +
         '</tr>';
@@ -3073,6 +3078,29 @@ function renderTontines() {
 
 /* Ouvrir le modal de remboursement avant approbation ou clôture forcée
    mode : 'approve' (demande de suppression utilisateur) | 'force' (clôture admin directe) */
+/* ── Suppression rapide d'un projet + remboursement immédiat des fonds ── */
+function adminQuickCloseRefund(projectId, nom, actuel) {
+  if (!confirm('Supprimer le projet « ' + nom + ' » et REMBOURSER immédiatement ' +
+    (actuel || 0).toLocaleString('fr-FR') + ' GNF aux membres ?\n\n' +
+    'Les remboursements sont enregistrés comme effectués. Action irréversible.')) return;
+  showToast('⏳ Clôture + remboursement…', 'info');
+  fetch('/api/admin/update-balance', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
+    body: JSON.stringify({ action: 'quick_close_refund', projectId: projectId }),
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d && d.ok) {
+      showToast('✅ Projet clôturé · ' + (d.refunded || 0).toLocaleString('fr-FR') + ' GNF remboursés à ' + ((d.refunds || []).length) + ' membre(s)', 'success');
+      reloadAdminData();
+    } else {
+      showToast('Erreur : ' + ((d && d.error) || 'inconnue'), 'error');
+    }
+  })
+  .catch(function() { showToast('Erreur réseau', 'error'); });
+}
+
 /* ── Historique des dépôts d'un projet collectif (admin — traçabilité) ──
    Diagramme circulaire + répartition par membre + liste, depuis ALL_TXNS. */
 var ADMIN_HIST_COLORS = ['#0B1566','#22CC66','#3B82F6','#F59E0B','#8B5CF6','#EC4899','#06B6D4','#EF4444','#14B8A6','#F97316'];
@@ -3304,7 +3332,12 @@ function renderProjetsAdmin() {
           '<span style="font-weight:700;font-size:12px;">' + pct + '%</span>' +
         '</div>' +
       '</td>' +
-      '<td>' + statusBadge + '</td>' +
+      '<td><div style="display:flex;align-items:center;gap:8px;">' + statusBadge +
+        (p.status !== 'closed'
+          ? '<button title="Supprimer + rembourser" onclick="adminQuickCloseRefund(\'' + p.id + '\',\'' + String(p.nom||'').replace(/'/g,"\\'") + '\',' + (p.actuel||0) + ')" ' +
+            'style="font-size:12px;padding:0 8px;height:26px;border-radius:6px;background:rgba(220,38,38,.07);border:1px solid rgba(220,38,38,.25);color:#DC2626;font-weight:600;cursor:pointer;">🗑 + 💸</button>'
+          : '') +
+      '</div></td>' +
     '</tr>';
   }).join('');
 }
