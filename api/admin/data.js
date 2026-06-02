@@ -198,7 +198,7 @@ module.exports = async (req, res) => {
                   = argent au-delà des objectifs des projets, à réattribuer. */
     let surplusUsers = [];
     try {
-      const FEE = 1.03;
+      const FEE = 1.01;
       const projByUser = {};
       (allProjects || []).forEach((p) => {
         if (!p || p.status !== 'active') return;

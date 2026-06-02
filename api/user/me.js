@@ -336,7 +336,7 @@ async function handleProjects(req, res, payload, resourceId) {
           '&user_id=eq.' + encodeURIComponent(payload.userId) +
           '&select=goal&limit=1');
         if (Array.isArray(gRows) && gRows[0]) {
-          const maxActuel = Math.round((Number(gRows[0].goal) || 0) * 1.03);
+          const maxActuel = Math.round((Number(gRows[0].goal) || 0) * 1.01);
           if (maxActuel > 0 && patch.actuel > maxActuel) patch.actuel = maxActuel;
         }
       } catch (e) {}

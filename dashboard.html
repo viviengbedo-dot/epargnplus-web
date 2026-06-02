@@ -2859,7 +2859,7 @@ function projectHasJoinedMembers(p) {
    statut "Atteint" se calculent sur la cible effective (cible × 1,03).
    Source de vérité unique — utilisée partout.
    ══════════════════════════════════════════ */
-var EPARGN_FEE_RATE = 0.03;
+var EPARGN_FEE_RATE = 0.01;
 function projTarget(cible) {
   return Math.round((Number(cible) || 0) * (1 + EPARGN_FEE_RATE));
 }

@@ -466,7 +466,7 @@ module.exports = async (req, res) => {
             ? txns.reduce((s, t) => s + (Number(t.amount) || 0), 0)
             : 0;
           /* Plafond = objectif × 1,03 (marge Epargn+ intégrée) */
-          const maxActuel = proj.goal ? Math.round(proj.goal * 1.03) : Infinity;
+          const maxActuel = proj.goal ? Math.round(proj.goal * 1.01) : Infinity;
           const cappedActuel = Math.min(totalDeposited, maxActuel);
           if (Math.abs(cappedActuel - (proj.actuel || 0)) > 1) {
             await supabaseRequest('PATCH',
@@ -491,7 +491,7 @@ module.exports = async (req, res) => {
             let allocated = 0, capacite = 0, dansProjets = 0;
             (Array.isArray(userProjs) ? userProjs : []).forEach((p) => {
               const actuel = Number(p.actuel) || 0;
-              const target = Math.round((Number(p.goal) || 0) * 1.03);
+              const target = Math.round((Number(p.goal) || 0) * 1.01);
               allocated   += Math.min(actuel, target);
               capacite    += Math.max(target - actuel, 0);
               dansProjets += actuel;
@@ -540,7 +540,7 @@ module.exports = async (req, res) => {
       if (proj.status !== 'active') return res.status(400).json({ error: 'Projet non actif' });
 
       /* Plafond = objectif × 1,03 (marge Epargn+) − déjà déposé */
-      const effTarget = Math.round((Number(proj.goal) || 0) * 1.03);
+      const effTarget = Math.round((Number(proj.goal) || 0) * 1.01);
       const remaining = Math.max(0, effTarget - (Number(proj.actuel) || 0));
       const injection = Math.min(Number(u.epargne) || 0, remaining);
 
@@ -612,7 +612,7 @@ module.exports = async (req, res) => {
       const targets = list.map((p) => {
         const goal      = Number(p.goal) || 0;
         const actuel    = Number(p.actuel) || 0;
-        const effTarget = Math.round(goal * 1.03);
+        const effTarget = Math.round(goal * 1.01);
         return { id: p.id, name: p.name, actuel, room: Math.max(0, effTarget - actuel) };
       }).filter((t) => t.room > 0).sort((a, b) => a.room - b.room);
 
@@ -686,7 +686,7 @@ module.exports = async (req, res) => {
         const targets = projs.map((p) => {
           const goal      = Number(p.goal) || 0;
           const actuel    = Number(p.actuel) || 0;
-          const effTarget = Math.round(goal * 1.03);
+          const effTarget = Math.round(goal * 1.01);
           return { id: p.id, actuel, room: Math.max(0, effTarget - actuel) };
         }).filter((t) => t.room > 0).sort((a, b) => a.room - b.room);
 
@@ -1048,7 +1048,7 @@ module.exports = async (req, res) => {
           if (Array.isArray(projRows) && projRows[0]) {
             const proj = projRows[0];
             /* Plafond = objectif × 1,03 (marge Epargn+) − déjà déposé */
-            const effTarget  = Math.round((Number(proj.goal) || 0) * 1.03);
+            const effTarget  = Math.round((Number(proj.goal) || 0) * 1.01);
             const maxAllowed = Math.max(0, effTarget - (Number(proj.actuel) || 0));
 
             /* Vérification admin : bloquer si dépasse le plafond */
