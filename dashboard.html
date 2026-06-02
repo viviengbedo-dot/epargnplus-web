@@ -2618,7 +2618,13 @@ function _injectUserData(u) {
   var country  = u.country || 'gn';
   var cLabel   = COUNTRY_LABELS[country] || COUNTRY_LABELS.gn;
   var phone    = u.phone || '';  // déjà au format international en DB
-  var epargne  = u.epargne || 0;
+  /* Le solde global ne peut JAMAIS être inférieur à ce qui est placé dans les
+     projets (sinon affichage qui oscille entre solde serveur et Σ projets).
+     On prend donc max(epargne serveur, Σ actuel) comme source unique. */
+  var _sumActuel = (typeof PROJETS !== 'undefined' && PROJETS)
+    ? PROJETS.reduce(function(s, p) { return s + (p.actuel || 0); }, 0) : 0;
+  var epargne  = Math.max(Number(u.epargne) || 0, _sumActuel);
+  u.epargne = epargne;
 
   /* Mettre à jour le pays courant (pour opérateurs dépôt/retrait) */
   _userCountry = country;
@@ -2961,9 +2967,10 @@ function toggleBalanceVisibility() {
 /* Solde global = Σ(projects.actuel), avec fallback sur users.epargne (DB) si projets vides */
 function syncBalanceFromProjects() {
   var totalActuel = (PROJETS || []).reduce(function(s, p) { return s + (p.actuel || 0); }, 0);
-  /* Si la somme des projets est nulle, utiliser le solde DB (dépôts sans projet associé) */
+  /* Solde = max(Σ projets, solde DB) : ne descend jamais sous ce qui est placé
+     dans les projets, et conserve l'argent libre (dépôts sans projet associé). */
   var dbEpargne = (_currentUser && Number(_currentUser.epargne)) || 0;
-  var balance = totalActuel > 0 ? totalActuel : dbEpargne;
+  var balance = Math.max(totalActuel, dbEpargne);
   if (_currentUser) _currentUser.epargne = balance;
   var cur = (_currentUser && (COUNTRY_LABELS[_currentUser.country] || COUNTRY_LABELS.gn).currency) || 'GNF';
   setDisplayedBalance(balance, cur);

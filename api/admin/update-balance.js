@@ -586,7 +586,21 @@ module.exports = async (req, res) => {
               capacite    += Math.max(target - actuel, 0);
               dansProjets += actuel;
             });
-            const solde    = Number(u.epargne) || 0;
+            let solde = Number(u.epargne) || 0;
+
+            /* ── Réconciliation : le solde ne peut JAMAIS être inférieur à ce
+               qui est placé dans les projets. Sinon on le relève (corrige les
+               cas où un dépôt a crédité actuel mais pas epargne → solde affiché
+               qui oscille). On ne BAISSE jamais le solde (préserve l'argent libre). */
+            if (solde < dansProjets) {
+              try {
+                await supabaseRequest('PATCH',
+                  '/users?id=eq.' + encodeURIComponent(u.id),
+                  { epargne: dansProjets, updated_at: now });
+                solde = dansProjets;
+              } catch (e) {}
+            }
+
             /* Excédent = argent hors projet (solde − Σ actuel) */
             const excedent = Math.max(0, solde - dansProjets);
             if (excedent > 100) surplusUsers.push({
