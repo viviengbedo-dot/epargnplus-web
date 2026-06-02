@@ -2886,6 +2886,9 @@ function normalizePhoneE164(raw) {
   return '+' + d;
 }
 
+/* ⚠️ Déclaration RÉTABLIE — supprimée par erreur, cause de "TONTINES_USER is not defined" */
+let TONTINES_USER = (function() { try { return JSON.parse(localStorage.getItem('epargn_tontines') || '[]'); } catch(e) { return []; } })();
+
 /* Notifications — générées depuis les transactions réelles */
 let NOTIFS = [];
 
