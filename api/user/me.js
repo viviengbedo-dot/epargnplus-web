@@ -327,7 +327,7 @@ async function handleProjects(req, res, payload, resourceId) {
     if (body.color)                 patch.color  = String(body.color);
 
     /* ── Garde-fou : 'actuel' ne peut JAMAIS dépasser l'objectif effectif ──
-       (objectif × 1,03 = marge Epargn+). Empêche un client de gonfler le
+       (objectif × 1,01 = marge Epargn+). Empêche un client de gonfler le
        montant d'un projet via un PATCH direct (cause des sur-financements). */
     if (patch.actuel !== undefined) {
       if (isNaN(patch.actuel) || patch.actuel < 0) patch.actuel = 0;
@@ -545,7 +545,7 @@ async function handleTransactions(req, res, payload) {
 
     try {
       /* ── Retrait d'un projet : le client reçoit le CAPITAL (objectif),
-         la plateforme garde la marge de 3% (actuel − objectif). ── */
+         la plateforme garde la marge de 1% (actuel − objectif). ── */
       let payout = amount;   /* montant réellement reçu par le client */
       let deduct = amount;   /* montant qui quitte le solde (epargne) */
       let margin = 0;
@@ -585,7 +585,7 @@ async function handleTransactions(req, res, payload) {
             { epargne: currentEpargne - deduct, updated_at: now });
         } catch (e) {}
 
-        /* Marge Epargn+ (3%) : retenue implicitement — le solde est débité du
+        /* Marge Epargn+ (1%) : retenue implicitement — le solde est débité du
            montant total du projet alors que le client ne reçoit que le capital.
            Pas de transaction 'fee' (type non autorisé par la contrainte DB). */
 

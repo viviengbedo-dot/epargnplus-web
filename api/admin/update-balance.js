@@ -555,7 +555,7 @@ module.exports = async (req, res) => {
           const totalDeposited = Array.isArray(txns)
             ? txns.reduce((s, t) => s + (Number(t.amount) || 0), 0)
             : 0;
-          /* Plafond = objectif × 1,03 (marge Epargn+ intégrée) */
+          /* Plafond = objectif × 1,01 (marge Epargn+ intégrée) */
           const maxActuel = proj.goal ? Math.round(proj.goal * 1.01) : Infinity;
           const cappedActuel = Math.min(totalDeposited, maxActuel);
           if (Math.abs(cappedActuel - (proj.actuel || 0)) > 1) {
@@ -568,7 +568,7 @@ module.exports = async (req, res) => {
       }
 
       /* Identifier les utilisateurs en excédent — même logique que /api/admin/data :
-         alloué = Σ min(actuel, objectif × 1,03) ; excédent = solde − alloué. */
+         alloué = Σ min(actuel, objectif × 1,01) ; excédent = solde − alloué. */
       const users = await supabaseRequest('GET',
         '/users?select=id,phone,prenom,epargne&limit=1000');
       const surplusUsers = [];
@@ -643,7 +643,7 @@ module.exports = async (req, res) => {
       if (!u || !proj) return res.status(404).json({ error: 'Utilisateur ou projet introuvable' });
       if (proj.status !== 'active') return res.status(400).json({ error: 'Projet non actif' });
 
-      /* Plafond = objectif × 1,03 (marge Epargn+) − déjà déposé */
+      /* Plafond = objectif × 1,01 (marge Epargn+) − déjà déposé */
       const effTarget = Math.round((Number(proj.goal) || 0) * 1.01);
       const remaining = Math.max(0, effTarget - (Number(proj.actuel) || 0));
       const injection = Math.min(Number(u.epargne) || 0, remaining);
@@ -689,7 +689,7 @@ module.exports = async (req, res) => {
   /* ════════════ AUTO-REATTRIBUTE — remplir les projets avec l'excédent ════════════
      Répartit l'excédent LIBRE de l'utilisateur (solde − Σ actuel) dans ses
      projets actifs encore incomplets, en comblant d'abord ceux les plus
-     proches de leur objectif (× 1,03). N'utilise QUE l'argent hors projet. */
+     proches de leur objectif (× 1,01). N'utilise QUE l'argent hors projet. */
   if (action === 'reattribute_auto') {
     const surplusUserId = body.targetUserId;
     if (!surplusUserId) return res.status(400).json({ error: 'targetUserId requis' });
@@ -764,7 +764,7 @@ module.exports = async (req, res) => {
   /* ════════════ AUTO-REATTRIBUTE ALL — tous les utilisateurs en excédent ════════════
      Pour CHAQUE utilisateur ayant un excédent libre (solde − Σ actuel),
      répartit cet excédent dans ses projets actifs incomplets (les plus
-     proches de l'objectif × 1,03 d'abord). Opération en lot. */
+     proches de l'objectif × 1,01 d'abord). Opération en lot. */
   if (action === 'reattribute_all') {
     try {
       const allUsers = await supabaseRequest('GET',
@@ -1136,7 +1136,7 @@ module.exports = async (req, res) => {
         } catch (e) {}
       }
 
-      /* Crédit intégral du dépôt — aucun frais (la marge Epargn+ de 3% est
+      /* Crédit intégral du dépôt — aucun frais (la marge Epargn+ de 1% est
          intégrée silencieusement au seuil des 100%, pas prélevée sur le dépôt). */
       const netForServer = depositAmount;
       const newEpargne   = (Number(user.epargne) || 0) + netForServer;
@@ -1151,7 +1151,7 @@ module.exports = async (req, res) => {
             '/projects?id=eq.' + encodeURIComponent(projectId) + '&select=id,actuel,goal,status');
           if (Array.isArray(projRows) && projRows[0]) {
             const proj = projRows[0];
-            /* Plafond = objectif × 1,03 (marge Epargn+) − déjà déposé */
+            /* Plafond = objectif × 1,01 (marge Epargn+) − déjà déposé */
             const effTarget  = Math.round((Number(proj.goal) || 0) * 1.01);
             const maxAllowed = Math.max(0, effTarget - (Number(proj.actuel) || 0));
 

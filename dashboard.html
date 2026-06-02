@@ -2866,10 +2866,10 @@ function projectHasJoinedMembers(p) {
 }
 
 /* ══════════════════════════════════════════
-   MARGE EPARGN+ — 3% intégrés, invisibles au client
-   Pour atteindre 100%, le client doit cumuler capital + 3%.
+   MARGE EPARGN+ — 1% intégrés, invisibles au client
+   Pour atteindre 100%, le client doit cumuler capital + 1%.
    L'objectif AFFICHÉ reste le capital (cible) ; seuls le % et le
-   statut "Atteint" se calculent sur la cible effective (cible × 1,03).
+   statut "Atteint" se calculent sur la cible effective (cible × 1,01).
    Source de vérité unique — utilisée partout.
    ══════════════════════════════════════════ */
 var EPARGN_FEE_RATE = 0.01;
@@ -3422,7 +3422,7 @@ function _updateRetrait() {
   const cur = (COUNTRY_LABELS[_userCountry] || COUNTRY_LABELS.gn).currency;
   const cap = RETRAIT_CAPS[cur] || 5000;
   document.getElementById('retraitDisplay').textContent = n.toLocaleString('fr');
-  /* Aucun frais de retrait — seule la marge de 3% (intégrée à l'épargne) s'applique */
+  /* Aucun frais de retrait — seule la marge de 1% (intégrée à l'épargne) s'applique */
   const fee = 0;
   document.getElementById('retraitFee').textContent   = '0 ' + cur;
   document.getElementById('retraitTotal').textContent = n > 0 ? fmt(n) + ' ' + cur : '0 ' + cur;
@@ -5028,7 +5028,7 @@ function openRetraitForProject(projectId, nom, montant) {
   }
 
   /* Le client reçoit le CAPITAL (objectif), pas le montant brut épargné.
-     La marge Epargn+ (3%) est retenue par la plateforme au retrait. */
+     La marge Epargn+ (1%) est retenue par la plateforme au retrait. */
   if (_proj && _proj.cible > 0) montant = _proj.cible;
 
   _retraitProjectId  = projectId;
@@ -5047,7 +5047,7 @@ function openRetraitForProject(projectId, nom, montant) {
   const phone = (_currentUser && _currentUser.phone) ? _currentUser.phone : '—';
   document.querySelectorAll('#sec-retrait [data-user-phone]').forEach(el => { el.textContent = phone; });
 
-  /* Frais — retrait sans frais (seule la marge 3% intégrée s'applique) */
+  /* Frais — retrait sans frais (seule la marge 1% intégrée s'applique) */
   const cur = (COUNTRY_LABELS[_userCountry] || COUNTRY_LABELS.gn).currency;
   const fee = 0;
   const feeEl = document.getElementById('retraitFee');
@@ -7010,7 +7010,7 @@ function showReceptionMsg(amount) {
     .then(r => r.json())
     .then(data => {
       if (data.ok) {
-        /* Le montant TOTAL du projet quitte le solde (capital reçu + marge 3%
+        /* Le montant TOTAL du projet quitte le solde (capital reçu + marge 1%
            retenue par la plateforme). On déduit donc l'actuel complet. */
         const proj = PROJETS.find(p => p.id === _retraitProjectId);
         const fullLeaving = proj ? (Number(proj.actuel) || amount) : amount;

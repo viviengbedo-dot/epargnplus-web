@@ -193,7 +193,7 @@ module.exports = async (req, res) => {
 
        Formule correcte :
          capacité absorbable d'un projet = min(actuel, objectif effectif)
-           où objectif effectif = goal × 1,03 (marge Epargn+ intégrée)
+           où objectif effectif = goal × 1,01 (marge Epargn+ intégrée)
          excédent = solde − Σ min(actuel, objectif effectif)
                   = argent au-delà des objectifs des projets, à réattribuer. */
     let surplusUsers = [];

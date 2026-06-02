@@ -68,8 +68,8 @@ module.exports = async (req, res) => {
         if (proj.status !== 'active') {
           return res.status(400).json({ error: 'Ce projet n\'est plus actif.' });
         }
-        /* Marge Epargn+ : 3% intégrés. Le plafond réel = objectif × 1,03
-           (le client doit cumuler capital + 3% pour atteindre 100%). */
+        /* Marge Epargn+ : 1% intégrés. Le plafond réel = objectif × 1,01
+           (le client doit cumuler capital + 1% pour atteindre 100%). */
         const effectiveTarget = Math.round((proj.goal || 0) * 1.01);
         const remaining = Math.max(0, effectiveTarget - (proj.actuel || 0));
         if (remaining === 0) {
