@@ -3321,41 +3321,16 @@ function _onDepositApproved() {
     return;
   }
 
-  /* ── 2. Crédit intégral du dépôt ──
-   * Aucun frais sur le dépôt. La marge Epargn+ (3%) est intégrée
-   * silencieusement au seuil des 100% (cf. projTarget). */
-  var netAmount = amount;
-  var newActuel = (proj.actuel || 0) + netAmount;
-  proj.actuel   = newActuel;
+  /* ── IMPORTANT : ne PAS recréditer actuel ici ──
+     Le backend (validation admin) a DÉJÀ crédité projects.actuel côté serveur.
+     Ré-ajouter + PATCHer ici provoquait un DOUBLE comptage (ex. 2×10M → 30M).
+     On se contente de notifier et de recharger la valeur AUTORITAIRE du serveur. */
+  _notifyDepositApproved(amount, proj.nom, (proj.actuel || 0) + amount, proj.cible);
 
-  /* ── 3. Sauvegarder en DB via l'API utilisateur authentifiée ── */
-  fetch('/api/user/me?resource=projects&id=' + encodeURIComponent(proj.id), {
-    method:  'PATCH',
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
-    body:    JSON.stringify({ actuel: newActuel })
-  })
-  .then(function(r) { return r.json(); })
-  .then(function(resp) {
-    if (resp && resp.ok) {
-      console.log('[dépôt approuvé] project ' + proj.id + ' actuel=' + newActuel + ' ✓');
-    } else {
-      console.warn('[dépôt approuvé] PATCH project réponse:', JSON.stringify(resp));
-    }
-  })
-  .catch(function(e) { console.warn('[dépôt approuvé] PATCH project erreur:', e.message); });
+  /* Recharger projets/solde depuis le serveur (source de vérité) */
+  if (typeof refreshDashboardData === 'function') refreshDashboardData(true);
 
-  /* ── 4. Mettre à jour l'affichage : jauge, solde, restant, % ── */
-  localStorage.setItem('epargn_projets', JSON.stringify(PROJETS));
-  syncBalanceFromProjects();
-  renderProjectCards();
-  renderHomeProjects();
-  updateHomeOverview();
-  if (typeof updateProgressionGauge === 'function') updateProgressionGauge();
-
-  /* ── 5. Notification ── */
-  _notifyDepositApproved(netAmount, proj.nom, newActuel, proj.cible);
-
-  /* ── 6. Reprendre sync normal ── */
+  /* Reprendre sync normal */
   startAutoSync();
 }
 
