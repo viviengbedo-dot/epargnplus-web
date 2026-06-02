@@ -81,6 +81,7 @@ module.exports = async (req, res) => {
   if (resource === 'invitations_send') return handleInvitationsSend(req, res, payload);
   if (resource === 'invitations_resend') return handleInvitationsResend(req, res, payload);
   if (resource === 'my_groups')        return handleMyGroups(req, res, payload);
+  if (resource === 'project_history')  return handleProjectHistory(req, res, payload, resourceId);
   if (resource === 'kyc')              return handleKyc(req, res, payload);
   if (resource === 'settings')         return handleSettings(req, res);
   if (resource === 'tickets')          return handleTickets(req, res, payload, resourceId);
@@ -1348,6 +1349,90 @@ async function handleMyGroups(req, res, payload) {
     return res.status(200).json(result);
   } catch (e) {
     return res.status(200).json([]);
+  }
+}
+
+/* ── Historique des dépôts d'un projet collectif (membres + traçabilité) ──
+   GET ?resource=project_history&id=<projectId>
+   Renvoie : { ok, total, byMember:[{name,phone,total,pct,count}], transactions:[...] } */
+async function handleProjectHistory(req, res, payload, projectId) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'GET uniquement' });
+  if (!projectId) return res.status(400).json({ error: 'id projet requis' });
+
+  try {
+    /* 1. Sécurité : l'utilisateur doit être propriétaire OU membre du projet */
+    let allowed = false;
+    try {
+      const own = await supabaseRequest('GET',
+        '/projects?id=eq.' + encodeURIComponent(projectId) +
+        '&user_id=eq.' + encodeURIComponent(payload.userId) + '&select=id&limit=1');
+      if (Array.isArray(own) && own[0]) allowed = true;
+    } catch (e) {}
+    if (!allowed) {
+      try {
+        const mem = await supabaseRequest('GET',
+          '/project_members?project_id=eq.' + encodeURIComponent(projectId) +
+          '&user_id=eq.' + encodeURIComponent(payload.userId) + '&select=id&limit=1');
+        if (Array.isArray(mem) && mem[0]) allowed = true;
+      } catch (e) {}
+    }
+    if (!allowed) return res.status(403).json({ error: 'Accès non autorisé à ce projet' });
+
+    /* 2. Dépôts complétés du projet */
+    let txns = [];
+    try {
+      txns = await supabaseRequest('GET',
+        '/transactions?project_id=eq.' + encodeURIComponent(projectId) +
+        '&is_credit=eq.true&statut=eq.completed' +
+        '&select=user_id,amount,created_at,label&order=created_at.desc&limit=300');
+      if (!Array.isArray(txns)) txns = [];
+    } catch (e) { console.warn('[project_history] txns:', e.message); }
+
+    /* 3. Noms des déposants */
+    const userIds = [...new Set(txns.map(t => t.user_id).filter(Boolean))];
+    const nameMap = {};
+    if (userIds.length) {
+      try {
+        const users = await supabaseRequest('GET',
+          '/users?id=in.(' + userIds.map(encodeURIComponent).join(',') + ')&select=id,prenom,nom,phone');
+        (Array.isArray(users) ? users : []).forEach(u => {
+          nameMap[u.id] = {
+            name: ((u.prenom || '') + ' ' + (u.nom || '')).trim() || u.phone || 'Membre',
+            phone: u.phone || '',
+          };
+        });
+      } catch (e) {}
+    }
+
+    /* 4. Agrégats par membre + total */
+    const totals = {};
+    let total = 0;
+    txns.forEach(t => {
+      const uid = t.user_id || 'inconnu';
+      const amt = Number(t.amount) || 0;
+      if (!totals[uid]) totals[uid] = { count: 0, total: 0 };
+      totals[uid].count += 1;
+      totals[uid].total += amt;
+      total += amt;
+    });
+    const byMember = Object.keys(totals).map(uid => ({
+      user_id: uid,
+      name:    (nameMap[uid] && nameMap[uid].name) || 'Membre',
+      phone:   (nameMap[uid] && nameMap[uid].phone) || '',
+      total:   totals[uid].total,
+      count:   totals[uid].count,
+      pct:     total > 0 ? Math.round(totals[uid].total / total * 100) : 0,
+    })).sort((a, b) => b.total - a.total);
+
+    const transactions = txns.map(t => ({
+      name:       (nameMap[t.user_id] && nameMap[t.user_id].name) || 'Membre',
+      amount:     Number(t.amount) || 0,
+      created_at: t.created_at,
+    }));
+
+    return res.status(200).json({ ok: true, total, byMember, transactions });
+  } catch (e) {
+    return res.status(500).json({ error: 'Erreur historique : ' + e.message });
   }
 }
 

@@ -2128,6 +2128,11 @@ function populateAdminData(data) {
           '<td class="text-muted">' + t.user + '</td>' +
           '<td><div style="display:flex;align-items:center;gap:8px;">' +
             '<span class="badge badge-success">✅ Active</span>' +
+            '<button class="btn-icon" title="Historique des dépôts" ' +
+              'onclick="openAdminProjectHistory(\'' + t.id + '\',\'' + safeNom + '\')" ' +
+              'style="font-size:12px;width:auto;padding:0 8px;height:26px;border-radius:6px;background:#F5F3FF;border:1px solid #DDD6FE;color:#6D28D9;font-weight:600;cursor:pointer;">' +
+              '📊 Historique' +
+            '</button>' +
             '<button class="btn-icon danger" title="Clôturer ce groupe" ' +
               'onclick="openDeleteApprovalModal(\'' + t.id + '\',\'' + safeNom + '\',\'' + (t.userId||'') + '\',' + t.actuel + ',\'' + safeUser + '\',\'force\')" ' +
               'style="font-size:12px;width:auto;padding:0 8px;height:26px;border-radius:6px;background:rgba(220,38,38,.07);border:1px solid rgba(220,38,38,.25);color:#DC2626;font-weight:600;cursor:pointer;">' +
@@ -3067,6 +3072,72 @@ function renderTontines() {
 
 /* Ouvrir le modal de remboursement avant approbation ou clôture forcée
    mode : 'approve' (demande de suppression utilisateur) | 'force' (clôture admin directe) */
+/* ── Historique des dépôts d'un projet collectif (admin — traçabilité) ──
+   Diagramme circulaire + répartition par membre + liste, depuis ALL_TXNS. */
+var ADMIN_HIST_COLORS = ['#0B1566','#22CC66','#3B82F6','#F59E0B','#8B5CF6','#EC4899','#06B6D4','#EF4444','#14B8A6','#F97316'];
+
+function _closeAdminHistory() {
+  var m = document.getElementById('adminHistOverlay'); if (m) m.remove();
+}
+
+function openAdminProjectHistory(projectId, nom) {
+  /* Dépôts complétés de ce projet */
+  var deps = (ALL_TXNS || []).filter(function(tx) {
+    return tx.projectId === projectId && tx.credit && /omplét|alid|ucc/i.test(String(tx.statut || ''));
+  });
+  /* Agrégats par membre */
+  var totals = {}; var total = 0;
+  deps.forEach(function(tx) {
+    var k = tx.userId || tx.user || 'inconnu';
+    if (!totals[k]) totals[k] = { name: tx.user || 'Membre', total: 0, count: 0 };
+    totals[k].total += (tx.montant || 0); totals[k].count += 1; total += (tx.montant || 0);
+  });
+  var byMember = Object.keys(totals).map(function(k) {
+    return { name: totals[k].name, total: totals[k].total, count: totals[k].count,
+             pct: total > 0 ? Math.round(totals[k].total / total * 100) : 0 };
+  }).sort(function(a, b) { return b.total - a.total; });
+
+  var inner;
+  if (!deps.length) {
+    inner = '<div style="text-align:center;padding:40px;color:#6B7280;"><div style="font-size:40px;margin-bottom:10px;">📊</div><div style="font-weight:700;color:#0B1566;">Aucun dépôt enregistré</div></div>';
+  } else {
+    var stops = []; var acc = 0;
+    byMember.forEach(function(m, i) { var c = ADMIN_HIST_COLORS[i % ADMIN_HIST_COLORS.length]; stops.push(c + ' ' + acc + '% ' + (acc + m.pct) + '%'); acc += m.pct; });
+    if (acc < 100 && stops.length) stops.push('#E5E7EB ' + acc + '% 100%');
+    var pie = '<div style="width:160px;height:160px;border-radius:50%;margin:0 auto 8px;background:conic-gradient(' + stops.join(',') + ');box-shadow:0 4px 16px rgba(0,0,0,.12);"></div>';
+    var legend = byMember.map(function(m, i) {
+      var c = ADMIN_HIST_COLORS[i % ADMIN_HIST_COLORS.length];
+      return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #EEF2F7;">' +
+        '<span style="width:12px;height:12px;border-radius:3px;background:' + c + ';"></span>' +
+        '<span style="flex:1;font-size:13px;font-weight:600;color:#0B1566;">' + esc(m.name) + '</span>' +
+        '<span style="font-size:13px;font-weight:800;color:' + c + ';">' + m.pct + '%</span>' +
+        '<span style="font-size:12px;color:#6B7280;min-width:100px;text-align:right;">' + fmt(m.total) + ' GNF</span></div>';
+    }).join('');
+    var rows = deps.slice(0, 80).map(function(tx) {
+      return '<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid #F3F4F6;font-size:12px;">' +
+        '<span style="color:#0B1566;font-weight:600;">👤 ' + esc(tx.user || 'Membre') + '</span>' +
+        '<span style="color:#6B7280;">' + esc(tx.date || '') + '</span>' +
+        '<span style="font-weight:800;color:#059669;min-width:100px;text-align:right;">+' + fmt(tx.montant) + ' GNF</span></div>';
+    }).join('');
+    inner = '<div style="text-align:center;margin-bottom:8px;"><div style="font-size:12px;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;">Total collecté</div>' +
+      '<div style="font-size:24px;font-weight:900;color:#0B1566;">' + fmt(total) + ' GNF</div></div>' + pie +
+      '<div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.04em;margin:14px 0 4px;">Répartition par membre</div>' + legend +
+      '<div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.04em;margin:16px 0 4px;">Historique des dépôts</div>' + rows;
+  }
+
+  _closeAdminHistory();
+  var overlay = document.createElement('div');
+  overlay.id = 'adminHistOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(11,21,102,.5);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
+  overlay.onclick = function(e) { if (e.target === overlay) _closeAdminHistory(); };
+  overlay.innerHTML = '<div style="background:#fff;width:100%;max-width:480px;max-height:88vh;overflow-y:auto;border-radius:18px;padding:22px 20px 28px;">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">' +
+      '<div style="font-size:17px;font-weight:900;color:#0B1566;">📊 ' + esc(nom || 'Groupe') + '</div>' +
+      '<button onclick="_closeAdminHistory()" style="background:#F3F4F6;border:none;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;">✕</button>' +
+    '</div>' + inner + '</div>';
+  document.body.appendChild(overlay);
+}
+
 function openDeleteApprovalModal(projectId, nom, userId, actuel, ownerLabel, mode) {
   mode = mode || 'approve';
   /* Remplir les champs du modal */
