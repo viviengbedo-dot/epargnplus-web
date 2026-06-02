@@ -7869,10 +7869,12 @@ function loadMyGroups() {
     groups.forEach(function(g) {
       var existing = TONTINES_USER.find(function(t) { return t.projectId === g.id; });
       if (existing) {
-        /* Synchroniser le montant réel + nb membres + clôture */
+        /* Synchroniser depuis la DB (source de vérité) : montant, membres ET
+           statut — évite un "Clôture demandée" fantôme côté client alors que
+           la DB est restée 'active' (incohérence avec l'admin). */
         existing.actuel  = g.actuel;
         existing.membres = g.members_count;
-        if (g.status === 'closed') existing.status = 'closed';
+        if (g.status) existing.status = g.status;
         changed = true;
         return;
       }
@@ -8146,13 +8148,35 @@ function submitTontineDeleteRequest() {
 
   if (!_authToken) return;
 
-  /* ── Marquer le projet Supabase (ou le créer si absent) ── */
+  /* ── Marquer le projet Supabase (avec vérification de persistance) ── */
   function _markProjectDeleteRequested(projectId) {
     return fetch('/api/user/me?resource=projects&id=' + encodeURIComponent(projectId), {
       method:  'PATCH',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
       body:    JSON.stringify({ status: 'delete_requested' }),
-    }).catch(function(e) { console.warn('[tontine] PATCH project:', e.message); });
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d && d.ok) {
+        /* Confirmer le statut réel renvoyé par la DB (source de vérité) */
+        if (d.status) t.status = d.status;
+        TONTINES_USER[idx] = t;
+        localStorage.setItem('epargn_tontines', JSON.stringify(TONTINES_USER));
+        renderUserTontines();
+        showToast('✅ Demande de clôture transmise à l\'administrateur.', 'success');
+      } else {
+        /* Échec → revenir à l'état actif pour ne pas afficher un faux "en attente" */
+        t.status = 'active';
+        TONTINES_USER[idx] = t;
+        localStorage.setItem('epargn_tontines', JSON.stringify(TONTINES_USER));
+        renderUserTontines();
+        showToast('⚠ La demande n\'a pas pu être enregistrée. Réessayez.', 'error');
+      }
+    })
+    .catch(function(e) {
+      console.warn('[tontine] PATCH project:', e.message);
+      showToast('Erreur réseau — demande non enregistrée.', 'error');
+    });
   }
 
   if (t.projectId) {
