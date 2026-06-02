@@ -4262,7 +4262,7 @@ function renderProjectCards() {
 
     /* Badge statut */
     let stLabel, stClass;
-    if (p.status === 'closure_requested') {
+    if ((p.status === 'closure_requested' || p.status === 'pending_close')) {
       stLabel = '⏳ Fermeture demandée';
       stClass = 'badge-status-pending';
     } else if (pct >= 100) {
@@ -4297,7 +4297,7 @@ function renderProjectCards() {
     const _canWithdraw = (typeof projWithdrawable === 'function') ? projWithdrawable(p) : (pct >= 100);
     let actionBtn;
 
-    if (p.status === 'closure_requested') {
+    if ((p.status === 'closure_requested' || p.status === 'pending_close')) {
       /* Projet en fermeture : aucune action ne peut être faite */
       actionBtn = `<button class="btn btn-sm" style="flex:1;font-size:13px;padding:11px 0;background:#FEE2E2;color:#DC2626;border:none;font-weight:700;cursor:not-allowed;opacity:0.7;" disabled>⏳ En attente de clôture</button>`;
     } else if (isCollectif) {
@@ -4379,7 +4379,7 @@ function renderProjectCards() {
       <div style="display:flex;gap:8px;padding-top:10px;border-top:1px solid var(--divider);">
         ${actionBtn}
         ${!isCollectif ? `<button class="btn btn-outline btn-sm" onclick="openProjectDetail(PROJETS[${idx}])" style="font-size:13px;padding:11px 14px;" title="Voir les détails">📊</button>` : ''}
-        ${(p.status !== 'closure_requested' && !projectHasJoinedMembers(p) && (p.actuel || 0) === 0) ? `<button class="btn btn-outline btn-sm" onclick="deleteProject(${idx})" style="color:#DC2626;border-color:#FECACA;font-size:13px;padding:11px 14px;" title="Supprimer">🗑</button>` : ''}
+        ${(p.status !== 'closure_requested' && p.status !== 'pending_close' && !projectHasJoinedMembers(p) && (p.actuel || 0) === 0) ? `<button class="btn btn-outline btn-sm" onclick="deleteProject(${idx})" style="color:#DC2626;border-color:#FECACA;font-size:13px;padding:11px 14px;" title="Supprimer">🗑</button>` : ''}
       </div>
     </div>`;
    } catch (e) {
@@ -5028,7 +5028,7 @@ function deleteProject(idx) {
   var joinedMembers = projectHasJoinedMembers(proj);
 
   /* Déjà en attente de clôture */
-  if (proj.status === 'closure_requested') {
+  if (proj.status === 'closure_requested' || proj.status === 'pending_close') {
     showToast('⏳ Ce projet est déjà en attente de clôture par l\'administrateur.', 'info');
     return;
   }
@@ -5069,7 +5069,7 @@ function deleteProject(idx) {
       /* Fermeture demandée pour un projet collectif */
       if (data.code === 'CLOSURE_REQUESTED' || data.action === 'closure_requested') {
         showToast('✅ Demande de clôture envoyée à l\'administrateur. Le projet restera visible jusqu\'à clôture.', 'success');
-        if (PROJETS[idx]) PROJETS[idx].status = 'closure_requested';
+        if (PROJETS[idx]) PROJETS[idx].status = 'pending_close';
         renderProjectCards();
         return;
       }
@@ -7705,7 +7705,8 @@ function renderUserTontines() {
     /* ── Badge statut ── */
     var _pendingClosure = (t.status === 'pending_delete' ||
                            t.status === 'closure_requested' ||
-                           t.status === 'delete_requested');
+                           t.status === 'delete_requested' ||
+                           t.status === 'pending_close');
     var statusBadge;
     if      (_pendingClosure)  statusBadge = '<span class="badge" style="background:#FEF2F2;color:#DC2626;border:1px solid #FECACA;">⏳ Clôture demandée (admin)</span>';
     else if (prog.pct >= 100)  statusBadge = '<span class="badge badge-status-done">🏆 Objectif atteint</span>';
@@ -7776,7 +7777,8 @@ function renderUserTontines() {
        En attente, on ne propose que l'annulation (pas de suppression forcée). */
     var isPendingClosure = (t.status === 'pending_delete' ||
                             t.status === 'closure_requested' ||
-                            t.status === 'delete_requested');
+                            t.status === 'delete_requested' ||
+                            t.status === 'pending_close');
     var deleteBtn;
     if (isPendingClosure) {
       deleteBtn =

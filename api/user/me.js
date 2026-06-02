@@ -385,12 +385,14 @@ async function handleProjects(req, res, payload, resourceId) {
       } catch (e) {}
 
       if (proj && isProjectCollective(proj)) {
-        /* Collectif : seuls 'closure_requested', 'delete_requested' (demande)
-           et 'active' (annulation) sont permis. 'closed' → forcé en demande. */
-        if (requested === 'closed') {
-          patch.status = 'closure_requested';
-        } else if (['closure_requested', 'delete_requested', 'active'].includes(requested)) {
-          patch.status = requested;
+        /* Collectif : la DEMANDE de clôture est persistée en 'pending_close'
+           (seule valeur de demande autorisée par projects_status_check).
+           'active' = annulation. Toute autre demande de clôture/suppression
+           est convertie en 'pending_close'. */
+        if (['closed', 'delete_requested', 'closure_requested', 'pending_close'].includes(requested)) {
+          patch.status = 'pending_close';
+        } else if (requested === 'active') {
+          patch.status = 'active';
         }
         /* tout autre statut est ignoré pour un collectif */
       } else {
@@ -462,13 +464,15 @@ async function handleProjects(req, res, payload, resourceId) {
          ═══════════════════════════════════════════════════════════ */
 
       if (collective && (joinedMembers || hasFunds)) {
-        /* Projet collectif actif → fermeture gérée par l'admin */
+        /* Projet collectif actif → fermeture gérée par l'admin.
+           Statut 'pending_close' (seule valeur de demande autorisée par la
+           contrainte projects_status_check). */
         try {
           await supabaseRequest('PATCH',
             '/projects?id=eq.' + encodeURIComponent(resourceId),
-            { status: 'closure_requested' });
+            { status: 'pending_close' });
         } catch (e) {
-          console.error('[projects/delete closure_requested]:', e.message);
+          console.error('[projects/delete pending_close]:', e.message);
           return res.status(500).json({ error: 'Erreur demande de clôture : ' + e.message });
         }
         return res.status(200).json({

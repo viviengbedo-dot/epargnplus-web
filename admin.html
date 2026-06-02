@@ -2050,8 +2050,9 @@ function populateAdminData(data) {
       date:    p.created_at ? new Date(p.created_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric' }) : '—',
     };
   });
-  var TONTINES_DELETE  = TONTINES_ALL.filter(function(t){ return t.status === 'closure_requested' || t.status === 'delete_requested'; });
-  var TONTINES_ACTIVES = TONTINES_ALL.filter(function(t){ return t.status !== 'closure_requested' && t.status !== 'delete_requested' && t.status !== 'closed'; });
+  var _isCloseReq = function(s){ return s === 'pending_close' || s === 'closure_requested' || s === 'delete_requested'; };
+  var TONTINES_DELETE  = TONTINES_ALL.filter(function(t){ return _isCloseReq(t.status); });
+  var TONTINES_ACTIVES = TONTINES_ALL.filter(function(t){ return !_isCloseReq(t.status) && t.status !== 'closed'; });
 
   /* Stats */
   var elA = document.getElementById('tontStatActifs');  if (elA) elA.textContent = TONTINES_ACTIVES.length;
