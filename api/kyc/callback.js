@@ -15,6 +15,7 @@
 
 const crypto = require('crypto');
 const { supabaseRequest } = require('../_lib/supabase');
+const { trigger: emailTrig } = require('../_lib/email');
 
 const SMILE_PARTNER_ID = process.env.SMILE_PARTNER_ID || '';
 const SMILE_API_KEY     = process.env.SMILE_API_KEY     || '';
@@ -126,6 +127,22 @@ module.exports = async (req, res) => {
             : 'Votre dossier est en cours d\'examen.',
         read: false, created_at: new Date().toISOString(),
       });
+    } catch (e) {}
+
+    /* 5. Email automatique selon le résultat KYC */
+    try {
+      const uRows = await supabaseRequest('GET',
+        '/users?id=eq.' + encodeURIComponent(userId) + '&select=email,prenom&limit=1');
+      const u = Array.isArray(uRows) && uRows[0];
+      if (u && u.email) {
+        const trigName = status === 'verified' ? 'kyc_approved'
+                       : status === 'rejected' ? 'kyc_rejected'
+                       : 'kyc_received';
+        emailTrig(trigName, userId, {
+          prenom: u.prenom || '',
+          motif:  patch.kyc_rejection_reason || '',
+        }, u.email).catch(() => {});
+      }
     } catch (e) {}
 
     console.log('[kyc/callback] user=' + userId + ' status=' + status);

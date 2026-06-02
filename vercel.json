@@ -17,6 +17,9 @@
     { "source": "/join/:code",         "destination": "/join.html" },
     { "source": "/join/:code/(.*)",    "destination": "/join.html" }
   ],
+  "crons": [
+    { "path": "/api/email/send?cron=reminders", "schedule": "0 9 * * *" }
+  ],
   "headers": [
     {
       "source": "/(|connexion|espace-client|administration|join/.*|.*\\.html)",

@@ -82,6 +82,23 @@ module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
+
+  /* ── CRON : rappels d'épargne (Vercel Cron, GET protégé par CRON_SECRET) ──
+     Déclenché quotidiennement → envoie reminder_7d aux inactifs depuis 7 j. */
+  if (req.method === 'GET' && /cron=reminders/.test(req.url || '')) {
+    const secret = process.env.CRON_SECRET;
+    const auth = (req.headers['authorization'] || '').replace('Bearer ', '').trim();
+    if (!secret || auth !== secret) return res.status(401).json({ error: 'Unauthorized' });
+    try {
+      const { runReminderCron } = require('../_lib/email');
+      const result = await runReminderCron();
+      console.log('[email/cron] reminders', JSON.stringify(result));
+      return res.status(200).json({ ok: true, job: 'reminders', ...result });
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
   try {

@@ -132,10 +132,12 @@ module.exports = async (req, res) => {
         if (memberShare <= 0) continue;
 
         /* a) Diminuer epargne */
+        let memberRow = null;
         try {
           const uRows = await supabaseRequest('GET',
-            '/users?id=eq.' + encodeURIComponent(member.user_id) + '&select=id,epargne');
+            '/users?id=eq.' + encodeURIComponent(member.user_id) + '&select=id,epargne,email,prenom,country');
           if (Array.isArray(uRows) && uRows[0]) {
+            memberRow = uRows[0];
             const newEp = Math.max(0, (Number(uRows[0].epargne) || 0) - memberShare);
             await supabaseRequest('PATCH',
               '/users?id=eq.' + encodeURIComponent(member.user_id),
@@ -175,6 +177,16 @@ module.exports = async (req, res) => {
           `Un retrait de ${memberShare.toLocaleString('fr-FR')} GNF est en cours de traitement.`,
           { project_id: projectId, amount: memberShare }
         );
+
+        /* d) Email automatique : groupe clôturé + part à rembourser */
+        if (memberRow && memberRow.email) {
+          const curM = ({ gn:'GNF', bj:'FCFA', ci:'FCFA', cn:'CNY' })[memberRow.country] || 'GNF';
+          emailTrig('collective_closed', member.user_id, {
+            prenom:       memberRow.prenom || '',
+            tontineName:  project.name || 'Épargne Collective',
+            part:         memberShare.toLocaleString('fr-FR') + ' ' + curM,
+          }, memberRow.email).catch(() => {});
+        }
       }
 
       /* 4. Marquer le projet comme closed */
@@ -246,10 +258,12 @@ module.exports = async (req, res) => {
         if (share <= 0) continue;
 
         /* Réduire l'épargne du membre */
+        let mRow = null;
         try {
           const uRows = await supabaseRequest('GET',
-            '/users?id=eq.' + encodeURIComponent(m.user_id) + '&select=epargne');
-          const ep = (Array.isArray(uRows) && uRows[0]) ? (Number(uRows[0].epargne) || 0) : 0;
+            '/users?id=eq.' + encodeURIComponent(m.user_id) + '&select=epargne,email,prenom,country');
+          mRow = (Array.isArray(uRows) && uRows[0]) ? uRows[0] : null;
+          const ep = mRow ? (Number(mRow.epargne) || 0) : 0;
           await supabaseRequest('PATCH',
             '/users?id=eq.' + encodeURIComponent(m.user_id),
             { epargne: Math.max(0, ep - share), updated_at: now });
@@ -271,6 +285,16 @@ module.exports = async (req, res) => {
             share.toLocaleString('fr-FR') + ' GNF vous ont été remboursés (clôture du projet « ' + (project.name || '') + ' »).',
             { project_id: projectId, amount: share });
         } catch (e) {}
+
+        /* Email automatique : groupe clôturé + remboursement */
+        if (mRow && mRow.email) {
+          const curR = ({ gn:'GNF', bj:'FCFA', ci:'FCFA', cn:'CNY' })[mRow.country] || 'GNF';
+          emailTrig('collective_closed', m.user_id, {
+            prenom:      mRow.prenom || '',
+            tontineName: project.name || 'Épargne Collective',
+            part:        share.toLocaleString('fr-FR') + ' ' + curR,
+          }, mRow.email).catch(() => {});
+        }
 
         refunded += share;
         refunds.push({ user_id: m.user_id, amount: share });
@@ -1195,14 +1219,18 @@ module.exports = async (req, res) => {
         const u = Array.isArray(uRows) && uRows[0];
         if (u && u.email) {
           const cur = u.currency || 'GNF';
-          let projName = null, progression = null;
+          let projName = null, progression = null, projGoalReached = false, projGoalVal = 0;
           if (projectId) {
             try {
               const pr = await supabaseRequest('GET',
                 '/projects?id=eq.' + encodeURIComponent(projectId) + '&select=name,goal,actuel&limit=1');
               if (Array.isArray(pr) && pr[0]) {
                 projName = pr[0].name;
-                progression = pr[0].goal > 0 ? Math.round((pr[0].actuel || 0) / pr[0].goal * 100) : 0;
+                projGoalVal = Number(pr[0].goal) || 0;
+                progression = projGoalVal > 0 ? Math.round((pr[0].actuel || 0) / projGoalVal * 100) : 0;
+                /* Objectif atteint : actuel ≥ objectif × 1,01 (seuil réel avec marge) */
+                const effTargetMail = Math.round(projGoalVal * 1.01);
+                projGoalReached = effTargetMail > 0 && (Number(pr[0].actuel) || 0) >= effTargetMail;
               }
             } catch {}
           }
@@ -1213,6 +1241,18 @@ module.exports = async (req, res) => {
             projet:       projName || '',
             progression:  progression !== null ? String(progression) : '',
           }, u.email).catch(() => {});
+
+          /* ── Email automatique : objectif atteint 🎉 ── */
+          if (projGoalReached) {
+            emailTrig('goal_reached', userId, {
+              prenom:  u.prenom || '',
+              projet:  projName || 'votre objectif',
+              montant: projGoalVal.toLocaleString('fr-FR') + ' ' + cur,
+            }, u.email).catch(() => {});
+            createNotification(userId, 'goal', '🏆 Objectif atteint !',
+              `Félicitations ! Vous avez atteint « ${projName || 'votre objectif'} ».`,
+              { projectId }).catch(() => {});
+          }
         }
       } catch {}
 

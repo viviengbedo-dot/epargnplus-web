@@ -573,17 +573,31 @@ async function handleTransactions(req, res, payload) {
       });
 
       if (type === 'withdrawal') {
+        let _u = null, _newSolde = 0;
         try {
           const users = await supabaseRequest('GET',
-            '/users?id=eq.' + encodeURIComponent(payload.userId) + '&select=epargne');
-          const currentEpargne = (Array.isArray(users) && users[0] && users[0].epargne)
-            ? Number(users[0].epargne) : 0;
+            '/users?id=eq.' + encodeURIComponent(payload.userId) + '&select=epargne,email,prenom,country,phone');
+          _u = (Array.isArray(users) && users[0]) ? users[0] : null;
+          const currentEpargne = (_u && _u.epargne) ? Number(_u.epargne) : 0;
           /* Sécurité : ne jamais descendre sous 0 */
           if (deduct > currentEpargne) deduct = currentEpargne;
+          _newSolde = currentEpargne - deduct;
           await supabaseRequest('PATCH',
             '/users?id=eq.' + encodeURIComponent(payload.userId),
-            { epargne: currentEpargne - deduct, updated_at: now });
+            { epargne: _newSolde, updated_at: now });
         } catch (e) {}
+
+        /* ── Email automatique : retrait en cours de traitement ── */
+        if (_u && _u.email) {
+          const cur = ({ gn:'GNF', bj:'FCFA', ci:'FCFA', cn:'CNY' })[_u.country] || 'GNF';
+          emailTrigger('withdrawal_requested', payload.userId, {
+            prenom:       _u.prenom || '',
+            montant:      Number(payout).toLocaleString('fr-FR') + ' ' + cur,
+            phoneRetrait: (body.phoneRetrait || _u.phone || ''),
+            phone:        _u.phone || '',
+            nouveauSolde: Number(_newSolde).toLocaleString('fr-FR') + ' ' + cur,
+          }, _u.email).catch(() => {});
+        }
 
         /* Marge Epargn+ (1%) : retenue implicitement — le solde est débité du
            montant total du projet alors que le client ne reçoit que le capital.
