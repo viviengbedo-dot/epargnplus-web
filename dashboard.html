@@ -796,15 +796,15 @@
       <!-- ════════ SUGGESTIONS IA ════════ -->
       <section id="sec-suggestions" style="display:none;">
         <div style="margin-bottom:20px;">
-          <h2 style="font-size:22px;font-weight:800;color:var(--primary);margin-bottom:4px;">Suggestions Intelligentes</h2>
-          <p class="text-muted" style="font-size:13px;">Recommandations personnalisées selon votre profil et la période.</p>
+          <h2 style="font-size:22px;font-weight:800;color:var(--primary);margin-bottom:4px;">✨ Vos rêves, en plan d'action</h2>
+          <p class="text-muted" style="font-size:13px;">Chaque idée ci-dessous est convertie en objectif chiffré et en versement mensuel clair. Choisissez, lancez, atteignez.</p>
         </div>
         <!-- IA banner -->
         <div style="background:linear-gradient(135deg,#0B1566,#1a2a8a);border-radius:16px;padding:20px 22px;margin-bottom:24px;display:flex;align-items:flex-start;gap:16px;">
           <div style="font-size:34px;line-height:1;">🤖</div>
           <div>
-            <div style="font-size:14px;font-weight:800;color:#C8E000;margin-bottom:4px;">IA Epargn+</div>
-            <div style="font-size:12px;color:rgba(255,255,255,.7);line-height:1.6;">Analyse votre profil, la saison et les fêtes à venir pour vous proposer les meilleures opportunités d'épargne et défis collectifs.</div>
+            <div style="font-size:14px;font-weight:800;color:#C8E000;margin-bottom:4px;" id="suggBannerTitle">Votre coach épargne Epargn+</div>
+            <div style="font-size:12.5px;color:rgba(255,255,255,.82);line-height:1.6;" id="suggBannerText">Terrain, voyage, fête, rentrée, retraite… L'IA analyse votre profil et le calendrier pour transformer chaque envie en un objectif atteignable — avec le montant exact à mettre de côté chaque mois. Il ne reste qu'à vous lancer.</div>
           </div>
         </div>
         <!-- Injected cards -->
@@ -2533,6 +2533,13 @@
 .sugg-title { font-size: 16px; font-weight: 800; color: var(--primary); }
 .sugg-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
 .sugg-action { font-size: 12px; font-weight: 700; color: var(--success); }
+.sugg-plan {
+  font-size: 12.5px; line-height: 1.5; color: var(--primary);
+  background: linear-gradient(135deg, #F0F4FF, #EEF9F1);
+  border: 1px dashed #C7D2FE; border-radius: 12px;
+  padding: 9px 12px;
+}
+.sugg-plan strong { color: var(--primary); }
 
 /* ── Notification dépôt validé ── */
 @keyframes slideDownNotif {
@@ -3886,7 +3893,7 @@ function getAISuggestions() {
   /* ── 0. Nouveau client ── */
   if (solde === 0) {
     suggestions.push({
-      emoji:'👋', priority:0, tag:'BIENVENUE', tc:'#047857', tb:'#ECFDF5',
+      emoji:'👋', priority:0, tag:'BIENVENUE', tc:'#047857', tb:'#ECFDF5', noPlan:true,
       title:'Effectuez votre 1er dépôt',
       desc:'Votre compte est prêt ! Déposez via Orange Money, MTN MoMo ou Wave dès maintenant.',
       action:'À partir de 1 000 ' + cur + ' seulement',
@@ -4003,6 +4010,7 @@ function getAISuggestions() {
         title:'Plan Immobilier',
         desc:'À ' + age + ' ans, c\'est le moment optimal pour bâtir votre patrimoine. Terrain, maison ou rénovation.',
         action:'Objectif : 15 000 000 ' + cur + ' sur 5 ans',
+        planAmount:15000000, planMonths:60,
         cta:'Créer le projet', onClick:"openModal('newProject')" });
     } else {
       suggestions.push({ emoji:'🌅', priority: priority++, tag: age + ' ANS', tc:'#B45309', tb:'#FFFBEB',
@@ -4023,7 +4031,36 @@ function getAISuggestions() {
   return suggestions.sort(function(a,b) { return a.priority - b.priority; });
 }
 
+/* Extrait le plus gros montant d'un texte (ex. "Objectif : 8 000 000 GNF" → 8000000) */
+function _suggExtractAmount(txt) {
+  if (!txt) return 0;
+  var matches = String(txt).replace(/ /g, ' ').match(/[\d][\d\s.]*\d|\d/g);
+  if (!matches) return 0;
+  var max = 0;
+  matches.forEach(function(m) {
+    var n = parseInt(m.replace(/[^\d]/g, ''), 10);
+    if (n > max) max = n;
+  });
+  return max;
+}
+
+/* Ligne instructive : "le rêve devient un petit geste mensuel" */
+function _suggPlanLine(s, cur) {
+  /* Si l'action exprime déjà une cadence (mensuelle, annuelle) ou un rendement,
+     ne pas recalculer un plan — on afficherait un chiffre faux. */
+  if (s.noPlan) return '';
+  if (s.planAmount === undefined && /mois|\bans?\b|\/\s*an|%|place|membre|seulement/i.test(s.action || '')) return '';
+  var amount = s.planAmount || _suggExtractAmount(s.action);
+  if (!amount || amount < 1000) return '';
+  var months = s.planMonths || 12;
+  var perMonth = Math.ceil(amount / months / 1000) * 1000; /* arrondi au millier sup. */
+  var perDay   = Math.ceil(amount / (months * 30) / 100) * 100;
+  return '<div class="sugg-plan">💡 <strong>Votre plan :</strong> ~' + fmt(perMonth) + ' ' + cur +
+    '/mois sur ' + months + ' mois <span style="opacity:.7;">(soit ~' + fmt(perDay) + ' ' + cur + '/jour)</span> — et l\'objectif est à vous.</div>';
+}
+
 function renderSuggCard(s) {
+  var cur = (COUNTRY_LABELS[_userCountry || (_currentUser && _currentUser.country) || 'gn'] || COUNTRY_LABELS.gn).currency;
   return `
   <div class="sugg-card">
     <div style="display:flex;align-items:center;gap:10px;justify-content:space-between;">
@@ -4037,13 +4074,21 @@ function renderSuggCard(s) {
     </div>
     <div class="sugg-desc">${s.desc}</div>
     <div class="sugg-action">↗ ${s.action}</div>
-    <button class="btn btn-primary" style="padding:11px;font-size:13px;font-weight:700;" onclick="${s.onClick}">${s.cta}</button>
+    ${_suggPlanLine(s, cur)}
+    <button class="btn btn-primary" style="padding:11px;font-size:13px;font-weight:700;" onclick="${s.onClick}">${s.cta} →</button>
   </div>`;
 }
 
 function renderSuggestionsPage() {
   const grid = document.getElementById('suggestionsGrid');
   if (!grid) return;
+  /* Bannière personnalisée — interpelle le client par son prénom */
+  var prenom = (_currentUser && _currentUser.prenom) ? _currentUser.prenom : '';
+  var bT = document.getElementById('suggBannerTitle');
+  var bx = document.getElementById('suggBannerText');
+  if (bT) bT.textContent = prenom ? (prenom + ', votre coach épargne vous a préparé un plan') : 'Votre coach épargne Epargn+';
+  if (bx) bx.textContent = (prenom ? prenom + ', vos' : 'Vos') +
+    ' envies deviennent des objectifs chiffrés. Pour chacun, on vous dit exactement combien mettre de côté par mois — et en combien de temps vous y êtes. Choisissez-en un et lancez-le aujourd\'hui. 🚀';
   const suggs = getAISuggestions();
   grid.innerHTML = suggs.map(renderSuggCard).join('');
 }
