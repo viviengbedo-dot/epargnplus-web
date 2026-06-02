@@ -155,8 +155,7 @@ module.exports = async (req, res) => {
             amount:     memberShare,
             operator:   'Mobile Money',
             is_credit:  false,
-            label:      ref + ' · Retrait — Clôture ' + (project.name || 'Épargne Collective'),
-            note:       'Clôture du projet collectif par l\'administrateur',
+            label:      ref + ' · Retrait — Clôture ' + (project.name || 'Épargne Collective') + ' (admin)',
             project_id: projectId,
             statut:     'pending',
             status:     'pending',
@@ -262,8 +261,7 @@ module.exports = async (req, res) => {
           await supabaseRequest('POST', '/transactions', {
             user_id: m.user_id, type: 'retrait_projet_collectif', amount: share,
             operator: 'Mobile Money', is_credit: false,
-            label: ref + ' · Remboursement — Clôture ' + (project.name || 'Projet'),
-            note: 'Suppression du projet + remboursement par l\'administrateur',
+            label: ref + ' · Remboursement — Clôture ' + (project.name || 'Projet') + ' (admin)',
             project_id: projectId, statut: 'completed', status: 'success',
           });
         } catch (e) {}
@@ -317,8 +315,7 @@ module.exports = async (req, res) => {
       /* Marquer la transaction comme complétée */
       await supabaseRequest('PATCH',
         '/transactions?id=eq.' + encodeURIComponent(txnId),
-        { statut: 'completed', status: 'success', validated_by: 'admin', validated_at: now,
-          ...(adminNote ? { note: adminNote } : {}) });
+        { statut: 'completed', status: 'success', validated_by: 'admin', validated_at: now });
 
       /* Notification */
       await createNotification(

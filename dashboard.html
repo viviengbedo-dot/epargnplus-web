@@ -3037,7 +3037,7 @@ function loadTransactions() {
   .then(function(r) { return r.json(); })
   .then(function(rows) {
     if (!Array.isArray(rows)) return;
-    var typeLabels = { deposit: 'Dépôt', depot: 'Dépôt', withdrawal: 'Retrait', retrait: 'Retrait', tontine: 'Épargne Collective', prime: 'Prime', parrainage: 'Parrainage' };
+    var typeLabels = { deposit: 'Dépôt', depot: 'Dépôt', withdrawal: 'Retrait', retrait: 'Retrait', tontine: 'Épargne Collective', prime: 'Prime', parrainage: 'Parrainage', retrait_projet_collectif: 'Remboursement', depot_alipay: 'Dépôt Alipay' };
     TRANSACTIONS = rows.map(function(t) {
       var typeLabel = typeLabels[t.type] || t.type || 'Transaction';
       /* Extraire la référence depuis le label (format: REF · Description) */

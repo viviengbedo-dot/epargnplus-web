@@ -94,7 +94,7 @@ module.exports = async (req, res) => {
     try {
       pendingWithdrawals = await supabaseRequest('GET',
         '/transactions?statut=eq.pending&type=eq.retrait_projet_collectif' +
-        '&select=id,user_id,amount,project_id,statut,label,note,created_at' +
+        '&select=id,user_id,amount,project_id,statut,label,created_at' +
         '&order=created_at.desc&limit=200');
       if (!Array.isArray(pendingWithdrawals)) pendingWithdrawals = [];
     } catch (e) {

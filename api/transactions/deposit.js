@@ -141,7 +141,9 @@ module.exports = async (req, res) => {
   const ref    = prefix + '-' + now.slice(0,10).replace(/-/g,'') + '-' +
     Math.random().toString(36).substr(2,6).toUpperCase();
   const txnType = isAlipay ? 'depot_alipay' : 'deposit';
-  const label   = ref + ' · ' + (isAlipay ? 'Dépôt Alipay' : 'Dépôt ' + operator);
+  /* Info expéditeur intégrée au label (colonnes note/sender_phone parfois absentes en prod) */
+  const senderInfo = senderPhone ? ' · de ' + senderPhone : (alipayReference ? ' · Réf ' + alipayReference : '');
+  const label   = ref + ' · ' + (isAlipay ? 'Dépôt Alipay' : 'Dépôt ' + operator) + senderInfo;
 
   let txnId = null;
 
@@ -154,8 +156,6 @@ module.exports = async (req, res) => {
       operator,
       is_credit:  true,
       label,
-      note:       note || (senderPhone ? 'Expéditeur : ' + senderPhone : null) || (alipayReference ? 'Réf Alipay : ' + alipayReference : null),
-      sender_phone: senderPhone,
       project_id: projectId,
       statut:     'pending',
       status:     'pending',
