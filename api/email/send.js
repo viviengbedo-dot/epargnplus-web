@@ -46,7 +46,7 @@ async function sendViaResend(recipientEmail, subject, htmlContent, variables) {
       to: recipientEmail,
       subject: subject,
       html: htmlContent,
-      reply_to: 'support@epargnplus.com',
+      reply_to: 'ceo@epargnplus.com',
     }),
   });
 
