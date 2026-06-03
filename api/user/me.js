@@ -86,6 +86,8 @@ module.exports = async (req, res) => {
   if (resource === 'settings')         return handleSettings(req, res);
   if (resource === 'tickets')          return handleTickets(req, res, payload, resourceId);
   if (resource === 'promos')           return handlePromos(req, res, payload);
+  if (resource === 'communities')      return handleCommunities(req, res, payload, resourceId);
+  if (resource === 'community')        return handleCommunityDetail(req, res, payload, resourceId);
 
   /* ══════════ ROUTE PROFIL ══════════ */
   if (!['GET', 'PATCH'].includes(req.method)) {
@@ -1502,4 +1504,122 @@ async function handleKyc(req, res, payload) {
   const sep = base.indexOf('?') === -1 ? '?' : '&';
   const smileUrl = base + sep + 'user_id=' + encodeURIComponent(payload.userId);
   return res.status(200).json({ ok: true, configured: true, smile_url: smileUrl });
+}
+
+/* ── Communautés / Cercles d'épargne ──
+   GET  ?resource=communities            → liste (avec flag joined)
+   POST ?resource=communities            → créer { name, type, goal }
+   POST ?resource=communities&id=<id>    → rejoindre */
+async function handleCommunities(req, res, payload, communityId) {
+  const TYPES = ['famille','entreprise','quartier','mosquee','etudiants','femmes','chauffeurs','cooperative','autre'];
+
+  if (req.method === 'GET') {
+    try {
+      const rows = await supabaseRequest('GET',
+        '/communities?select=id,name,type,goal,total_saved,members_count,created_by&order=total_saved.desc&limit=100');
+      const list = Array.isArray(rows) ? rows : [];
+      /* Marquer celles que l'utilisateur a rejointes */
+      let mine = [];
+      try {
+        mine = await supabaseRequest('GET',
+          '/community_members?user_id=eq.' + encodeURIComponent(payload.userId) + '&select=community_id');
+      } catch (e) {}
+      const joined = new Set((Array.isArray(mine) ? mine : []).map(m => m.community_id));
+      return res.status(200).json(list.map(c => ({ ...c, joined: joined.has(c.id) })));
+    } catch (e) {
+      return res.status(200).json([]);
+    }
+  }
+
+  if (req.method === 'POST' && communityId) {
+    /* Rejoindre */
+    try {
+      await supabaseRequest('POST', '/community_members', {
+        community_id: communityId, user_id: payload.userId, role: 'member', points: 0,
+      });
+      try {
+        const c = await supabaseRequest('GET', '/communities?id=eq.' + encodeURIComponent(communityId) + '&select=members_count');
+        if (Array.isArray(c) && c[0]) {
+          await supabaseRequest('PATCH', '/communities?id=eq.' + encodeURIComponent(communityId),
+            { members_count: (Number(c[0].members_count) || 1) + 1 });
+        }
+      } catch (e) {}
+      return res.status(200).json({ ok: true, joined: true });
+    } catch (e) {
+      if (String(e.message).match(/duplicate|unique/i)) return res.status(200).json({ ok: true, joined: true });
+      return res.status(500).json({ error: 'Erreur adhésion : ' + e.message });
+    }
+  }
+
+  if (req.method === 'POST') {
+    /* Créer */
+    const body = await parseBody(req);
+    const name = (body.name || '').trim();
+    const type = TYPES.includes(body.type) ? body.type : 'autre';
+    const goal = parseInt(body.goal, 10) || 0;
+    if (!name)        return res.status(400).json({ error: 'Nom de la communauté requis' });
+    if (goal < 1000)  return res.status(400).json({ error: 'Objectif minimum : 1 000' });
+    try {
+      const created = await supabaseRequest('POST', '/communities', {
+        name, type, goal, total_saved: 0, members_count: 1, created_by: payload.userId,
+      });
+      const c = Array.isArray(created) ? created[0] : created;
+      if (c && c.id) {
+        try {
+          await supabaseRequest('POST', '/community_members', {
+            community_id: c.id, user_id: payload.userId, role: 'creator', points: 0,
+          });
+        } catch (e) {}
+      }
+      return res.status(201).json(c);
+    } catch (e) {
+      return res.status(500).json({ error: 'Erreur création communauté : ' + e.message });
+    }
+  }
+
+  return res.status(405).json({ error: 'Méthode non autorisée' });
+}
+
+/* GET ?resource=community&id=<id> → { community, members[], progress } */
+async function handleCommunityDetail(req, res, payload, communityId) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'GET uniquement' });
+  if (!communityId) return res.status(400).json({ error: 'id requis' });
+  try {
+    const cRows = await supabaseRequest('GET',
+      '/communities?id=eq.' + encodeURIComponent(communityId) +
+      '&select=id,name,type,goal,total_saved,members_count,created_by&limit=1');
+    if (!Array.isArray(cRows) || !cRows[0]) return res.status(404).json({ error: 'Communauté introuvable' });
+    const community = cRows[0];
+
+    let members = [];
+    try {
+      members = await supabaseRequest('GET',
+        '/community_members?community_id=eq.' + encodeURIComponent(communityId) +
+        '&select=user_id,points,role&order=points.desc&limit=100');
+      if (!Array.isArray(members)) members = [];
+    } catch (e) {}
+
+    /* Noms des membres */
+    const ids = [...new Set(members.map(m => m.user_id).filter(Boolean))];
+    const nameMap = {};
+    if (ids.length) {
+      try {
+        const users = await supabaseRequest('GET',
+          '/users?id=in.(' + ids.map(encodeURIComponent).join(',') + ')&select=id,prenom,nom');
+        (Array.isArray(users) ? users : []).forEach(u => {
+          nameMap[u.id] = ((u.prenom || '') + ' ' + (u.nom || '')).trim() || 'Membre';
+        });
+      } catch (e) {}
+    }
+    const leaderboard = members.map(m => ({
+      user_id: m.user_id, name: nameMap[m.user_id] || 'Membre', points: m.points || 0, role: m.role,
+    }));
+
+    const progress = community.goal > 0
+      ? Math.min(100, Math.round((community.total_saved / community.goal) * 100)) : 0;
+
+    return res.status(200).json({ community, members: leaderboard, progress });
+  } catch (e) {
+    return res.status(500).json({ error: 'Erreur communauté : ' + e.message });
+  }
 }
