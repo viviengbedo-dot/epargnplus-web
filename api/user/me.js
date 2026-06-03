@@ -113,6 +113,31 @@ module.exports = async (req, res) => {
       return res.status(200).json(safe);
     }
 
+    /* ── DELETE : suppression du compte + données associées ── */
+    if (req.method === 'DELETE') {
+      const uid = payload.userId;
+      /* Supprimer les données dépendantes (best-effort) puis le compte */
+      const cleanups = [
+        '/transactions?user_id=eq.' + uid,
+        '/project_members?user_id=eq.' + uid,
+        '/notifications?user_id=eq.' + uid,
+        '/project_invitations?inviter_id=eq.' + uid,
+        '/project_invitations?invitee_user_id=eq.' + uid,
+        '/promo_uses?user_id=eq.' + uid,
+        '/projects?user_id=eq.' + uid,
+      ];
+      for (const path of cleanups) {
+        try { await supabaseRequest('DELETE', path); } catch (e) { /* continue */ }
+      }
+      try {
+        await supabaseRequest('DELETE', '/users?id=eq.' + uid);
+      } catch (e) {
+        return res.status(500).json({ error: 'Erreur suppression du compte : ' + e.message });
+      }
+      console.log('[user/me] compte supprimé user=' + uid);
+      return res.status(200).json({ ok: true, deleted: true });
+    }
+
     /* PATCH profil */
     const body  = await parseBody(req);
     const patch = {};
