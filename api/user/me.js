@@ -100,7 +100,18 @@ module.exports = async (req, res) => {
     const user = rows[0];
     const { pin_hash, ...safe } = user;
 
-    if (req.method === 'GET') return res.status(200).json(safe);
+    if (req.method === 'GET') {
+      /* Garantir un code de parrainage (vieux comptes sans code) */
+      if (!safe.code_parrain) {
+        const prefix = String(safe.prenom || 'USR').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3).padEnd(3, 'X');
+        const code = prefix + Math.random().toString(36).slice(2, 6).toUpperCase();
+        try {
+          await supabaseRequest('PATCH', '/users?id=eq.' + payload.userId, { code_parrain: code });
+          safe.code_parrain = code;
+        } catch (e) {}
+      }
+      return res.status(200).json(safe);
+    }
 
     /* PATCH profil */
     const body  = await parseBody(req);
