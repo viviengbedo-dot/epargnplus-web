@@ -15,7 +15,10 @@
     { "source": "/espace-client",      "destination": "/dashboard.html" },
     { "source": "/administration",     "destination": "/admin.html" },
     { "source": "/join/:code",         "destination": "/join.html" },
-    { "source": "/join/:code/(.*)",    "destination": "/join.html" }
+    { "source": "/join/:code/(.*)",    "destination": "/join.html" },
+    { "source": "/cgu",                "destination": "/cgu.html" },
+    { "source": "/confidentialite",    "destination": "/confidentialite.html" },
+    { "source": "/suppression-compte", "destination": "/suppression-compte.html" }
   ],
   "crons": [
     { "path": "/api/email/send?cron=reminders", "schedule": "0 9 * * *" }
