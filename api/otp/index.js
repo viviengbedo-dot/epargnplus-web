@@ -11,6 +11,7 @@ const https  = require('https');
 const crypto = require('crypto');
 const { supabaseRequest } = require('../_lib/supabase');
 const { sendEmail, otpEmailHtml } = require('../_lib/email');
+const { checkThrottle, recordFail, resetThrottle } = require('../_lib/security');
 
 const OTP_SECRET    = process.env.OTP_SECRET || 'epargn-otp-dev-secret-change-me';
 const OTP_TTL_MS    = 10 * 60 * 1000; // 10 minutes
@@ -60,6 +61,14 @@ module.exports = async (req, res) => {
     const { phone, code, token } = body;
     if (!phone || !code || !token) return res.status(400).json({ error: 'Missing params: phone, code, token' });
 
+    /* ── Anti brute-force du code OTP : 5 essais / 15 min par numéro ── */
+    const otpKey = 'otp_verify:' + phone;
+    const gate = await checkThrottle(otpKey);
+    if (gate.blocked) {
+      res.setHeader('Retry-After', String(gate.retryAfter || 900));
+      return res.status(429).json({ error: 'Trop de tentatives. Réessayez dans ' + Math.ceil((gate.retryAfter || 900) / 60) + ' minutes.' });
+    }
+
     const dotIdx = token.indexOf('.');
     if (dotIdx === -1) return res.status(400).json({ error: 'Invalid token format' });
 
@@ -72,8 +81,10 @@ module.exports = async (req, res) => {
     }
     const expected = signOTP(code, phone, ts);
     if (!safeEqual(expected, sig)) {
+      await recordFail(otpKey);
       return res.status(400).json({ error: 'invalid', message: 'Code incorrect.' });
     }
+    await resetThrottle(otpKey);
     return res.status(200).json({ valid: true });
   }
 

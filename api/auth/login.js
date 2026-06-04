@@ -17,6 +17,7 @@
 
 const { supabaseRequest } = require('../_lib/supabase');
 const { verifyPin, createJWT } = require('../_lib/auth');
+const { checkThrottle, recordFail, resetThrottle, logAudit } = require('../_lib/security');
 
 /* ── Préfixes pays reconnus ── */
 const VALID_PREFIXES = ['+224', '+229', '+225', '+86'];
@@ -48,6 +49,15 @@ module.exports = async (req, res) => {
     return res.status(400).json({ error: 'Format de numéro invalide. Incluez l\'indicatif pays (+224, +229, +225).' });
   }
 
+  /* ── Anti brute-force : blocage après 5 échecs / 15 min ── */
+  const throttleKey = 'login:' + normalized;
+  const gate = await checkThrottle(throttleKey);
+  if (gate.blocked) {
+    await logAudit(null, 'login_blocked', { phone: normalized }, req);
+    res.setHeader('Retry-After', String(gate.retryAfter || 900));
+    return res.status(429).json({ error: 'Trop de tentatives. Réessayez dans ' + Math.ceil((gate.retryAfter || 900) / 60) + ' minutes.' });
+  }
+
   try {
     const rows = await supabaseRequest(
       'GET',
@@ -55,14 +65,21 @@ module.exports = async (req, res) => {
     );
 
     if (!Array.isArray(rows) || rows.length === 0) {
+      await recordFail(throttleKey);
+      await logAudit(null, 'login_fail', { phone: normalized, reason: 'unknown_user' }, req);
       return res.status(401).json({ error: 'Numéro ou PIN incorrect' });
     }
 
     const user = rows[0];
 
     if (!verifyPin(pin, user.pin_hash)) {
+      await recordFail(throttleKey);
+      await logAudit(user.id, 'login_fail', { phone: normalized, reason: 'bad_pin' }, req);
       return res.status(401).json({ error: 'Numéro ou PIN incorrect' });
     }
+
+    await resetThrottle(throttleKey);
+    await logAudit(user.id, 'login_success', { phone: normalized }, req);
 
     const token = createJWT({ userId: user.id, phone: user.phone, role: user.role });
     const { pin_hash, ...safeUser } = user;
