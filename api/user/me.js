@@ -17,7 +17,7 @@ const { supabaseRequest } = require('../_lib/supabase');
 const { verifyJWT, hashPin, verifyPin } = require('../_lib/auth');
 const { isProjectCollective, hasJoinedMembers } = require('../_lib/project');
 const { trigger: emailTrigger } = require('../_lib/email');
-const { logAudit } = require('../_lib/security');
+const { logAudit, checkThrottle, recordFail, resetThrottle } = require('../_lib/security');
 const crypto = require('crypto');
 
 function parseBody(req) {
@@ -607,6 +607,45 @@ async function handleTransactions(req, res, payload) {
       let margin = 0;
 
       if (isWithdrawal) {
+        /* ── PIN de transaction : ré-authentification obligatoire ── */
+        const txKey = 'txpin:' + payload.userId;
+        const pinGate = await checkThrottle(txKey);
+        if (pinGate.blocked) {
+          return res.status(429).json({ error: 'Trop de tentatives de PIN. Réessayez dans ' + Math.ceil((pinGate.retryAfter || 900) / 60) + ' minutes.' });
+        }
+        const txPin = String(body.pin || body.transaction_pin || '');
+        let uPin = null;
+        try {
+          const uRows = await supabaseRequest('GET',
+            '/users?id=eq.' + encodeURIComponent(payload.userId) + '&select=pin_hash&limit=1');
+          uPin = (Array.isArray(uRows) && uRows[0]) ? uRows[0].pin_hash : null;
+        } catch (e) {}
+        if (!uPin) return res.status(401).json({ error: 'Compte introuvable.' });
+        if (!txPin || !verifyPin(txPin, uPin)) {
+          await recordFail(txKey);
+          await logAudit(payload.userId, 'withdrawal_pin_fail', {}, req);
+          return res.status(401).json({ error: 'Code PIN incorrect. Saisissez votre PIN pour valider le retrait.' });
+        }
+        await resetThrottle(txKey);
+
+        /* ── Détection de fraude : vélocité des retraits (24 h) ── */
+        try {
+          const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+          const recent = await supabaseRequest('GET',
+            '/transactions?user_id=eq.' + encodeURIComponent(payload.userId) +
+            '&type=eq.withdrawal&created_at=gte.' + encodeURIComponent(since) + '&select=statut');
+          const arr = Array.isArray(recent) ? recent : [];
+          const pendingCount = arr.filter(t => t.statut === 'pending').length;
+          if (pendingCount >= 3) {
+            await logAudit(payload.userId, 'withdrawal_blocked', { reason: 'too_many_pending' }, req);
+            return res.status(429).json({ error: 'Vous avez déjà 3 retraits en attente. Patientez qu\'ils soient validés.' });
+          }
+          if (arr.length >= 10) {
+            await logAudit(payload.userId, 'withdrawal_blocked', { reason: 'velocity_24h' }, req);
+            return res.status(429).json({ error: 'Trop de demandes de retrait en 24 h. Réessayez plus tard.' });
+          }
+        } catch (e) {}
+
         /* ── Règle de retrait : uniquement depuis un projet atteint à 100 %
            ET dont la date de fin est arrivée. Vérifié côté serveur. ── */
         if (!projectId) {

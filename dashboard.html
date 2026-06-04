@@ -1000,6 +1000,16 @@
           </div>
         </div>
 
+        <!-- Journal d'activité du compte -->
+        <div class="card" style="margin-top:20px;">
+          <div class="flex-between" style="margin-bottom:12px;">
+            <div class="card-title" style="margin:0;">🛡️ Activité du compte</div>
+            <button class="link" onclick="loadAccountActivity()" style="font-size:12px;font-weight:700;color:var(--primary);">🔄 Actualiser</button>
+          </div>
+          <p style="font-size:12px;color:var(--text-secondary);margin:0 0 12px;">Connexions, retraits et événements de sécurité récents.</p>
+          <div id="accountActivityList"><div style="text-align:center;padding:16px;color:var(--text-secondary);font-size:13px;">Chargement…</div></div>
+        </div>
+
         <!-- Promo code card -->
         <div class="card" style="margin-top:20px;border:2px solid #D1FAE5;background:#F0FDF4;">
           <div class="card-title" style="margin-bottom:4px;">🎁 Code promo</div>
@@ -3202,6 +3212,10 @@ function showSection(id, btn) {
   /* ── Communauté & Défis ── */
   if (id === 'communaute' && _authToken) {
     loadCommunaute();
+  }
+  /* ── Journal d'activité (sécurité) ── */
+  if (id === 'parametres' && _authToken) {
+    loadAccountActivity();
   }
 }
 
@@ -7037,6 +7051,33 @@ function closeChallDetail() {
   document.getElementById('commListView').style.display = '';
 }
 
+/* ── Journal d'activité du compte (sécurité) ── */
+function loadAccountActivity() {
+  var box = document.getElementById('accountActivityList');
+  if (!box || !_authToken) return;
+  fetch('/api/user/me?resource=activity', { headers: { 'Authorization': 'Bearer ' + _authToken } })
+    .then(function(r){ return r.json(); })
+    .then(function(list){
+      if (!Array.isArray(list) || !list.length) {
+        box.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text-secondary);font-size:13px;">Aucune activité enregistrée.</div>';
+        return;
+      }
+      var icons = { login_success:'✅', login_fail:'⚠️', login_blocked:'🚫', withdrawal_request:'📤', withdrawal_confirmed:'💸', kyc_submitted:'🪪', account_deleted:'🗑️' };
+      box.innerHTML = list.map(function(a){
+        var d = a.created_at ? new Date(a.created_at) : null;
+        var when = d ? d.toLocaleString('fr-FR', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }) : '';
+        var col = (a.action === 'login_fail' || a.action === 'login_blocked') ? '#DC2626' : 'var(--text-primary)';
+        return '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--divider);">' +
+          '<span style="font-size:16px;">' + (icons[a.action] || '•') + '</span>' +
+          '<div style="flex:1;"><div style="font-size:13px;font-weight:600;color:' + col + ';">' + (a.label || a.action) + '</div>' +
+          (a.ip ? '<div style="font-size:11px;color:var(--text-secondary);">IP ' + a.ip + '</div>' : '') + '</div>' +
+          '<div style="font-size:11px;color:var(--text-secondary);white-space:nowrap;">' + when + '</div>' +
+        '</div>';
+      }).join('');
+    })
+    .catch(function(){ box.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text-secondary);font-size:13px;">Erreur de chargement.</div>'; });
+}
+
 /* ── TOAST ── */
 function showToast(msg, type = 'info') {
   const container = document.getElementById('toastContainer');
@@ -7294,51 +7335,50 @@ function showReceptionMsg(amount) {
                 Math.random().toString(36).substr(2,6).toUpperCase();
   const projetNom = _retraitProjectNom || 'Projet';
 
-  /* ── Enregistrer le retrait en base de données ── */
-  if (_authToken && _retraitProjectId) {
-    fetch('/api/user/me?resource=transactions', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
-      body: JSON.stringify({
-        type:      'withdrawal',
-        amount,
-        projectId: _retraitProjectId,
-        operator:  _retraitOp || 'Mobile Money',
-        label:     ref + ' · Retrait ' + projetNom,
-        isCredit:  false,
-      }),
-    })
-    .then(r => r.json())
-    .then(data => {
-      if (data.ok) {
-        /* Le montant TOTAL du projet quitte le solde (capital reçu + marge 1%
-           retenue par la plateforme). On déduit donc l'actuel complet. */
-        const proj = PROJETS.find(p => p.id === _retraitProjectId);
-        const fullLeaving = proj ? (Number(proj.actuel) || amount) : amount;
-        if (_currentUser) {
-          _currentUser.epargne = Math.max(0, (_currentUser.epargne || 0) - fullLeaving);
-          updateBalanceDisplay();
-        }
-        /* Réinitialiser le projet localement */
-        if (proj) { proj.actuel = 0; }
-        renderProjectCards();
-        renderHomeProjects();
-        updateHomeOverview();
-        if (typeof updateProgressionGauge === 'function') updateProgressionGauge();
-        /* Recharger les transactions */
-        loadTransactions();
-      }
-    })
-    .catch(err => console.warn('[retrait] enregistrement:', err.message));
-  }
+  /* ── Code PIN de transaction (sécurité, vérifié côté serveur) ── */
+  if (!_authToken || !_retraitProjectId) { showToast('Session expirée. Reconnectez-vous.', 'error'); return; }
+  const txPin = window.prompt('Saisissez votre code PIN pour valider le retrait :');
+  if (!txPin) { showToast('Retrait annulé — code PIN requis.', 'info'); return; }
 
-  /* ── Réinitialiser état retrait ── */
-  const prevProjectId = _retraitProjectId;
-  _retraitProjectId  = null;
-  _retraitProjectNom = '';
-  _retraitVal        = '';
+  /* ── Enregistrer le retrait — le reçu ne s'affiche qu'en cas de succès ── */
+  fetch('/api/user/me?resource=transactions', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
+    body: JSON.stringify({
+      type:      'withdrawal',
+      amount,
+      projectId: _retraitProjectId,
+      operator:  _retraitOp || 'Mobile Money',
+      label:     ref + ' · Retrait ' + projetNom,
+      isCredit:  false,
+      pin:       txPin,
+    }),
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (!data || !data.ok) {
+      showToast((data && data.error) || 'Retrait refusé.', 'error');
+      return;
+    }
+    /* Le montant TOTAL du projet quitte le solde (capital + marge 1%). */
+    const proj = PROJETS.find(p => p.id === _retraitProjectId);
+    const fullLeaving = proj ? (Number(proj.actuel) || amount) : amount;
+    if (_currentUser) {
+      _currentUser.epargne = Math.max(0, (_currentUser.epargne || 0) - fullLeaving);
+      updateBalanceDisplay();
+    }
+    if (proj) { proj.actuel = 0; }
+    renderProjectCards(); renderHomeProjects(); updateHomeOverview();
+    if (typeof updateProgressionGauge === 'function') updateProgressionGauge();
+    loadTransactions();
+    _retraitProjectId = null; _retraitProjectNom = ''; _retraitVal = '';
+    _renderRetraitReceipt(amount, projetNom, ref, phone);
+  })
+  .catch(() => showToast('Erreur réseau. Réessayez.', 'error'));
+}
 
-  /* ── Afficher le reçu ── */
+function _renderRetraitReceipt(amount, projetNom, ref, phone) {
+  const fee = 0;
   const existing = document.getElementById('modal-receipt');
   if (existing) existing.remove();
 
