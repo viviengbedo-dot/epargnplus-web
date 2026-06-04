@@ -1494,6 +1494,34 @@ async function handleProjectHistory(req, res, payload, projectId) {
 
 /* ── KYC : fournit l'URL de vérification Smile ID (pré-remplie avec user_id) ── */
 async function handleKyc(req, res, payload) {
+  /* POST : soumission manuelle des documents (document + selfie en data URL base64) */
+  if (req.method === 'POST') {
+    const body = await parseBody(req);
+    const document = body.document || '';
+    const selfie   = body.selfie   || '';
+    if (!document || !selfie) return res.status(400).json({ error: 'Document et selfie requis' });
+    try {
+      await supabaseRequest('PATCH', '/users?id=eq.' + encodeURIComponent(payload.userId), {
+        kyc_document_url: document,
+        kyc_selfie_url:   selfie,
+        kyc_status:       'pending',
+        kyc_submitted_at: new Date().toISOString(),
+      });
+      /* Notifier l'utilisateur + email "dossier reçu" */
+      try {
+        const uRows = await supabaseRequest('GET',
+          '/users?id=eq.' + encodeURIComponent(payload.userId) + '&select=email,prenom&limit=1');
+        const u = Array.isArray(uRows) && uRows[0];
+        if (u && u.email) {
+          emailTrigger('kyc_received', payload.userId, { prenom: u.prenom || '' }, u.email).catch(() => {});
+        }
+      } catch (e) {}
+      return res.status(200).json({ ok: true, kyc_status: 'pending' });
+    } catch (e) {
+      return res.status(500).json({ error: 'Erreur soumission KYC : ' + e.message });
+    }
+  }
+
   if (req.method !== 'GET') return res.status(405).json({ error: 'GET uniquement' });
   const base = process.env.SMILE_LINK_URL || '';
   if (!base) {
