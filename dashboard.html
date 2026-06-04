@@ -47,6 +47,10 @@
       <button class="nav-item" data-section="tontine" onclick="showSection('tontine', this)">
         <span class="nav-icon">🤝</span> Épargne Collective
       </button>
+      <button class="nav-item" data-section="communaute" onclick="showSection('communaute', this)">
+        <span class="nav-icon">🏆</span> Communauté &amp; Défis
+        <span class="nav-badge" style="background:var(--accent);color:var(--primary);">NEW</span>
+      </button>
       <button class="nav-item" data-section="parrainage" onclick="showSection('parrainage', this)">
         <span class="nav-icon">🎁</span> Parrainage
         <span class="nav-badge" id="navParrainBadge" style="display:none;">0</span>
@@ -394,6 +398,66 @@
 
         <!-- Tontines dynamiques -->
         <div id="tontineGrid"></div>
+      </section>
+
+      <!-- ════════ COMMUNAUTÉ & DÉFIS ════════ -->
+      <section id="sec-communaute" style="display:none;">
+        <!-- Vue liste -->
+        <div id="commListView">
+          <!-- Carte récompenses / ligue -->
+          <div class="card" id="commGamiCard" style="background:linear-gradient(135deg,var(--primary),#1b1b6e);color:#fff;margin-bottom:24px;">
+            <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;">
+              <div style="text-align:center;min-width:96px;">
+                <div id="commLeagueEmoji" style="font-size:40px;line-height:1;">🥉</div>
+                <div id="commLeagueLabel" style="font-weight:800;margin-top:6px;font-size:15px;">Bronze</div>
+              </div>
+              <div style="flex:1;min-width:160px;">
+                <div style="font-size:12px;opacity:.7;letter-spacing:.06em;">VOS POINTS</div>
+                <div style="font-size:34px;font-weight:900;color:var(--accent);" id="commPoints">0</div>
+                <div style="height:8px;background:rgba(255,255,255,.18);border-radius:6px;overflow:hidden;margin-top:8px;">
+                  <div id="commLeagueBar" style="height:100%;width:0%;background:var(--accent);border-radius:6px;transition:width .5s;"></div>
+                </div>
+                <div id="commLeagueNext" style="font-size:11px;opacity:.75;margin-top:6px;"></div>
+              </div>
+            </div>
+            <div style="margin-top:18px;">
+              <div style="font-size:12px;opacity:.7;letter-spacing:.06em;margin-bottom:10px;">BADGES</div>
+              <div id="commBadges" style="display:flex;flex-wrap:wrap;gap:10px;"></div>
+            </div>
+          </div>
+
+          <!-- Mes défis -->
+          <div class="flex-between mb-6">
+            <div>
+              <h2 style="font-size:22px;font-weight:800;color:var(--primary);">🎯 Mes Défis</h2>
+              <p class="text-muted">Relevez des défis d'épargne, seul ou en duel</p>
+            </div>
+            <button class="btn btn-accent" onclick="openCreateChallenge()">+ Lancer un défi</button>
+          </div>
+          <div id="commChallenges" style="margin-bottom:28px;"></div>
+
+          <!-- Communautés -->
+          <div class="flex-between mb-6">
+            <div>
+              <h2 style="font-size:22px;font-weight:800;color:var(--primary);">🤝 Communautés</h2>
+              <p class="text-muted">Cercles d'épargne — classement et fil d'activité</p>
+            </div>
+            <button class="btn btn-outline" onclick="openCreateCommunity()">+ Créer</button>
+          </div>
+          <div id="commList"></div>
+        </div>
+
+        <!-- Vue détail communauté -->
+        <div id="commDetailView" style="display:none;">
+          <button class="btn btn-outline btn-sm" style="margin-bottom:16px;" onclick="closeCommDetail()">‹ Retour</button>
+          <div id="commDetailBody"></div>
+        </div>
+
+        <!-- Vue détail défi -->
+        <div id="challDetailView" style="display:none;">
+          <button class="btn btn-outline btn-sm" style="margin-bottom:16px;" onclick="closeChallDetail()">‹ Retour</button>
+          <div id="challDetailBody"></div>
+        </div>
       </section>
 
       <!-- ════════ PARRAINAGE ════════ -->
@@ -3156,7 +3220,7 @@ const SECTION_TITLES = {
   tontine: 'Épargne Collective', parrainage: 'Parrainage', profil: 'Compte & Paramètres',
   kyc: 'Vérification d\'identité', notifications: 'Notifications',
   parametres: 'Paramètres', retrait: 'Retrait', 'projet-detail': 'Détail Projet',
-  suggestions: 'Suggestions IA'
+  suggestions: 'Suggestions IA', communaute: 'Communauté & Défis'
 };
 function showSection(id, btn) {
   document.querySelectorAll('[id^="sec-"]').forEach(s => s.style.display = 'none');
@@ -3177,6 +3241,10 @@ function showSection(id, btn) {
   /* ── Marquer les notifications comme lues à l'ouverture ── */
   if (id === 'notifications') {
     markAllNotifsRead();
+  }
+  /* ── Communauté & Défis ── */
+  if (id === 'communaute' && _authToken) {
+    loadCommunaute();
   }
 }
 
@@ -6734,6 +6802,253 @@ function shareReferralLink() {
   } else {
     navigator.clipboard.writeText(link).then(() => showToast('Lien de parrainage copié !', 'success'));
   }
+}
+
+/* ════════════════════════════════════════════════════════════
+   COMMUNAUTÉ & DÉFIS — gamification, communautés, défis (arène)
+   Consomme : ?resource=gamification | communities | community
+              | community_feed | challenges | challenge
+   ════════════════════════════════════════════════════════════ */
+function _commGnf(n) { return (Number(n) || 0).toLocaleString('fr-FR') + ' GNF'; }
+function _commEsc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])); }
+function _commApi(qs, opts) {
+  return fetch('/api/user/me?' + qs, Object.assign({
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
+  }, opts || {})).then(r => r.json());
+}
+const COMM_TYPE_EMOJI = {
+  famille:'👨‍👩‍👧', entreprise:'🏢', quartier:'🏘️', mosquee:'🕌', etudiants:'🎓',
+  femmes:'👩', chauffeurs:'🚕', cooperative:'🤝', autre:'⭐',
+};
+const COMM_DAYS_MS = 86400000;
+
+function loadCommunaute() {
+  closeCommDetail(); closeChallDetail();
+  loadCommGamification();
+  loadCommChallenges();
+  loadCommList();
+}
+
+function loadCommGamification() {
+  _commApi('resource=gamification').then(g => {
+    if (!g || g.error) return;
+    document.getElementById('commPoints').textContent = (g.points || 0).toLocaleString('fr-FR');
+    const lg = g.league || { label: 'Bronze', min: 0 };
+    const emojiMap = { bronze:'🥉', argent:'🥈', or:'🥇', diamant:'💎', elite:'👑' };
+    document.getElementById('commLeagueEmoji').textContent = emojiMap[lg.key] || '🥉';
+    document.getElementById('commLeagueLabel').textContent = lg.label || 'Bronze';
+    /* Barre vers la ligue suivante */
+    const nexts = [500, 2000, 5000, 10000];
+    const next = nexts.find(n => (g.points || 0) < n);
+    const bar = document.getElementById('commLeagueBar');
+    const lbl = document.getElementById('commLeagueNext');
+    if (next == null) { bar.style.width = '100%'; lbl.textContent = 'Ligue maximale atteinte 🎉'; }
+    else {
+      const prev = lg.min || 0;
+      const pct = Math.max(4, Math.min(100, Math.round(((g.points - prev) / (next - prev)) * 100)));
+      bar.style.width = pct + '%';
+      lbl.textContent = (next - (g.points || 0)).toLocaleString('fr-FR') + ' pts avant la ligue suivante';
+    }
+    const badges = Array.isArray(g.badges) ? g.badges : [];
+    document.getElementById('commBadges').innerHTML = badges.map(b =>
+      '<div title="' + _commEsc(b.label) + '" style="text-align:center;width:64px;opacity:' + (b.earned ? '1' : '.32') + ';">' +
+        '<div style="font-size:28px;line-height:1;">' + (b.emoji || '🏅') + '</div>' +
+        '<div style="font-size:9px;margin-top:4px;line-height:1.2;">' + _commEsc(b.label) + '</div>' +
+      '</div>').join('') || '<span style="opacity:.6;font-size:13px;">Aucun badge pour l\'instant.</span>';
+  }).catch(() => {});
+}
+
+function _commDaysLeft(ends) {
+  if (!ends) return '';
+  const d = Math.floor((new Date(ends).getTime() - Date.now()) / COMM_DAYS_MS);
+  if (isNaN(d)) return '';
+  return d > 0 ? '· fin dans ' + d + ' j' : '· terminé';
+}
+
+function loadCommChallenges() {
+  const box = document.getElementById('commChallenges');
+  box.innerHTML = '<p class="text-muted" style="padding:8px 0;">Chargement…</p>';
+  _commApi('resource=challenges').then(list => {
+    if (!Array.isArray(list) || !list.length) {
+      box.innerHTML = '<div class="card" style="text-align:center;color:var(--text-secondary);">' +
+        '🎯 Aucun défi en cours. Lancez-en un pour gagner des points !</div>';
+      return;
+    }
+    box.innerHTML = '<div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));">' +
+      list.map(c => {
+        const icon = c.kind === 'duel' ? '⚔️' : '🎯';
+        return '<div class="card" style="cursor:pointer;" onclick="openChallengeDetail(\'' + c.id + '\')">' +
+          '<div style="font-weight:800;color:var(--primary);font-size:15px;">' + icon + ' ' + _commEsc(c.name) + '</div>' +
+          '<div style="font-size:13px;color:var(--text-secondary);margin-top:6px;">Objectif : <strong>' + _commGnf(c.goal) + '</strong></div>' +
+          '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">+' + (c.reward_points || 50) + ' pts ' + _commDaysLeft(c.ends_at) + '</div>' +
+        '</div>';
+      }).join('') + '</div>';
+  }).catch(() => { box.innerHTML = ''; });
+}
+
+function loadCommList() {
+  const box = document.getElementById('commList');
+  box.innerHTML = '<p class="text-muted" style="padding:8px 0;">Chargement…</p>';
+  _commApi('resource=communities').then(list => {
+    if (!Array.isArray(list) || !list.length) {
+      box.innerHTML = '<div class="card" style="text-align:center;color:var(--text-secondary);">' +
+        '🤝 Aucune communauté. Créez la première !</div>';
+      return;
+    }
+    box.innerHTML = '<div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));">' +
+      list.map(c => {
+        const pct = c.goal > 0 ? Math.min(100, Math.round((c.total_saved / c.goal) * 100)) : 0;
+        const emoji = COMM_TYPE_EMOJI[c.type] || '⭐';
+        return '<div class="card">' +
+          '<div style="display:flex;align-items:center;gap:10px;">' +
+            '<div style="font-size:24px;">' + emoji + '</div>' +
+            '<div style="flex:1;"><div style="font-weight:800;color:var(--primary);">' + _commEsc(c.name) + '</div>' +
+            '<div style="font-size:12px;color:var(--text-secondary);">👤 ' + (c.members_count || 0) + ' membres</div></div>' +
+            (c.joined ? '<span style="font-size:11px;font-weight:700;color:#16a34a;">✓ Membre</span>' : '') +
+          '</div>' +
+          '<div style="height:8px;background:#eef0f4;border-radius:6px;overflow:hidden;margin-top:12px;">' +
+            '<div style="height:100%;width:' + pct + '%;background:var(--accent);"></div></div>' +
+          '<div style="font-size:12px;color:var(--text-secondary);margin-top:6px;">' + _commGnf(c.total_saved) + ' / ' + _commGnf(c.goal) + ' (' + pct + '%)</div>' +
+          '<div style="display:flex;gap:8px;margin-top:12px;">' +
+            '<button class="btn btn-outline btn-sm" style="flex:1;" onclick="openCommunityDetail(\'' + c.id + '\')">Voir</button>' +
+            (c.joined ? '' : '<button class="btn btn-accent btn-sm" style="flex:1;" onclick="joinCommunity(\'' + c.id + '\',this)">Rejoindre</button>') +
+          '</div>' +
+        '</div>';
+      }).join('') + '</div>';
+  }).catch(() => { box.innerHTML = ''; });
+}
+
+function joinCommunity(id, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+  _commApi('resource=communities&id=' + encodeURIComponent(id), { method: 'POST', body: '{}' })
+    .then(r => {
+      if (r && r.ok) { showToast('Vous avez rejoint la communauté 🤝', 'success'); loadCommList(); }
+      else { showToast((r && r.error) || 'Erreur', 'error'); if (btn) { btn.disabled = false; btn.textContent = 'Rejoindre'; } }
+    }).catch(() => { if (btn) { btn.disabled = false; btn.textContent = 'Rejoindre'; } });
+}
+
+function openCreateCommunity() {
+  const name = prompt('Nom de la communauté ?'); if (!name) return;
+  const goal = parseInt(prompt('Objectif collectif (GNF) ? min 1 000', '1000000'), 10);
+  if (!goal || goal < 1000) { showToast('Objectif minimum : 1 000 GNF', 'error'); return; }
+  _commApi('resource=communities', { method: 'POST', body: JSON.stringify({ name: name.trim(), goal, type: 'autre' }) })
+    .then(r => {
+      if (r && (r.id || r.ok)) { showToast('Communauté créée 🎉', 'success'); loadCommList(); }
+      else showToast((r && r.error) || 'Erreur', 'error');
+    }).catch(() => showToast('Erreur réseau', 'error'));
+}
+
+function openCreateChallenge() {
+  const name = prompt('Nom du défi ?'); if (!name) return;
+  const goal = parseInt(prompt('Objectif d\'épargne (GNF) ? min 1 000', '500000'), 10);
+  if (!goal || goal < 1000) { showToast('Objectif minimum : 1 000 GNF', 'error'); return; }
+  const days = parseInt(prompt('Durée (jours, 1-365) ?', '7'), 10) || 7;
+  _commApi('resource=challenges', { method: 'POST', body: JSON.stringify({ name: name.trim(), goal, days, kind: 'private' }) })
+    .then(r => {
+      if (r && (r.id || r.ok)) { showToast('Défi lancé 🎯', 'success'); loadCommChallenges(); }
+      else showToast((r && r.error) || 'Erreur', 'error');
+    }).catch(() => showToast('Erreur réseau', 'error'));
+}
+
+/* ── Détail communauté ── */
+function openCommunityDetail(id) {
+  document.getElementById('commListView').style.display = 'none';
+  document.getElementById('challDetailView').style.display = 'none';
+  const view = document.getElementById('commDetailView');
+  const body = document.getElementById('commDetailBody');
+  view.style.display = ''; body.innerHTML = '<p class="text-muted">Chargement…</p>';
+  Promise.all([
+    _commApi('resource=community&id=' + encodeURIComponent(id)),
+    _commApi('resource=community_feed&id=' + encodeURIComponent(id)),
+    _commApi('resource=challenges&id=' + encodeURIComponent(id)),
+  ]).then(([d, feed, challs]) => {
+    if (!d || d.error) { body.innerHTML = '<p class="text-muted">Communauté introuvable.</p>'; return; }
+    const c = d.community || {}; const emoji = COMM_TYPE_EMOJI[c.type] || '⭐';
+    const medals = ['🥇','🥈','🥉'];
+    const board = (d.members || []).map((m, i) =>
+      '<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:#fff;border:1px solid #eef0f4;border-radius:12px;margin-bottom:8px;">' +
+        '<div style="width:30px;font-size:16px;">' + (i < 3 ? medals[i] : (i + 1)) + '</div>' +
+        '<div style="flex:1;font-weight:700;color:var(--primary);">' + _commEsc(m.name) + '</div>' +
+        '<div style="font-weight:800;color:#16a34a;">' + (m.points || 0) + ' pts</div>' +
+      '</div>').join('') || '<p class="text-muted">Aucun membre classé.</p>';
+    const feedHtml = (Array.isArray(feed) && feed.length)
+      ? feed.map(a => {
+          const ic = a.type === 'goal' ? '🎉' : a.type === 'join' ? '👋' : '🔥';
+          return '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#fff;border:1px solid #eef0f4;border-radius:12px;margin-bottom:8px;">' +
+            '<div style="font-size:18px;">' + ic + '</div>' +
+            '<div style="flex:1;font-size:13px;">' + _commEsc(a.text) + '</div>' +
+            (a.points > 0 ? '<div style="font-weight:700;color:#16a34a;">+' + a.points + '</div>' : '') +
+          '</div>';
+        }).join('')
+      : '<p class="text-muted">Aucune activité. Les dépôts des membres s\'afficheront ici.</p>';
+    const challHtml = (Array.isArray(challs) && challs.length)
+      ? '<div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));">' + challs.map(ch =>
+          '<div class="card" style="cursor:pointer;" onclick="openChallengeDetail(\'' + ch.id + '\')">' +
+            '<div style="font-weight:800;color:var(--primary);">🎯 ' + _commEsc(ch.name) + '</div>' +
+            '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">' + _commGnf(ch.goal) + ' ' + _commDaysLeft(ch.ends_at) + '</div>' +
+          '</div>').join('') + '</div>'
+      : '<p class="text-muted">Aucun défi dans cette communauté.</p>';
+    const pct = d.progress || 0;
+    body.innerHTML =
+      '<div class="card" style="margin-bottom:20px;">' +
+        '<h2 style="font-size:22px;font-weight:800;color:var(--primary);">' + emoji + ' ' + _commEsc(c.name) + '</h2>' +
+        '<div style="height:10px;background:#eef0f4;border-radius:6px;overflow:hidden;margin-top:14px;">' +
+          '<div style="height:100%;width:' + pct + '%;background:var(--accent);"></div></div>' +
+        '<div style="font-size:13px;color:var(--text-secondary);margin-top:8px;">' + _commGnf(c.total_saved) + ' / ' + _commGnf(c.goal) + ' · ' + pct + '% · 👤 ' + (c.members_count || 0) + ' membres</div>' +
+        (d.members && d.members.some(m => m.user_id === (_currentUser && _currentUser.id)) ? '' :
+          '<button class="btn btn-accent btn-sm" style="margin-top:14px;" onclick="joinCommunity(\'' + c.id + '\',this)">Rejoindre</button>') +
+      '</div>' +
+      '<h3 style="font-size:16px;font-weight:800;color:var(--primary);margin-bottom:12px;">🏆 Classement</h3>' + board +
+      '<h3 style="font-size:16px;font-weight:800;color:var(--primary);margin:22px 0 12px;">🎯 Défis de la communauté</h3>' + challHtml +
+      '<h3 style="font-size:16px;font-weight:800;color:var(--primary);margin:22px 0 12px;">📣 Fil d\'activité</h3>' + feedHtml;
+  }).catch(() => { body.innerHTML = '<p class="text-muted">Erreur de chargement.</p>'; });
+}
+function closeCommDetail() {
+  document.getElementById('commDetailView').style.display = 'none';
+  document.getElementById('commListView').style.display = '';
+}
+
+/* ── Détail défi (arène) ── */
+function openChallengeDetail(id) {
+  document.getElementById('commListView').style.display = 'none';
+  document.getElementById('commDetailView').style.display = 'none';
+  const view = document.getElementById('challDetailView');
+  const body = document.getElementById('challDetailBody');
+  view.style.display = ''; body.innerHTML = '<p class="text-muted">Chargement…</p>';
+  _commApi('resource=challenge&id=' + encodeURIComponent(id)).then(d => {
+    if (!d || d.error || !d.challenge) { body.innerHTML = '<p class="text-muted">Défi introuvable.</p>'; return; }
+    const c = d.challenge; const icon = c.kind === 'duel' ? '⚔️' : '🎯';
+    const parts = (d.participants || []).map((p, i) =>
+      '<div style="background:#fff;border:1px solid #eef0f4;border-radius:12px;padding:14px;margin-bottom:8px;">' +
+        '<div style="display:flex;justify-content:space-between;">' +
+          '<div style="font-weight:700;color:var(--primary);">' + (i === 0 ? '🥇 ' : '') + _commEsc(p.name) + '</div>' +
+          '<div style="font-weight:800;color:#16a34a;">' + p.pct + '%</div>' +
+        '</div>' +
+        '<div style="height:8px;background:#eef0f4;border-radius:6px;overflow:hidden;margin-top:8px;">' +
+          '<div style="height:100%;width:' + p.pct + '%;background:var(--accent);"></div></div>' +
+        '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">' + _commGnf(p.progress) + '</div>' +
+      '</div>').join('') || '<p class="text-muted">Aucun participant.</p>';
+    body.innerHTML =
+      '<div class="card" style="margin-bottom:20px;">' +
+        '<h2 style="font-size:22px;font-weight:800;color:var(--primary);">' + icon + ' ' + _commEsc(c.name) + '</h2>' +
+        '<div style="font-size:14px;color:var(--text-secondary);margin-top:8px;">Objectif : <strong>' + _commGnf(c.goal) + '</strong></div>' +
+        '<div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">+' + (c.reward_points || 50) + ' pts · ' + (d.participants || []).length + ' participant(s) ' + _commDaysLeft(c.ends_at) + '</div>' +
+        (d.joined ? '' : '<button class="btn btn-accent btn-sm" style="margin-top:14px;" onclick="joinChallenge(\'' + c.id + '\',this)">Participer</button>') +
+      '</div>' +
+      '<h3 style="font-size:16px;font-weight:800;color:var(--primary);margin-bottom:12px;">🏅 Classement</h3>' + parts;
+  }).catch(() => { body.innerHTML = '<p class="text-muted">Erreur de chargement.</p>'; });
+}
+function joinChallenge(id, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+  _commApi('resource=challenges&id=' + encodeURIComponent(id), { method: 'POST', body: '{}' })
+    .then(r => {
+      if (r && r.ok) { showToast('Vous participez 🎯', 'success'); openChallengeDetail(id); }
+      else { showToast((r && r.error) || 'Erreur', 'error'); if (btn) { btn.disabled = false; btn.textContent = 'Participer'; } }
+    }).catch(() => { if (btn) { btn.disabled = false; btn.textContent = 'Participer'; } });
+}
+function closeChallDetail() {
+  document.getElementById('challDetailView').style.display = 'none';
+  document.getElementById('commListView').style.display = '';
 }
 
 /* ── TOAST ── */
