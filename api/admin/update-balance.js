@@ -24,6 +24,7 @@
 
 const { supabaseRequest }    = require('../_lib/supabase');
 const { trigger: emailTrig } = require('../_lib/email');
+const { logAudit }           = require('../_lib/security');
 const ADMIN_SECRET = process.env.ADMIN_SECRET || 'epargn-admin-dev-2026';
 if (!process.env.ADMIN_SECRET) {
   console.warn('[SECURITY] ADMIN_SECRET non défini — secret par défaut actif, DANGER en production !');
@@ -366,6 +367,7 @@ module.exports = async (req, res) => {
       } catch {}
 
       console.log('[confirm-withdrawal] txn=' + txnId + ' type=' + txn.type + ' user=' + txn.user_id);
+      await logAudit(txn.user_id, 'withdrawal_confirmed', { txn_id: txnId, amount: txn.amount, by: 'admin' }, req);
       return res.status(200).json({ ok: true, action: 'confirm-withdrawal', txnId });
 
     } catch (err) {

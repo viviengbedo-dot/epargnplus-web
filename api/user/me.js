@@ -17,6 +17,7 @@ const { supabaseRequest } = require('../_lib/supabase');
 const { verifyJWT, hashPin, verifyPin } = require('../_lib/auth');
 const { isProjectCollective, hasJoinedMembers } = require('../_lib/project');
 const { trigger: emailTrigger } = require('../_lib/email');
+const { logAudit } = require('../_lib/security');
 const crypto = require('crypto');
 
 function parseBody(req) {
@@ -92,6 +93,7 @@ module.exports = async (req, res) => {
   if (resource === 'gamification')     return handleGamification(req, res, payload);
   if (resource === 'challenges')       return handleChallenges(req, res, payload, resourceId);
   if (resource === 'challenge')        return handleChallengeDetail(req, res, payload, resourceId);
+  if (resource === 'activity')         return handleActivity(req, res, payload);
 
   /* ══════════ ROUTE PROFIL ══════════ */
   if (!['GET', 'PATCH'].includes(req.method)) {
@@ -141,6 +143,7 @@ module.exports = async (req, res) => {
         return res.status(500).json({ error: 'Erreur suppression du compte : ' + e.message });
       }
       console.log('[user/me] compte supprimé user=' + uid);
+      await logAudit(uid, 'account_deleted', {}, req);
       return res.status(200).json({ ok: true, deleted: true });
     }
 
@@ -688,6 +691,10 @@ async function handleTransactions(req, res, payload) {
         status: isWithdrawal ? 'pending' : 'success',
       });
 
+      if (isWithdrawal) {
+        await logAudit(payload.userId, 'withdrawal_request',
+          { ref, amount: payout, project_id: projectId, operator }, req);
+      }
       return res.status(201).json({ ok: true, ref, payout, margin });
     } catch (e) {
       return res.status(500).json({ error: 'Erreur enregistrement : ' + e.message });
@@ -1553,6 +1560,7 @@ async function handleKyc(req, res, payload) {
           emailTrigger('kyc_received', payload.userId, { prenom: u.prenom || '' }, u.email).catch(() => {});
         }
       } catch (e) {}
+      await logAudit(payload.userId, 'kyc_submitted', {}, req);
       return res.status(200).json({ ok: true, kyc_status: 'pending' });
     } catch (e) {
       return res.status(500).json({ error: 'Erreur soumission KYC : ' + e.message });
@@ -1762,6 +1770,30 @@ async function handleCommunityFeed(req, res, payload, communityId) {
       '/community_activity?community_id=eq.' + encodeURIComponent(communityId) +
       '&select=type,text,points,created_at&order=created_at.desc&limit=50');
     return res.status(200).json(Array.isArray(rows) ? rows : []);
+  } catch (e) {
+    return res.status(200).json([]);
+  }
+}
+
+/* GET ?resource=activity → journal d'activité du compte (connexions, retraits…) */
+async function handleActivity(req, res, payload) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'GET uniquement' });
+  try {
+    const rows = await supabaseRequest('GET',
+      '/audit_log?user_id=eq.' + encodeURIComponent(payload.userId) +
+      '&action=in.(login_success,login_fail,login_blocked,withdrawal_request,withdrawal_confirmed,account_deleted,kyc_submitted)' +
+      '&select=action,meta,ip,created_at&order=created_at.desc&limit=50');
+    const LABELS = {
+      login_success: 'Connexion réussie', login_fail: 'Échec de connexion',
+      login_blocked: 'Connexion bloquée (trop d\'essais)', withdrawal_request: 'Demande de retrait',
+      withdrawal_confirmed: 'Retrait confirmé', account_deleted: 'Compte supprimé',
+      kyc_submitted: 'Vérification d\'identité soumise',
+    };
+    const items = (Array.isArray(rows) ? rows : []).map(r => ({
+      action: r.action, label: LABELS[r.action] || r.action,
+      ip: r.ip || null, created_at: r.created_at,
+    }));
+    return res.status(200).json(items);
   } catch (e) {
     return res.status(200).json([]);
   }
