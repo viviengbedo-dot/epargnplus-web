@@ -30,6 +30,17 @@ CREATE TABLE IF NOT EXISTS public.audit_log (
 CREATE INDEX IF NOT EXISTS audit_log_user_idx ON public.audit_log (user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS audit_log_action_idx ON public.audit_log (action, created_at DESC);
 
+-- ── 1c. Registre des appareils connus (alerte nouvel appareil) ──
+CREATE TABLE IF NOT EXISTS public.user_devices (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     uuid NOT NULL,
+  device_id   text NOT NULL,
+  label       text,
+  last_seen   timestamptz NOT NULL DEFAULT now(),
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (user_id, device_id)
+);
+
 -- ── 2. RLS deny-by-default sur toutes les tables applicatives ──
 DO $$
 DECLARE t text;
@@ -39,7 +50,7 @@ BEGIN
     'project_members','communities','community_members','community_activity',
     'challenges','challenge_participants','settings','support_tickets',
     'ticket_replies','broadcasts','email_campaigns','email_logs','promo_codes',
-    'promo_uses','surplus_log','auth_throttle','audit_log'
+    'promo_uses','surplus_log','auth_throttle','audit_log','user_devices'
   ]
   LOOP
     IF EXISTS (SELECT 1 FROM information_schema.tables

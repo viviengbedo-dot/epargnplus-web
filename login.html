@@ -902,7 +902,7 @@ async function submitLogin(e) {
     const r = await fetch('/api/auth/login', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ phone: fullPhone, pin }),
+      body:    JSON.stringify({ phone: fullPhone, pin, device_id: _deviceId(), device_label: _deviceLabel() }),
     });
     const data = await r.json();
 
@@ -1330,6 +1330,21 @@ async function resendResetOTP() {
       showMsg(data.error || 'Impossible de renvoyer le code.', 'error');
     }
   } catch { showMsg('Erreur réseau.', 'error'); }
+}
+
+/* ── Identifiant d'appareil (stable par navigateur) ── */
+function _deviceId() {
+  try {
+    var k = 'epargn_device_id', v = localStorage.getItem(k);
+    if (!v) { v = 'web-' + (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2)); localStorage.setItem(k, v); }
+    return v;
+  } catch (e) { return 'web-unknown'; }
+}
+function _deviceLabel() {
+  var ua = navigator.userAgent || '';
+  var os = /Windows/.test(ua) ? 'Windows' : /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iOS' : /Mac/.test(ua) ? 'macOS' : /Linux/.test(ua) ? 'Linux' : 'Navigateur';
+  var br = /Edg/.test(ua) ? 'Edge' : /Chrome/.test(ua) ? 'Chrome' : /Firefox/.test(ua) ? 'Firefox' : /Safari/.test(ua) ? 'Safari' : 'Web';
+  return br + ' · ' + os;
 }
 
 /* ── Init ── */

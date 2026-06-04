@@ -39,7 +39,10 @@ module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST')   return res.status(405).json({ error: 'Méthode non autorisée' });
 
-  const { phone, pin } = await parseBody(req);
+  const body = await parseBody(req);
+  const { phone, pin } = body;
+  const deviceId    = (body.device_id || '').toString().slice(0, 128);
+  const deviceLabel = (body.device_label || '').toString().slice(0, 120);
   if (!phone || !pin) return res.status(400).json({ error: 'Numéro et PIN requis' });
 
   /* ── Normaliser le numéro ── */
@@ -80,6 +83,30 @@ module.exports = async (req, res) => {
 
     await resetThrottle(throttleKey);
     await logAudit(user.id, 'login_success', { phone: normalized }, req);
+
+    /* ── Validation appareil : alerte si appareil inconnu ── */
+    if (deviceId) {
+      try {
+        const existing = await supabaseRequest('GET',
+          '/user_devices?user_id=eq.' + encodeURIComponent(user.id) +
+          '&device_id=eq.' + encodeURIComponent(deviceId) + '&select=id&limit=1');
+        if (Array.isArray(existing) && existing[0]) {
+          await supabaseRequest('PATCH',
+            '/user_devices?id=eq.' + encodeURIComponent(existing[0].id),
+            { last_seen: new Date().toISOString() });
+        } else {
+          await supabaseRequest('POST', '/user_devices',
+            { user_id: user.id, device_id: deviceId, label: deviceLabel || 'Appareil inconnu' });
+          await logAudit(user.id, 'new_device', { label: deviceLabel || 'Appareil inconnu' }, req);
+          /* Alerte e-mail (best-effort, ne bloque pas le login) */
+          if (user.email) {
+            require('../_lib/email').trigger('new_device', user.id, {
+              prenom: user.prenom || '', appareil: deviceLabel || 'un nouvel appareil',
+            }, user.email).catch(() => {});
+          }
+        }
+      } catch (e) { /* table absente / incident → non bloquant */ }
+    }
 
     const token = createJWT({ userId: user.id, phone: user.phone, role: user.role });
     const { pin_hash, ...safeUser } = user;

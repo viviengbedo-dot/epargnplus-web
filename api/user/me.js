@@ -1834,11 +1834,12 @@ async function handleActivity(req, res, payload) {
   try {
     const rows = await supabaseRequest('GET',
       '/audit_log?user_id=eq.' + encodeURIComponent(payload.userId) +
-      '&action=in.(login_success,login_fail,login_blocked,withdrawal_request,withdrawal_confirmed,account_deleted,kyc_submitted)' +
+      '&action=in.(login_success,login_fail,login_blocked,new_device,withdrawal_request,withdrawal_confirmed,account_deleted,kyc_submitted)' +
       '&select=action,meta,ip,created_at&order=created_at.desc&limit=50');
     const LABELS = {
       login_success: 'Connexion réussie', login_fail: 'Échec de connexion',
-      login_blocked: 'Connexion bloquée (trop d\'essais)', withdrawal_request: 'Demande de retrait',
+      login_blocked: 'Connexion bloquée (trop d\'essais)', new_device: 'Nouvel appareil détecté',
+      withdrawal_request: 'Demande de retrait',
       withdrawal_confirmed: 'Retrait confirmé', account_deleted: 'Compte supprimé',
       kyc_submitted: 'Vérification d\'identité soumise',
     };

@@ -7062,7 +7062,7 @@ function loadAccountActivity() {
         box.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text-secondary);font-size:13px;">Aucune activité enregistrée.</div>';
         return;
       }
-      var icons = { login_success:'✅', login_fail:'⚠️', login_blocked:'🚫', withdrawal_request:'📤', withdrawal_confirmed:'💸', kyc_submitted:'🪪', account_deleted:'🗑️' };
+      var icons = { login_success:'✅', login_fail:'⚠️', login_blocked:'🚫', new_device:'📱', withdrawal_request:'📤', withdrawal_confirmed:'💸', kyc_submitted:'🪪', account_deleted:'🗑️' };
       box.innerHTML = list.map(function(a){
         var d = a.created_at ? new Date(a.created_at) : null;
         var when = d ? d.toLocaleString('fr-FR', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }) : '';
