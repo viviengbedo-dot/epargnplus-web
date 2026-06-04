@@ -1238,6 +1238,23 @@ module.exports = async (req, res) => {
         }
       } catch (e) { console.warn('[gamification]', e.message); }
 
+      /* ── Progression des défis actifs auxquels le membre participe ── */
+      try {
+        const myParts = await supabaseRequest('GET',
+          '/challenge_participants?user_id=eq.' + encodeURIComponent(userId) + '&select=id,challenge_id,progress');
+        for (const p of (Array.isArray(myParts) ? myParts : [])) {
+          try {
+            const ch = await supabaseRequest('GET',
+              '/challenges?id=eq.' + encodeURIComponent(p.challenge_id) + '&select=ends_at&limit=1');
+            const ends = (Array.isArray(ch) && ch[0]) ? new Date(ch[0].ends_at) : null;
+            if (!ends || ends < new Date()) continue;  // défi terminé
+            await supabaseRequest('PATCH',
+              '/challenge_participants?id=eq.' + encodeURIComponent(p.id),
+              { progress: (Number(p.progress) || 0) + depositAmount });
+          } catch (e) {}
+        }
+      } catch (e) {}
+
       /* Email dépôt validé */
       try {
         const uRows = await supabaseRequest('GET',

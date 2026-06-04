@@ -90,6 +90,8 @@ module.exports = async (req, res) => {
   if (resource === 'community')        return handleCommunityDetail(req, res, payload, resourceId);
   if (resource === 'community_feed')   return handleCommunityFeed(req, res, payload, resourceId);
   if (resource === 'gamification')     return handleGamification(req, res, payload);
+  if (resource === 'challenges')       return handleChallenges(req, res, payload, resourceId);
+  if (resource === 'challenge')        return handleChallengeDetail(req, res, payload, resourceId);
 
   /* ══════════ ROUTE PROFIL ══════════ */
   if (!['GET', 'PATCH'].includes(req.method)) {
@@ -1608,6 +1610,114 @@ async function handleCommunities(req, res, payload, communityId) {
   }
 
   return res.status(405).json({ error: 'Méthode non autorisée' });
+}
+
+/* Défis & Arène
+   GET  ?resource=challenges&id=<communityId>  → défis d'une communauté
+   GET  ?resource=challenges                    → mes défis (participant)
+   POST ?resource=challenges                    → créer { name, goal, days, community_id?, kind }
+   POST ?resource=challenges&id=<challengeId>   → rejoindre */
+async function handleChallenges(req, res, payload, id) {
+  if (req.method === 'GET') {
+    try {
+      let rows;
+      if (id) {
+        rows = await supabaseRequest('GET',
+          '/challenges?community_id=eq.' + encodeURIComponent(id) +
+          '&select=id,name,kind,goal,reward_points,ends_at,community_id&order=ends_at.asc&limit=50');
+      } else {
+        const parts = await supabaseRequest('GET',
+          '/challenge_participants?user_id=eq.' + encodeURIComponent(payload.userId) + '&select=challenge_id');
+        const ids = [...new Set((Array.isArray(parts) ? parts : []).map(p => p.challenge_id))];
+        if (!ids.length) return res.status(200).json([]);
+        rows = await supabaseRequest('GET',
+          '/challenges?id=in.(' + ids.map(encodeURIComponent).join(',') +
+          ')&select=id,name,kind,goal,reward_points,ends_at,community_id&order=ends_at.asc&limit=50');
+      }
+      return res.status(200).json(Array.isArray(rows) ? rows : []);
+    } catch (e) { return res.status(200).json([]); }
+  }
+
+  if (req.method === 'POST' && id) {
+    /* Rejoindre */
+    try {
+      await supabaseRequest('POST', '/challenge_participants',
+        { challenge_id: id, user_id: payload.userId, progress: 0 });
+      return res.status(200).json({ ok: true, joined: true });
+    } catch (e) {
+      if (String(e.message).match(/duplicate|unique/i)) return res.status(200).json({ ok: true, joined: true });
+      return res.status(500).json({ error: 'Erreur participation : ' + e.message });
+    }
+  }
+
+  if (req.method === 'POST') {
+    /* Créer */
+    const body = await parseBody(req);
+    const name = (body.name || '').trim();
+    const goal = parseInt(body.goal, 10) || 0;
+    const days = Math.max(1, Math.min(365, parseInt(body.days, 10) || 7));
+    const kind = ['community', 'private', 'duel'].includes(body.kind) ? body.kind : 'private';
+    if (!name)       return res.status(400).json({ error: 'Nom du défi requis' });
+    if (goal < 1000) return res.status(400).json({ error: 'Objectif minimum : 1 000' });
+    const ends_at = new Date(Date.now() + days * 24 * 3600 * 1000).toISOString();
+    try {
+      const created = await supabaseRequest('POST', '/challenges', {
+        community_id: body.community_id || null, kind, name, goal,
+        reward_points: 50, created_by: payload.userId, ends_at,
+      });
+      const c = Array.isArray(created) ? created[0] : created;
+      if (c && c.id) {
+        try { await supabaseRequest('POST', '/challenge_participants',
+          { challenge_id: c.id, user_id: payload.userId, progress: 0 }); } catch (e) {}
+      }
+      return res.status(201).json(c);
+    } catch (e) {
+      return res.status(500).json({ error: 'Erreur création défi : ' + e.message });
+    }
+  }
+
+  return res.status(405).json({ error: 'Méthode non autorisée' });
+}
+
+/* GET ?resource=challenge&id=<id> → { challenge, participants[], joined } */
+async function handleChallengeDetail(req, res, payload, challengeId) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'GET uniquement' });
+  if (!challengeId) return res.status(400).json({ error: 'id requis' });
+  try {
+    const cRows = await supabaseRequest('GET',
+      '/challenges?id=eq.' + encodeURIComponent(challengeId) +
+      '&select=id,name,kind,goal,reward_points,ends_at,community_id&limit=1');
+    if (!Array.isArray(cRows) || !cRows[0]) return res.status(404).json({ error: 'Défi introuvable' });
+    const challenge = cRows[0];
+
+    let parts = [];
+    try {
+      parts = await supabaseRequest('GET',
+        '/challenge_participants?challenge_id=eq.' + encodeURIComponent(challengeId) +
+        '&select=user_id,progress&order=progress.desc&limit=100');
+      if (!Array.isArray(parts)) parts = [];
+    } catch (e) {}
+    const ids = [...new Set(parts.map(p => p.user_id).filter(Boolean))];
+    const nameMap = {};
+    if (ids.length) {
+      try {
+        const users = await supabaseRequest('GET',
+          '/users?id=in.(' + ids.map(encodeURIComponent).join(',') + ')&select=id,prenom,nom');
+        (Array.isArray(users) ? users : []).forEach(u => {
+          nameMap[u.id] = ((u.prenom || '') + ' ' + (u.nom || '')).trim() || 'Membre';
+        });
+      } catch (e) {}
+    }
+    const g = challenge.goal || 1;
+    const participants = parts.map(p => ({
+      user_id: p.user_id, name: nameMap[p.user_id] || 'Membre', progress: p.progress || 0,
+      pct: Math.min(100, Math.round(((p.progress || 0) / g) * 100)),
+    }));
+    const joined = parts.some(p => p.user_id === payload.userId);
+    return res.status(200).json({ challenge, participants, joined });
+  } catch (e) {
+    return res.status(500).json({ error: 'Erreur défi : ' + e.message });
+  }
 }
 
 /* GET ?resource=community_feed&id=<id> → fil d'activité de la communauté */
