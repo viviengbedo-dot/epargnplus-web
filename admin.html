@@ -212,7 +212,7 @@
         <span class="nav-icon">🤝</span> Épargne Coll.
       </button>
       <button class="nav-item" onclick="showAdminSection('withdrawals', this)">
-        <span class="nav-icon">💸</span> Retraits Coll.
+        <span class="nav-icon">💸</span> Retraits
         <span class="nav-badge" id="navWithdrawalsBadge" style="display:none;">0</span>
       </button>
       <button class="nav-item" onclick="showAdminSection('alipay', this)">
@@ -704,8 +704,8 @@
       <section id="sec-withdrawals" style="display:none;">
         <div class="flex-between mb-6">
           <div>
-            <h2 style="font-size:22px;font-weight:800;color:var(--primary);">Retraits Collectifs en attente</h2>
-            <p class="text-muted">Validez ou rejetez les remboursements suite à la clôture de groupes d'épargne collective</p>
+            <h2 style="font-size:22px;font-weight:800;color:var(--primary);">Retraits en attente</h2>
+            <p class="text-muted">Validez ou rejetez les retraits individuels et les remboursements collectifs après envoi Mobile Money</p>
           </div>
           <button class="btn btn-outline btn-sm" onclick="reloadAdminData()">🔄 Actualiser</button>
         </div>
@@ -729,7 +729,7 @@
         <div class="card" style="padding:0;">
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Participant</th><th>Projet</th><th>Montant</th><th>Date</th><th>Statut</th><th>Actions</th></tr></thead>
+              <thead><tr><th>Client</th><th>Type</th><th>Opérateur</th><th>Montant</th><th>Date</th><th>Statut</th><th>Actions</th></tr></thead>
               <tbody id="withdrawalsTbody"></tbody>
             </table>
           </div>
@@ -3656,15 +3656,20 @@ function renderWithdrawals() {
   var sdF = document.getElementById('wdStatFailed');  if (sdF) sdF.textContent = failed;
 
   if (!_pendingWithdrawals.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:32px;color:#9CA3AF;">✅ Aucun retrait collectif pour le moment</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:#9CA3AF;">✅ Aucun retrait en attente</td></tr>';
     return;
   }
 
   tbody.innerHTML = _pendingWithdrawals.map(function(t) {
     var user = ALL_USERS.find(function(u){ return u.id === t.user_id; }) || {};
     var name = ((user.prenom||'') + ' ' + (user.nom||'')).trim() || t.user_id.slice(0,8);
-    var projectName = t.label ? (t.label.replace(/^[A-Z\-0-9]+ · /, '').replace('Retrait — Clôture ', '')) : '—';
+    var isCollectif = t.type === 'retrait_projet_collectif';
+    var typeHtml = isCollectif
+      ? '<span class="badge" style="background:#EEF2FF;color:#3730A3;font-size:11px;">🤝 Collectif</span>'
+      : '<span class="badge" style="background:#FFF7ED;color:#92400E;font-size:11px;">👤 Individuel</span>';
+    var operator = t.operator || 'Mobile Money';
     var dateStr = t.created_at ? new Date(t.created_at).toLocaleDateString('fr-FR') : '—';
+    var cur = (user.country === 'bj' || user.country === 'ci') ? 'FCFA' : 'GNF';
     var statusHtml = t.statut === 'pending'
       ? '<span class="badge" style="background:#FFFBEB;color:#92400E;">⏳ En attente</span>'
       : t.statut === 'completed'
@@ -3676,8 +3681,9 @@ function renderWithdrawals() {
 
     return '<tr data-txn-id="' + t.id + '">' +
       '<td><div style="font-weight:600;">' + esc(name) + '</div><div style="font-size:11px;color:#9CA3AF;">' + (user.phone||'—') + '</div></td>' +
-      '<td style="font-size:12px;max-width:180px;word-break:break-all;">' + esc(projectName) + '</td>' +
-      '<td style="font-weight:700;">' + fmtAdmin(t.amount) + ' GNF</td>' +
+      '<td>' + typeHtml + '</td>' +
+      '<td style="font-size:12px;">' + esc(operator) + '</td>' +
+      '<td style="font-weight:700;">' + fmtAdmin(t.amount) + ' ' + cur + '</td>' +
       '<td style="font-size:12px;">' + dateStr + '</td>' +
       '<td>' + statusHtml + '</td>' +
       '<td>' + actions + '</td>' +

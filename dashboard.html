@@ -7359,32 +7359,33 @@ function showReceptionMsg(amount) {
   const div = document.createElement('div');
   div.className = 'modal-overlay open';
   div.id = 'modal-receipt';
+  const cur = (_currentUser && (COUNTRY_LABELS[_currentUser.country] || COUNTRY_LABELS.gn).currency) || 'GNF';
   div.innerHTML = `
     <div class="modal" style="text-align:center;">
-      <div style="width:72px;height:72px;background:#D1FAE5;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
-        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>
+      <div style="width:72px;height:72px;background:#FEF3C7;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
       </div>
-      <div class="modal-title" style="color:#059669;">Transfert confirmé !</div>
-      <div class="modal-sub" style="margin-bottom:16px;">Votre retrait a été effectué avec succès</div>
+      <div class="modal-title" style="color:#D97706;">Demande envoyée !</div>
+      <div class="modal-sub" style="margin-bottom:16px;">Votre retrait est en cours de traitement</div>
       <div class="card" style="text-align:left;margin:0 0 16px;padding:0;overflow:hidden;">
         <div class="receipt-row" style="padding:11px 16px;border-bottom:1px solid var(--divider);display:flex;justify-content:space-between;">
           <span style="font-size:13px;color:var(--text-secondary);">Projet</span>
           <span style="font-size:13px;font-weight:700;color:var(--primary);">${projetNom}</span>
         </div>
         <div class="receipt-row" style="padding:11px 16px;border-bottom:1px solid var(--divider);display:flex;justify-content:space-between;">
-          <span style="font-size:13px;color:var(--text-secondary);">Montant brut</span>
-          <span style="font-size:13px;font-weight:700;color:var(--primary);">${fmt(amount)} GNF</span>
+          <span style="font-size:13px;color:var(--text-secondary);">Montant demandé</span>
+          <span style="font-size:13px;font-weight:700;color:var(--primary);">${fmt(amount)} ${cur}</span>
         </div>
         <div class="receipt-row" style="padding:11px 16px;border-bottom:1px solid var(--divider);display:flex;justify-content:space-between;">
           <span style="font-size:13px;color:var(--text-secondary);">Frais</span>
           <span style="font-size:13px;font-weight:700;color:#059669;">Sans frais</span>
         </div>
         <div class="receipt-row" style="padding:11px 16px;border-bottom:1px solid var(--divider);display:flex;justify-content:space-between;">
-          <span style="font-size:13px;font-weight:700;color:var(--primary);">Montant reçu</span>
-          <span style="font-size:14px;font-weight:900;color:#059669;">${fmt(amount - fee)} GNF</span>
+          <span style="font-size:13px;font-weight:700;color:var(--primary);">Vous recevrez</span>
+          <span style="font-size:14px;font-weight:900;color:#D97706;">${fmt(amount - fee)} ${cur}</span>
         </div>
         <div class="receipt-row" style="padding:11px 16px;border-bottom:1px solid var(--divider);display:flex;justify-content:space-between;">
-          <span style="font-size:13px;color:var(--text-secondary);">Destinataire</span>
+          <span style="font-size:13px;color:var(--text-secondary);">Numéro Mobile Money</span>
           <span style="font-size:13px;font-weight:700;color:var(--primary);">${phone}</span>
         </div>
         <div class="receipt-row" style="padding:11px 16px;display:flex;justify-content:space-between;">
@@ -7392,8 +7393,8 @@ function showReceptionMsg(amount) {
           <span style="font-size:12px;font-weight:700;color:var(--primary);font-family:monospace;">${ref}</span>
         </div>
       </div>
-      <div style="background:#F0FDF4;border-radius:10px;padding:12px;font-size:12px;color:var(--text-secondary);margin-bottom:18px;">
-        📱 SMS de confirmation envoyé au <strong>${phone}</strong>
+      <div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;padding:12px;font-size:12px;color:#92400E;margin-bottom:18px;text-align:left;">
+        ⏳ Un administrateur va valider votre retrait et effectuer le virement Mobile Money <strong>sous 24h</strong>. Vous serez notifié dès la confirmation.
       </div>
       <button class="btn btn-primary" style="width:100%;padding:14px;font-weight:700;" onclick="document.getElementById('modal-receipt').remove();showSection('home',null);setBottomNav('home');">Retour à l'accueil →</button>
     </div>`;

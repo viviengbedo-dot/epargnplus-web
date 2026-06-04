@@ -587,11 +587,15 @@ async function handleTransactions(req, res, payload) {
 
     try {
       /* ── Retrait d'un projet : le client reçoit le CAPITAL (objectif),
-         la plateforme garde la marge de 1% (actuel − objectif). ── */
+         la plateforme garde la marge de 1% (actuel − objectif).
+         Les retraits démarrent en 'pending' — l'admin confirme après
+         avoir envoyé le Mobile Money (cf. confirm-withdrawal). ── */
+      const isWithdrawal = (type === 'withdrawal');
       let payout = amount;   /* montant réellement reçu par le client */
       let deduct = amount;   /* montant qui quitte le solde (epargne) */
       let margin = 0;
-      if (type === 'withdrawal' && projectId) {
+
+      if (isWithdrawal && projectId) {
         try {
           const pRows = await supabaseRequest('GET',
             '/projects?id=eq.' + encodeURIComponent(projectId) +
@@ -608,26 +612,20 @@ async function handleTransactions(req, res, payload) {
         } catch (e) {}
       }
 
-      /* Transaction principale = montant reçu par le client */
-      await supabaseRequest('POST', '/transactions', {
-        user_id: payload.userId, type, amount: payout, operator, is_credit: isCredit,
-        label, project_id: projectId, statut: 'completed', status: 'success',
-      });
-
-      if (type === 'withdrawal') {
-        let _u = null, _newSolde = 0;
-        try {
-          const users = await supabaseRequest('GET',
-            '/users?id=eq.' + encodeURIComponent(payload.userId) + '&select=epargne,email,prenom,country,phone');
-          _u = (Array.isArray(users) && users[0]) ? users[0] : null;
-          const currentEpargne = (_u && _u.epargne) ? Number(_u.epargne) : 0;
-          /* Sécurité : ne jamais descendre sous 0 */
-          if (deduct > currentEpargne) deduct = currentEpargne;
-          _newSolde = currentEpargne - deduct;
-          await supabaseRequest('PATCH',
-            '/users?id=eq.' + encodeURIComponent(payload.userId),
-            { epargne: _newSolde, updated_at: now });
-        } catch (e) {}
+      if (isWithdrawal) {
+        const users = await supabaseRequest('GET',
+          '/users?id=eq.' + encodeURIComponent(payload.userId) + '&select=epargne,email,prenom,country,phone');
+        const _u = (Array.isArray(users) && users[0]) ? users[0] : null;
+        const currentEpargne = (_u && _u.epargne) ? Number(_u.epargne) : 0;
+        /* Sécurité : solde insuffisant → refus (empêche le découvert) */
+        if (deduct > currentEpargne) {
+          return res.status(400).json({ error: 'Solde insuffisant. Votre épargne disponible est de ' + currentEpargne + '.' });
+        }
+        const _newSolde = currentEpargne - deduct;
+        /* Débit immédiat pour empêcher le double-retrait, confirmation admin ensuite */
+        await supabaseRequest('PATCH',
+          '/users?id=eq.' + encodeURIComponent(payload.userId),
+          { epargne: _newSolde, updated_at: now });
 
         /* ── Email automatique : retrait en cours de traitement ── */
         if (_u && _u.email) {
@@ -646,14 +644,21 @@ async function handleTransactions(req, res, payload) {
            Pas de transaction 'fee' (type non autorisé par la contrainte DB). */
 
         if (projectId) {
-          try {
-            await supabaseRequest('PATCH',
-              '/projects?id=eq.' + encodeURIComponent(projectId) +
-              '&user_id=eq.' + encodeURIComponent(payload.userId),
-              { actuel: 0, updated_at: now });
-          } catch (e) {}
+          await supabaseRequest('PATCH',
+            '/projects?id=eq.' + encodeURIComponent(projectId) +
+            '&user_id=eq.' + encodeURIComponent(payload.userId),
+            { actuel: 0, updated_at: now });
         }
       }
+
+      /* Transaction : retrait = pending (confirmation admin), sinon completed.
+         Montant enregistré = montant reçu par le client (payout). */
+      await supabaseRequest('POST', '/transactions', {
+        user_id: payload.userId, type, amount: payout, operator, is_credit: isCredit,
+        label, project_id: projectId,
+        statut: isWithdrawal ? 'pending' : 'completed',
+        status: isWithdrawal ? 'pending' : 'success',
+      });
 
       return res.status(201).json({ ok: true, ref, payout, margin });
     } catch (e) {

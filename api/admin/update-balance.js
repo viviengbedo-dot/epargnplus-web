@@ -329,11 +329,12 @@ module.exports = async (req, res) => {
         return res.status(404).json({ error: 'Transaction introuvable' });
       }
       const txn = txRows[0];
-      if (txn.type !== 'retrait_projet_collectif') {
-        return res.status(400).json({ error: 'Cette transaction n\'est pas un retrait collectif' });
+      const WITHDRAWAL_TYPES = ['retrait_projet_collectif', 'withdrawal'];
+      if (!WITHDRAWAL_TYPES.includes(txn.type)) {
+        return res.status(400).json({ error: 'Cette transaction n\'est pas un retrait' });
       }
       if (txn.statut === 'completed') {
-        return res.status(400).json({ error: 'Cette transaction est déjà confirmée' });
+        return res.status(409).json({ error: 'Ce retrait est déjà confirmé' });
       }
 
       /* Marquer la transaction comme complétée */
@@ -341,14 +342,13 @@ module.exports = async (req, res) => {
         '/transactions?id=eq.' + encodeURIComponent(txnId),
         { statut: 'completed', status: 'success', validated_by: 'admin', validated_at: now });
 
-      /* Notification */
-      await createNotification(
-        txn.user_id,
-        'withdrawal',
-        '✅ Remboursement confirmé',
-        `Votre remboursement de ${(txn.amount || 0).toLocaleString('fr-FR')} GNF a été envoyé avec succès.`,
-        { txn_id: txnId, amount: txn.amount }
-      );
+      /* Notification — libellé adapté au type */
+      const notifTitle = txn.type === 'withdrawal' ? '✅ Retrait confirmé' : '✅ Remboursement confirmé';
+      const notifBody  = txn.type === 'withdrawal'
+        ? `Votre retrait de ${(txn.amount || 0).toLocaleString('fr-FR')} a été envoyé sur votre Mobile Money.`
+        : `Votre remboursement de ${(txn.amount || 0).toLocaleString('fr-FR')} GNF a été envoyé avec succès.`;
+      await createNotification(txn.user_id, 'withdrawal', notifTitle, notifBody,
+        { txn_id: txnId, amount: txn.amount });
 
       /* Email retrait confirmé */
       try {
@@ -365,7 +365,7 @@ module.exports = async (req, res) => {
         }
       } catch {}
 
-      console.log('[confirm-withdrawal] txn=' + txnId + ' user=' + txn.user_id);
+      console.log('[confirm-withdrawal] txn=' + txnId + ' type=' + txn.type + ' user=' + txn.user_id);
       return res.status(200).json({ ok: true, action: 'confirm-withdrawal', txnId });
 
     } catch (err) {
@@ -383,7 +383,7 @@ module.exports = async (req, res) => {
     try {
       const txRows = await supabaseRequest('GET',
         '/transactions?id=eq.' + encodeURIComponent(txnId) +
-        '&select=id,user_id,amount,statut,type');
+        '&select=id,user_id,amount,statut,type,project_id');
       if (!Array.isArray(txRows) || !txRows[0]) {
         return res.status(404).json({ error: 'Transaction introuvable' });
       }
@@ -412,6 +412,17 @@ module.exports = async (req, res) => {
           }
         } catch (e) {
           console.warn('[reject-withdrawal] recrédit:', e.message);
+        }
+      }
+
+      /* Restaurer projects.actuel si retrait individuel rejeté */
+      if (txn.project_id && txn.type === 'withdrawal') {
+        try {
+          await supabaseRequest('PATCH',
+            '/projects?id=eq.' + encodeURIComponent(txn.project_id),
+            { actuel: amount, updated_at: now });
+        } catch (e) {
+          console.warn('[reject-withdrawal] restore project actuel:', e.message);
         }
       }
 

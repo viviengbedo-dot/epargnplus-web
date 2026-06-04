@@ -70,7 +70,7 @@ module.exports = async (req, res) => {
     try {
       pendingTransactions = await supabaseRequest('GET',
         '/transactions?statut=eq.pending&type=not.eq.retrait_projet_collectif' +
-        '&type=not.eq.depot_alipay' +
+        '&type=not.eq.depot_alipay&type=not.eq.withdrawal' +
         '&select=id,user_id,amount,operator,project_id,statut,status,label,type,currency,created_at' +
         '&order=created_at.desc&limit=200');
       if (!Array.isArray(pendingTransactions)) pendingTransactions = [];
@@ -83,7 +83,7 @@ module.exports = async (req, res) => {
         if (!Array.isArray(pendingTransactions)) pendingTransactions = [];
         /* Filtrer côté JS */
         pendingTransactions = pendingTransactions.filter(t =>
-          t.type !== 'retrait_projet_collectif' && t.type !== 'depot_alipay');
+          t.type !== 'retrait_projet_collectif' && t.type !== 'depot_alipay' && t.type !== 'withdrawal');
       } catch (e2) {
         console.warn('[admin/data] pendingTransactions:', e2.message);
       }
@@ -93,8 +93,8 @@ module.exports = async (req, res) => {
     let pendingWithdrawals = [];
     try {
       pendingWithdrawals = await supabaseRequest('GET',
-        '/transactions?statut=eq.pending&type=eq.retrait_projet_collectif' +
-        '&select=id,user_id,amount,project_id,statut,label,created_at' +
+        '/transactions?statut=eq.pending&type=in.(retrait_projet_collectif,withdrawal)' +
+        '&select=id,user_id,amount,project_id,statut,type,label,operator,note,created_at' +
         '&order=created_at.desc&limit=200');
       if (!Array.isArray(pendingWithdrawals)) pendingWithdrawals = [];
     } catch (e) {

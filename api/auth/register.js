@@ -168,30 +168,36 @@ module.exports = async (req, res) => {
       ...(cleanAlipay  ? { alipay_id:    cleanAlipay  } : {}),
     };
 
+    /* Payload minimal compatible avec tout schéma (sans colonnes optionnelles) */
+    const payloadMin = {
+      phone: fullPhone, prenom: prenom.trim(), nom: nom.trim(),
+      pin_hash, epargne: 0, role: 'user',
+      ...(country ? { country } : {}),
+    };
+
     let result;
     try {
       result = await supabaseRequest('POST', '/users', payloadFull);
     } catch (insertErr) {
       const msg = insertErr.message || '';
-      console.warn('[register] insert full échoué :', msg);
-      if (msg.includes('column') || msg.includes('Could not find') ||
-          msg.includes('schema cache') || msg.includes('does not exist')) {
-        /* Fallback minimal — inclut les champs NOT NULL obligatoires */
-        const payloadMin = {
-          phone: fullPhone, prenom: prenom.trim(), nom: nom.trim(),
-          pin_hash, epargne: 0, kyc_status: 'none', role: 'user',
-          country, operator: resolvedOperator,
-        };
-        result = await supabaseRequest('POST', '/users', payloadMin);
-      } else if (msg.includes('duplicate') || msg.includes('unique')) {
+      console.warn('[register] insert full échoué :', msg, '| country:', country);
+
+      if (msg.includes('duplicate') || msg.includes('unique')) {
         /* Collision code_parrain — regénérer et réessayer */
-        const payloadRetry = {
-          ...payloadFull,
-          code_parrain: generateReferralCode(prenom) + Math.random().toString(36).slice(2,4).toUpperCase(),
-        };
-        result = await supabaseRequest('POST', '/users', payloadRetry);
+        try {
+          const payloadRetry = {
+            ...payloadFull,
+            code_parrain: generateReferralCode(prenom) + Math.random().toString(36).slice(2,4).toUpperCase(),
+          };
+          result = await supabaseRequest('POST', '/users', payloadRetry);
+        } catch {
+          /* Même collision : tenter le payload minimal */
+          result = await supabaseRequest('POST', '/users', payloadMin);
+        }
       } else {
-        throw insertErr;
+        /* Colonne manquante, contrainte check, type incompatible, etc. → minimal */
+        console.warn('[register] tentative payload minimal pour:', country);
+        result = await supabaseRequest('POST', '/users', payloadMin);
       }
     }
 
@@ -218,7 +224,7 @@ module.exports = async (req, res) => {
     return res.status(201).json({ token, user: safeUser });
 
   } catch (err) {
-    console.error('[register] Erreur :', err.message);
+    console.error('[register] Erreur :', err.message, '| country:', country, '| phone:', fullPhone ? fullPhone.slice(0, 5) + '***' : 'inconnu');
     return res.status(500).json({ error: 'Erreur serveur. Réessayez dans quelques instants.' });
   }
 };
