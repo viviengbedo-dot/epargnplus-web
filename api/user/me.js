@@ -555,6 +555,14 @@ async function handleProjects(req, res, payload, resourceId) {
   return res.status(405).json({ error: 'Méthode non autorisée pour /projects' });
 }
 
+/* Date de fin d'un projet : stockée dans `duree` au format ISO (ex: 2026-12-31).
+   Les valeurs héritées ('m12', '12', '52w'…) ne sont pas des dates → null. */
+function parseProjectDeadline(duree) {
+  if (!duree || typeof duree !== 'string' || duree.indexOf('-') === -1) return null;
+  const d = new Date(duree);
+  return isNaN(d.getTime()) ? null : d;
+}
+
 /* ── Historique des transactions ── */
 async function handleTransactions(req, res, payload) {
   if (req.method === 'GET') {
@@ -595,21 +603,41 @@ async function handleTransactions(req, res, payload) {
       let deduct = amount;   /* montant qui quitte le solde (epargne) */
       let margin = 0;
 
-      if (isWithdrawal && projectId) {
+      if (isWithdrawal) {
+        /* ── Règle de retrait : uniquement depuis un projet atteint à 100 %
+           ET dont la date de fin est arrivée. Vérifié côté serveur. ── */
+        if (!projectId) {
+          return res.status(400).json({ error: 'Le retrait n\'est possible que depuis un projet atteint à 100 % à sa date de fin.' });
+        }
+        let pRow = null;
         try {
           const pRows = await supabaseRequest('GET',
             '/projects?id=eq.' + encodeURIComponent(projectId) +
             '&user_id=eq.' + encodeURIComponent(payload.userId) +
-            '&select=actuel,goal&limit=1');
-          if (Array.isArray(pRows) && pRows[0]) {
-            const projActuel = Number(pRows[0].actuel) || 0;
-            const projGoal   = Number(pRows[0].goal)   || 0;
-            /* Capital rendu = objectif (plafonné à ce qui est dans le projet) */
-            payout = projGoal > 0 ? Math.min(projActuel, projGoal) : projActuel;
-            deduct = projActuel;                 /* tout le projet quitte le solde */
-            margin = Math.max(0, projActuel - payout);
-          }
-        } catch (e) {}
+            '&select=actuel,goal,duree&limit=1');
+          pRow = (Array.isArray(pRows) && pRows[0]) ? pRows[0] : null;
+        } catch (e) {
+          return res.status(500).json({ error: 'Erreur de vérification du projet : ' + e.message });
+        }
+        if (!pRow) return res.status(404).json({ error: 'Projet introuvable.' });
+
+        const projActuel = Number(pRow.actuel) || 0;
+        const projGoal   = Number(pRow.goal)   || 0;
+
+        /* Condition 1 : objectif atteint à 100 % */
+        if (projGoal <= 0 || projActuel < projGoal) {
+          return res.status(400).json({ error: 'Retrait indisponible : l\'objectif du projet n\'est pas atteint à 100 %.' });
+        }
+        /* Condition 2 : date de fin du projet atteinte */
+        const deadline = parseProjectDeadline(pRow.duree);
+        if (deadline && Date.now() < deadline.getTime()) {
+          return res.status(400).json({ error: 'Retrait indisponible : la date de fin du projet n\'est pas encore atteinte.' });
+        }
+
+        /* Capital rendu = objectif ; la marge de 1 % (actuel − objectif) reste à la plateforme */
+        payout = Math.min(projActuel, projGoal);
+        deduct = projActuel;
+        margin = Math.max(0, projActuel - payout);
       }
 
       if (isWithdrawal) {
