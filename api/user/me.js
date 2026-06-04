@@ -88,6 +88,8 @@ module.exports = async (req, res) => {
   if (resource === 'promos')           return handlePromos(req, res, payload);
   if (resource === 'communities')      return handleCommunities(req, res, payload, resourceId);
   if (resource === 'community')        return handleCommunityDetail(req, res, payload, resourceId);
+  if (resource === 'community_feed')   return handleCommunityFeed(req, res, payload, resourceId);
+  if (resource === 'gamification')     return handleGamification(req, res, payload);
 
   /* ══════════ ROUTE PROFIL ══════════ */
   if (!['GET', 'PATCH'].includes(req.method)) {
@@ -1606,6 +1608,60 @@ async function handleCommunities(req, res, payload, communityId) {
   }
 
   return res.status(405).json({ error: 'Méthode non autorisée' });
+}
+
+/* GET ?resource=community_feed&id=<id> → fil d'activité de la communauté */
+async function handleCommunityFeed(req, res, payload, communityId) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'GET uniquement' });
+  if (!communityId) return res.status(400).json({ error: 'id requis' });
+  try {
+    const rows = await supabaseRequest('GET',
+      '/community_activity?community_id=eq.' + encodeURIComponent(communityId) +
+      '&select=type,text,points,created_at&order=created_at.desc&limit=50');
+    return res.status(200).json(Array.isArray(rows) ? rows : []);
+  } catch (e) {
+    return res.status(200).json([]);
+  }
+}
+
+/* GET ?resource=gamification → { points, league, badges[] } */
+async function handleGamification(req, res, payload) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'GET uniquement' });
+  try {
+    const uRows = await supabaseRequest('GET',
+      '/users?id=eq.' + encodeURIComponent(payload.userId) + '&select=points&limit=1');
+    const points = (Array.isArray(uRows) && uRows[0]) ? (Number(uRows[0].points) || 0) : 0;
+
+    /* Stats dépôts pour les badges */
+    let count = 0, total = 0;
+    try {
+      const txns = await supabaseRequest('GET',
+        '/transactions?user_id=eq.' + encodeURIComponent(payload.userId) +
+        '&is_credit=eq.true&statut=eq.completed&select=amount&limit=1000');
+      if (Array.isArray(txns)) { count = txns.length; total = txns.reduce((s, t) => s + (Number(t.amount) || 0), 0); }
+    } catch (e) {}
+
+    const league =
+      points >= 10000 ? { key: 'elite',   label: 'Élite Afrique', min: 10000 } :
+      points >= 5000  ? { key: 'diamant', label: 'Diamant',       min: 5000  } :
+      points >= 2000  ? { key: 'or',      label: 'Or',            min: 2000  } :
+      points >= 500   ? { key: 'argent',  label: 'Argent',        min: 500   } :
+                        { key: 'bronze',  label: 'Bronze',        min: 0     };
+
+    const badges = [
+      { key: 'premier_depot', emoji: '🏆', label: 'Premier Dépôt',        earned: count >= 1 },
+      { key: 'depot_7',       emoji: '🏅', label: 'Défi 7 jours',         earned: count >= 7 },
+      { key: 'serie_30',      emoji: '🔥', label: 'Série 30 dépôts',      earned: count >= 30 },
+      { key: 'million',       emoji: '💎', label: 'Premier Million',      earned: total >= 1000000 },
+      { key: 'epargnant_or',  emoji: '🥇', label: 'Épargnant Or',         earned: total >= 5000000 },
+      { key: 'investisseur',  emoji: '🚀', label: 'Investisseur Confirmé',earned: total >= 20000000 },
+      { key: 'ambassadeur',   emoji: '👑', label: 'Ambassadeur Epargn+',  earned: points >= 1000 },
+    ];
+
+    return res.status(200).json({ points, league, badges });
+  } catch (e) {
+    return res.status(500).json({ error: 'Erreur gamification : ' + e.message });
+  }
 }
 
 /* GET ?resource=community&id=<id> → { community, members[], progress } */

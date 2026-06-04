@@ -1212,6 +1212,32 @@ module.exports = async (req, res) => {
         `Votre dépôt de ${depositAmount.toLocaleString('fr-FR')} GNF a été validé.`,
         { amount: depositAmount, projectId });
 
+      /* ── Gamification : +points + fil d'activité communautaire ── */
+      try {
+        const POINTS_DEPOSIT = 10;
+        const uPts = await supabaseRequest('GET',
+          '/users?id=eq.' + encodeURIComponent(userId) + '&select=points,prenom,nom&limit=1');
+        const cu = (Array.isArray(uPts) && uPts[0]) ? uPts[0] : {};
+        await supabaseRequest('PATCH', '/users?id=eq.' + encodeURIComponent(userId),
+          { points: (Number(cu.points) || 0) + POINTS_DEPOSIT });
+        const memberName = ((cu.prenom || '') + ' ' + (cu.nom || '')).trim() || 'Un membre';
+        const mems = await supabaseRequest('GET',
+          '/community_members?user_id=eq.' + encodeURIComponent(userId) + '&select=community_id,points');
+        for (const m of (Array.isArray(mems) ? mems : [])) {
+          try {
+            await supabaseRequest('PATCH',
+              '/community_members?community_id=eq.' + encodeURIComponent(m.community_id) +
+              '&user_id=eq.' + encodeURIComponent(userId),
+              { points: (Number(m.points) || 0) + POINTS_DEPOSIT });
+            await supabaseRequest('POST', '/community_activity', {
+              community_id: m.community_id, user_id: userId, type: 'deposit',
+              text: memberName + ' a déposé ' + depositAmount.toLocaleString('fr-FR') + ' GNF',
+              points: POINTS_DEPOSIT,
+            });
+          } catch (e) {}
+        }
+      } catch (e) { console.warn('[gamification]', e.message); }
+
       /* Email dépôt validé */
       try {
         const uRows = await supabaseRequest('GET',
