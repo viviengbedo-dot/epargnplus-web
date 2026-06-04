@@ -134,7 +134,7 @@
                 <div style="font-size:18px;font-weight:800;color:#fff;" id="homeGreeting">Bonjour !</div>
               </div>
             </div>
-            <button class="icon-btn" style="background:rgba(255,255,255,.15);border-radius:10px;color:#fff;" onclick="showSection('profil', null)">
+            <button class="icon-btn" title="Retrait" aria-label="Retrait" style="background:rgba(255,255,255,.15);border-radius:10px;color:#fff;" onclick="goRetrait()">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
             </button>
           </div>
@@ -5074,6 +5074,35 @@ function tipGo(i)  { _tipIdx = i; _tipUpdate(); }
 let _retraitProjectId  = null;
 let _retraitProjectNom = '';
 let _retraitOp         = 'Orange Money';
+
+/* Point d'entrée « Retrait » (icône carte du solde) — le retrait n'est possible
+   que depuis un projet atteint à 100 % ET arrivé à sa date de fin. */
+function goRetrait() {
+  var list = (typeof PROJETS !== 'undefined' && Array.isArray(PROJETS)) ? PROJETS : [];
+  var isColl = function(p) {
+    return (typeof isProjectCollective === 'function') ? isProjectCollective(p) : (Number(p && p.members_count) > 1);
+  };
+  var eligible = list.filter(function(p) {
+    return p && !p.is_tontine && !isColl(p) &&
+      (typeof projWithdrawable === 'function' ? projWithdrawable(p) : projReached(p.actuel, p.cible));
+  });
+
+  if (eligible.length === 1) {
+    var p = eligible[0];
+    openRetraitForProject(p.id, p.nom || p.name || 'Projet', p.actuel);
+    return;
+  }
+  if (eligible.length > 1) {
+    showToast('Choisissez le projet à retirer.', 'info');
+    showSection('projets', null);
+    if (typeof setBottomNav === 'function') setBottomNav('projets');
+    return;
+  }
+  /* Aucun projet éligible */
+  showToast('🔒 Retrait disponible uniquement pour un projet atteint à 100 % à sa date de fin.', 'info');
+  showSection('projets', null);
+  if (typeof setBottomNav === 'function') setBottomNav('projets');
+}
 
 function openRetraitForProject(projectId, nom, montant) {
   if (!projectId || !montant || montant < 1) {
