@@ -1512,54 +1512,6 @@
   </div>
 </div>
 
-<!-- ══ Opportunité Élite 1 : Épargne Immobilière Dubaï ══ -->
-<div class="modal-overlay" id="modal-elite-dubai" onclick="handleOverlayClick(event,'modal-elite-dubai')">
-  <div class="modal">
-    <button class="modal-close" onclick="closeModal('modal-elite-dubai')">✕</button>
-    <div style="background:linear-gradient(135deg,#0B1566,#1a2a8a);border-radius:14px;padding:24px;margin-bottom:20px;color:#fff;text-align:center;">
-      <div style="font-size:42px;margin-bottom:8px;">🏙️</div>
-      <div style="font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--accent);margin-bottom:4px;">OPPORTUNITÉ ÉLITE</div>
-      <div style="font-size:20px;font-weight:900;">Épargne Immobilière Dubaï</div>
-      <div style="font-size:13px;color:rgba(255,255,255,.7);margin-top:4px;">Cercle exclusif de 12 investisseurs sélectionnés</div>
-    </div>
-    <div class="card" style="margin-bottom:16px;padding:0;">
-      <div class="receipt-row" style="padding:12px 16px;"><span class="receipt-label">Mise mensuelle</span><span class="receipt-value">500 000 GNF</span></div>
-      <div class="receipt-row" style="padding:12px 16px;"><span class="receipt-label">Durée</span><span class="receipt-value">24 mois</span></div>
-      <div class="receipt-row" style="padding:12px 16px;"><span class="receipt-label">Rendement estimé</span><span class="receipt-value" style="color:var(--success);">+18% / an</span></div>
-      <div class="receipt-row" style="padding:12px 16px;"><span class="receipt-label">Places disponibles</span><span class="receipt-value" style="color:var(--error);">3 / 12</span></div>
-    </div>
-    <div style="background:#FFFBEB;border-left:3px solid #F59E0B;border-radius:6px;padding:10px 14px;font-size:12px;color:var(--text-secondary);margin-bottom:16px;line-height:1.5;">
-      💎 Accès réservé aux membres vérifiés (TIER 2+). Investissement dans l'immobilier locatif à Dubaï via une structure d'épargne collective sécurisée.
-    </div>
-    <button class="btn btn-accent" style="width:100%;padding:14px;font-weight:700;" onclick="showToast('Demande d\'accès envoyée ! Notre équipe vous contactera.','success');closeModal('modal-elite-dubai')">Demander l'accès →</button>
-    <button class="btn btn-outline" style="width:100%;padding:12px;margin-top:8px;" onclick="closeModal('modal-elite-dubai')">Fermer</button>
-  </div>
-</div>
-
-<!-- ══ Opportunité Élite 2 : Optimisation Fiscale ══ -->
-<div class="modal-overlay" id="modal-elite-fiscal" onclick="handleOverlayClick(event,'modal-elite-fiscal')">
-  <div class="modal">
-    <button class="modal-close" onclick="closeModal('modal-elite-fiscal')">✕</button>
-    <div style="background:linear-gradient(135deg,#192278,#0B1566);border-radius:14px;padding:24px;margin-bottom:20px;color:#fff;text-align:center;">
-      <div style="font-size:42px;margin-bottom:8px;">📊</div>
-      <div style="font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--accent);margin-bottom:4px;">STRATÉGIE ÉLITE</div>
-      <div style="font-size:20px;font-weight:900;">Optimisation Fiscale 2026</div>
-      <div style="font-size:13px;color:rgba(255,255,255,.7);margin-top:4px;">Préparez vos projets de fin d'année</div>
-    </div>
-    <div class="card" style="margin-bottom:16px;padding:0;">
-      <div class="receipt-row" style="padding:12px 16px;"><span class="receipt-label">Économie estimée</span><span class="receipt-value" style="color:var(--success);">15-30% d'impôts</span></div>
-      <div class="receipt-row" style="padding:12px 16px;"><span class="receipt-label">Durée du plan</span><span class="receipt-value">6 mois</span></div>
-      <div class="receipt-row" style="padding:12px 16px;"><span class="receipt-label">Accompagnement</span><span class="receipt-value">Conseiller dédié</span></div>
-      <div class="receipt-row" style="padding:12px 16px;"><span class="receipt-label">Éligibilité</span><span class="receipt-value">Revenu &gt; 2M GNF/mois</span></div>
-    </div>
-    <div style="background:#EEF2FF;border-left:3px solid var(--primary);border-radius:6px;padding:10px 14px;font-size:12px;color:var(--text-secondary);margin-bottom:16px;line-height:1.5;">
-      📋 Stratégie légale d'optimisation pour les professionnels de la finance. Inclut un audit fiscal, un plan d'épargne défiscalisé et un suivi trimestriel.
-    </div>
-    <button class="btn btn-primary" style="width:100%;padding:14px;font-weight:700;" onclick="showToast('Consultation planifiée ! Vous serez contacté sous 48h.','success');closeModal('modal-elite-fiscal')">Planifier une consultation →</button>
-    <button class="btn btn-outline" style="width:100%;padding:12px;margin-top:8px;" onclick="closeModal('modal-elite-fiscal')">Fermer</button>
-  </div>
-</div>
-
 <!-- Nouvelle Épargne Collective -->
 <div class="modal-overlay" id="modal-newTontine" onclick="handleOverlayClick(event,'modal-newTontine')">
   <div class="modal" style="max-height:90vh;overflow-y:auto;">
@@ -4031,9 +3983,9 @@ function getAISuggestions() {
 
   /* ── 4. Suggestions projet permanentes ── */
   suggestions.push(
-    { emoji:'🏗️', priority: priority++, tag:'INVESTISSEMENT', tc:'#047857', tb:'#ECFDF5',
+    { emoji:'🏗️', priority: priority++, tag:'OBJECTIF', tc:'#047857', tb:'#ECFDF5',
       title:'Acheter ma Parcelle',
-      desc:'La valeur des terrains ne fait que croître. Épargnez maintenant pour acquérir votre propre parcelle et bâtir votre patrimoine foncier.',
+      desc:'Épargnez régulièrement pour acquérir votre propre parcelle, à votre rythme.',
       action:'Objectif terrain : 8 000 000 ' + cur,
       cta:'Commencer l\'épargne', onClick:"openModal('newProject')" },
 
@@ -4059,10 +4011,10 @@ function getAISuggestions() {
   /* ── 5. Profil professionnel ── */
   if (/financ|banque|comptab/i.test(profession)) {
     suggestions.push({ emoji:'💼', priority: priority++, tag:'VOTRE MÉTIER', tc:'#6D28D9', tb:'#F5F3FF',
-      title:'Club Invest Finance',
-      desc:'En tant que professionnel de la finance, rejoignez notre groupe d\'épargne élite réservé aux investisseurs avertis.',
-      action:'Rendement estimé : +14% / an • 8 places',
-      cta:'Rejoindre le club', onClick:"showSection('tontine',null);setBottomNav('')" });
+      title:'Cercle d\'épargne Finance',
+      desc:'En tant que professionnel de la finance, rejoignez un cercle d\'épargne collective pour atteindre vos objectifs en groupe.',
+      action:'Épargne collective entre membres',
+      cta:'Découvrir', onClick:"showSection('tontine',null);setBottomNav('')" });
   } else if (/commerc|vente|business|import|export/i.test(profession)) {
     suggestions.push({ emoji:'🏪', priority: priority++, tag:'COMMERÇANT', tc:'#B45309', tb:'#FFFBEB',
       title:'Fonds de Roulement',
@@ -4089,7 +4041,7 @@ function getAISuggestions() {
     } else {
       suggestions.push({ emoji:'🌅', priority: priority++, tag: age + ' ANS', tc:'#B45309', tb:'#FFFBEB',
         title:'Plan Retraite Serein',
-        desc:'À ' + age + ' ans, sécurisez votre avenir. Une épargne mensuelle régulière garantit une retraite digne.',
+        desc:'À ' + age + ' ans, préparez votre avenir. Une épargne mensuelle régulière vous aide à aborder la retraite plus sereinement.',
         action:'Plan : 100 000 ' + cur + ' / mois × 10 ans',
         cta:'Planifier', onClick:"openModal('newProject')" });
     }
@@ -4944,7 +4896,7 @@ var _TIPS_COMMON = [
   { icon:'📊', titre:'Suivez vos progrès chaque semaine', texte:'Regarder votre solde grandir renforce la motivation. Chaque semaine, mesurez votre avancée vers l\'objectif.' },
   { icon:'🚀', titre:'Le temps est votre meilleur allié', texte:'Plus tôt vous épargnez, plus vos économies travaillent pour vous. Chaque jour compte.' },
   { icon:'🎓', titre:'Apprenez à faire travailler votre argent', texte:'Une épargne inactive ne rapporte rien. Les projets Epargn+ vous permettent de structurer vos objectifs.' },
-  { icon:'🤝', titre:'Parrainez, doublez vos bénéfices', texte:'Invitez vos proches. Chaque filleul actif vous rapporte une prime. Plus vous invitez, plus vous gagnez.' },
+  { icon:'🤝', titre:'Parrainez vos proches', texte:'Invitez vos proches à épargner. Chaque filleul actif vous fait bénéficier d\'une prime de parrainage.' },
   { icon:'🏠', titre:'Un projet = un objectif de vie', texte:'Maison, études, retraite ou voyage : chaque grand objectif mérite son propre projet dédié.' },
   { icon:'⏰', titre:'Pas de bonne heure pour épargner', texte:'Vous ne serez jamais "prêt". La meilleure décision est celle que vous prenez maintenant.' },
   { icon:'💪', titre:'Résistez aux dépenses impulsives', texte:'Avant chaque achat non essentiel, attendez 24h. Souvent, l\'envie disparaît et l\'argent reste dans votre poche.' },
@@ -9834,8 +9786,8 @@ function updateDepositCap(amtStr) {
       <div class="onb-desc">Historique complet, suggestions IA personnalisées selon votre profil et vos objectifs, notifications automatiques.</div>
       <div style="display:flex;gap:10px;margin-top:18px;width:100%;">
         <div style="flex:1;background:#EEF2FF;border-radius:12px;padding:14px 8px;text-align:center;">
-          <div style="font-size:22px;font-weight:900;color:var(--primary);">+12%</div>
-          <div style="font-size:10px;color:var(--text-secondary);margin-top:3px;">Rendement annuel</div>
+          <div style="font-size:22px;font-weight:900;color:var(--primary);">📈</div>
+          <div style="font-size:10px;color:var(--text-secondary);margin-top:3px;">Suivi de progression</div>
         </div>
         <div style="flex:1;background:#F0FDF4;border-radius:12px;padding:14px 8px;text-align:center;">
           <div style="font-size:22px;">🤖</div>
@@ -9852,7 +9804,7 @@ function updateDepositCap(amtStr) {
     <div id="onb-s4" class="onb-slide" style="display:none;flex-direction:column;">
       <div class="onb-illustration">🛡️</div>
       <div class="onb-title">Vérifiez votre identité</div>
-      <div class="onb-desc">Complétez votre KYC pour débloquer les retraits illimités, les taux préférentiels et les Opportunités Élite.</div>
+      <div class="onb-desc">Complétez votre KYC pour débloquer les retraits et toutes les fonctionnalités de l'application.</div>
       <div style="display:flex;flex-direction:column;gap:8px;margin-top:18px;width:100%;">
         <div style="display:flex;align-items:center;gap:10px;background:#F0FDF4;border-radius:11px;padding:11px 14px;">
           <span style="font-size:18px;">📄</span>
