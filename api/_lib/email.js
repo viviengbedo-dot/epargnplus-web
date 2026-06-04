@@ -459,6 +459,29 @@ const TEMPLATES = {
     }),
   }),
 
+  new_device: (v) => ({
+    subject: `🔐 Nouvelle connexion à votre compte Epargn+`,
+    body: wrapHtml({
+      title: 'Nouvelle connexion',
+      preheader: `Connexion depuis ${v.appareil}.`,
+      bodyHtml: `
+        <div style="text-align:center;margin-bottom:24px;"><div style="font-size:56px;">📱</div></div>
+        <h2 style="color:#0B1566;margin:0 0 12px;font-size:20px;text-align:center;">Nouvelle connexion détectée</h2>
+        <p style="color:#374151;font-size:15px;margin:0 0 20px;text-align:center;">
+          Bonjour ${v.prenom}, votre compte Epargn+ vient d'être utilisé depuis <strong>${v.appareil}</strong>.
+        </p>
+        <div style="background:#EEF2FF;border-radius:14px;padding:18px;margin-bottom:20px;">
+          ${infoBox('Appareil', v.appareil, '#fff')}
+        </div>
+        <div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:12px;padding:14px 16px;margin-bottom:20px;">
+          <p style="color:#991B1B;font-size:14px;margin:0;line-height:1.6;">
+            ⚠️ Si ce n'était <strong>pas vous</strong>, changez immédiatement votre code PIN et écrivez-nous : ceo@epargnplus.com.
+          </p>
+        </div>
+        ${btn('Vérifier mon activité →', APP_URL + '/espace-client')}`,
+    }),
+  }),
+
   kyc_received: (v) => ({
     subject: `Dossier KYC reçu — vérification en cours`,
     body: wrapHtml({
@@ -658,6 +681,7 @@ const TRIGGER_PREF = {
   collective_invite:    'collective',
   collective_closed:    'collective',
   ai_suggestion:        'marketing',
+  new_device:           'security',
 };
 
 /**
@@ -672,9 +696,9 @@ const TRIGGER_PREF = {
 async function trigger(triggerName, userId, vars, toEmail) {
   if (!toEmail) return { ok: false, error: 'no email' };
 
-  // Vérification préférences utilisateur
+  // Vérification préférences utilisateur (les alertes sécurité sont obligatoires)
   const pref = TRIGGER_PREF[triggerName] || 'deposit';
-  if (userId) {
+  if (userId && pref !== 'security') {
     const allowed = await userAcceptsEmail(userId, pref);
     if (!allowed) return { ok: false, error: 'unsubscribed' };
   }
