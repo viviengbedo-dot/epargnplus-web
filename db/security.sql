@@ -51,6 +51,13 @@ BEGIN
   END LOOP;
 END $$;
 
+-- ── 2b. Bucket PRIVÉ pour les pièces KYC (PII jamais en clair en DB) ──
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('kyc', 'kyc', false)
+ON CONFLICT (id) DO UPDATE SET public = false;
+-- Aucune policy publique → seul service_role (API) lit/écrit ; l'admin obtient
+-- des URLs signées temporaires (10 min) générées côté serveur.
+
 -- ── 3. Vérification : tables publiques SANS RLS (doit renvoyer 0 ligne) ──
 -- SELECT tablename FROM pg_tables t
 --   JOIN pg_class c ON c.relname = t.tablename

@@ -11,6 +11,7 @@
 const { supabaseRequest }   = require('../_lib/supabase');
 const { runReminderCron }   = require('../_lib/email');
 const { isProjectCollective } = require('../_lib/project');
+const { signedUrl, isStoragePath } = require('../_lib/storage');
 const ADMIN_SECRET  = process.env.ADMIN_SECRET  || 'epargn-admin-dev-2026';
 const CRON_SECRET   = process.env.CRON_SECRET   || '';
 
@@ -64,6 +65,15 @@ module.exports = async (req, res) => {
       }
     }
     if (!Array.isArray(users)) users = [];
+
+    /* ── 1b. Signer les pièces KYC stockées dans le bucket privé (chemin → URL signée 10 min).
+       Compatible avec les anciennes données data-URL/http (laissées telles quelles). ── */
+    try {
+      await Promise.all(users.map(async (u) => {
+        if (isStoragePath(u.kyc_document_url)) u.kyc_document_url = (await signedUrl(u.kyc_document_url, 600)) || u.kyc_document_url;
+        if (isStoragePath(u.kyc_selfie_url))   u.kyc_selfie_url   = (await signedUrl(u.kyc_selfie_url, 600))   || u.kyc_selfie_url;
+      }));
+    } catch (e) { /* non bloquant */ }
 
     /* ── 2. Transactions en attente (dépôts MM) ── */
     let pendingTransactions = [];

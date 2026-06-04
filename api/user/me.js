@@ -18,6 +18,8 @@ const { verifyJWT, hashPin, verifyPin } = require('../_lib/auth');
 const { isProjectCollective, hasJoinedMembers } = require('../_lib/project');
 const { trigger: emailTrigger } = require('../_lib/email');
 const { logAudit, checkThrottle, recordFail, resetThrottle } = require('../_lib/security');
+const { decodeDataUrl: storageDecode, uploadObject: storageUpload } = require('../_lib/storage');
+function extFromMime(m) { return ({ 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp' }[m]) || '.jpg'; }
 const crypto = require('crypto');
 
 function parseBody(req) {
@@ -1584,9 +1586,21 @@ async function handleKyc(req, res, payload) {
     const selfie   = body.selfie   || '';
     if (!document || !selfie) return res.status(400).json({ error: 'Document et selfie requis' });
     try {
+      /* ── Upload des pièces dans le bucket PRIVÉ "kyc" (PII jamais en clair en DB).
+         Repli sur la data-URL si Storage indisponible (bucket non créé). ── */
+      const ts = Date.now();
+      let docVal = document, selfieVal = selfie;
+      try {
+        const d = storageDecode(document), s = storageDecode(selfie);
+        if (d) docVal    = await storageUpload('kyc', payload.userId + '/document-' + ts + extFromMime(d.contentType), d.buffer, d.contentType);
+        if (s) selfieVal = await storageUpload('kyc', payload.userId + '/selfie-' + ts + extFromMime(s.contentType), s.buffer, s.contentType);
+      } catch (upErr) {
+        console.warn('[kyc] upload Storage échoué, repli data-URL :', upErr.message);
+        docVal = document; selfieVal = selfie;
+      }
       await supabaseRequest('PATCH', '/users?id=eq.' + encodeURIComponent(payload.userId), {
-        kyc_document_url: document,
-        kyc_selfie_url:   selfie,
+        kyc_document_url: docVal,
+        kyc_selfie_url:   selfieVal,
         kyc_status:       'pending',
         kyc_submitted_at: new Date().toISOString(),
       });
