@@ -2951,9 +2951,8 @@ function fetchMerchantSettings() {
       try { initDepositModal(); } catch (e) {}
     }
     /* Lien WhatsApp groupe ambassadeurs */
-    if (cfg.ambassador_whatsapp_group) {
-      window._AMB_WA_GROUP = cfg.ambassador_whatsapp_group;
-    }
+    window._AMB_WA_GROUP = cfg.ambassador_whatsapp_group
+      || 'https://chat.whatsapp.com/GqKHlTw5bGDFmlhYZnT74B';
 
     /* Config Alipay */
     if (cfg.alipay) {

@@ -97,7 +97,8 @@ module.exports = async (req, res) => {
         const uRows = await supabaseRequest('GET',
           '/users?id=eq.' + encodeURIComponent(amb.user_id) + '&select=email,prenom&limit=1');
         const u = Array.isArray(uRows) && uRows[0];
-        const waGroup = process.env.AMBASSADOR_WHATSAPP_GROUP || null;
+        const waGroup = process.env.AMBASSADOR_WHATSAPP_GROUP
+          || 'https://chat.whatsapp.com/GqKHlTw5bGDFmlhYZnT74B';
         if (u && u.email) {
           await emailTrig('ambassador_approved', amb.user_id, {
             prenom:       u.prenom || 'Ambassadeur',
