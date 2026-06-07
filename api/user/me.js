@@ -96,6 +96,7 @@ module.exports = async (req, res) => {
   if (resource === 'challenges')       return handleChallenges(req, res, payload, resourceId);
   if (resource === 'challenge')        return handleChallengeDetail(req, res, payload, resourceId);
   if (resource === 'activity')         return handleActivity(req, res, payload);
+  if (resource === 'goal_requests')    return handleGoalRequests(req, res, payload);
 
   /* ══════════ ROUTE PROFIL ══════════ */
   if (!['GET', 'PATCH'].includes(req.method)) {
@@ -1935,4 +1936,93 @@ async function handleCommunityDetail(req, res, payload, communityId) {
   } catch (e) {
     return res.status(500).json({ error: 'Erreur communauté : ' + e.message });
   }
+}
+
+/* ══════════════════════════════════════════════════════════
+   GOAL REQUESTS — demandes de hausse d'objectif
+   GET  ?resource=goal_requests           → liste des demandes du user
+   POST ?resource=goal_requests           → créer une demande
+   ══════════════════════════════════════════════════════════ */
+async function handleGoalRequests(req, res, payload) {
+  const userId = payload.userId;
+
+  /* ── GET : retourne les demandes pending du user ── */
+  if (req.method === 'GET') {
+    try {
+      const rows = await supabaseRequest('GET',
+        '/project_goal_requests?user_id=eq.' + encodeURIComponent(userId) +
+        '&order=created_at.desc&limit=50&select=*');
+      return res.status(200).json(Array.isArray(rows) ? rows : []);
+    } catch (e) {
+      return res.status(500).json({ error: 'Erreur récupération demandes : ' + e.message });
+    }
+  }
+
+  /* ── POST : soumettre une nouvelle demande ── */
+  if (req.method === 'POST') {
+    const body = await parseBody(req);
+    const { project_id, requested_goal, reason } = body;
+
+    if (!project_id)      return res.status(400).json({ error: 'project_id requis' });
+    if (!requested_goal)  return res.status(400).json({ error: 'requested_goal requis' });
+
+    const newGoal = parseInt(requested_goal, 10);
+    if (isNaN(newGoal) || newGoal <= 0) {
+      return res.status(400).json({ error: 'Montant invalide' });
+    }
+
+    try {
+      /* Vérifier que le projet appartient au user */
+      const projects = await supabaseRequest('GET',
+        '/projects?id=eq.' + encodeURIComponent(project_id) +
+        '&user_id=eq.' + encodeURIComponent(userId) +
+        '&select=id,goal,status,name');
+      const project = Array.isArray(projects) && projects[0];
+      if (!project) {
+        return res.status(404).json({ error: 'Projet introuvable' });
+      }
+
+      /* Vérifier que le projet n'est pas en fermeture */
+      if (['closure_requested','pending_close','closed'].includes(project.status)) {
+        return res.status(400).json({ error: 'Impossible de modifier un projet en cours de fermeture' });
+      }
+
+      const currentGoal = parseInt(project.goal, 10) || 0;
+
+      /* Vérifier que c'est bien une hausse */
+      if (newGoal <= currentGoal) {
+        return res.status(400).json({
+          error: `Le nouvel objectif doit être supérieur à l'objectif actuel (${currentGoal.toLocaleString('fr')} GNF)`,
+        });
+      }
+
+      /* Vérifier qu'il n'y a pas déjà une demande pending pour ce projet */
+      const existing = await supabaseRequest('GET',
+        '/project_goal_requests?project_id=eq.' + encodeURIComponent(project_id) +
+        '&status=eq.pending&select=id&limit=1');
+      if (Array.isArray(existing) && existing.length > 0) {
+        return res.status(409).json({
+          error: 'Une demande de modification est déjà en attente de validation pour ce projet',
+        });
+      }
+
+      /* Créer la demande */
+      const result = await supabaseRequest('POST', '/project_goal_requests', {
+        project_id,
+        user_id: userId,
+        current_goal: currentGoal,
+        requested_goal: newGoal,
+        reason: (reason || '').trim() || null,
+        status: 'pending',
+      });
+
+      const created = Array.isArray(result) ? result[0] : result;
+      return res.status(201).json({ ok: true, request: created });
+
+    } catch (e) {
+      return res.status(500).json({ error: 'Erreur création demande : ' + e.message });
+    }
+  }
+
+  return res.status(405).json({ error: 'Méthode non autorisée' });
 }

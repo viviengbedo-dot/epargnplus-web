@@ -1066,6 +1066,17 @@
   </main>
 </div>
 
+<!-- ══════════ BOUTON FLOTTANT WHATSAPP (service client) ══════════ -->
+<a id="waSupportBtn" href="https://wa.me/224628248547?text=Bonjour%2C%20j%27ai%20besoin%20d%27aide%20sur%20Epargn%2B"
+   target="_blank" rel="noopener" aria-label="Contacter le support sur WhatsApp" title="Aide WhatsApp"
+   style="position:fixed;right:18px;bottom:88px;z-index:900;width:56px;height:56px;border-radius:50%;
+          background:#25D366;display:flex;align-items:center;justify-content:center;
+          box-shadow:0 6px 18px rgba(0,0,0,.28);text-decoration:none;">
+  <svg width="30" height="30" viewBox="0 0 32 32" fill="#fff" aria-hidden="true">
+    <path d="M16 .5C7.4.5.5 7.4.5 16c0 2.8.74 5.5 2.14 7.9L.4 31.6l7.9-2.07A15.4 15.4 0 0 0 16 31.5C24.6 31.5 31.5 24.6 31.5 16S24.6.5 16 .5zm0 28.2c-2.5 0-5-.67-7.15-1.94l-.5-.3-4.7 1.23 1.25-4.58-.33-.53A12.7 12.7 0 1 1 16 28.7zm7-9.5c-.38-.2-2.26-1.1-2.6-1.23-.35-.13-.6-.2-.86.2-.25.38-.98 1.22-1.2 1.47-.22.25-.44.28-.82.1-.38-.2-1.6-.6-3.05-1.9-1.13-1-1.9-2.25-2.12-2.62-.22-.38-.02-.58.17-.77.17-.17.38-.44.57-.66.2-.22.25-.38.38-.63.13-.25.06-.47-.03-.66-.1-.2-.86-2.07-1.18-2.83-.3-.74-.62-.64-.86-.65l-.73-.01c-.25 0-.66.1-1 .47-.34.38-1.3 1.28-1.3 3.12s1.34 3.62 1.52 3.87c.2.25 2.63 4.02 6.38 5.64.9.38 1.6.6 2.14.78.9.28 1.72.24 2.36.15.72-.1 2.26-.92 2.58-1.8.32-.9.32-1.66.22-1.82-.1-.16-.34-.25-.72-.44z"/>
+  </svg>
+</a>
+
 <!-- ══════════ MODALS ══════════ -->
 <div class="toast-container" id="toastContainer"></div>
 
@@ -1135,6 +1146,46 @@
 
 <!-- Dépôt -->
 <!-- ══ Modal nouveau ticket support ══ -->
+<!-- ── MODAL : Demande de hausse d'objectif ── -->
+<div class="modal-overlay" id="modal-goalRequest" onclick="handleOverlayClick(event,'modal-goalRequest')">
+  <div class="modal" style="max-width:440px;">
+    <button class="modal-close" onclick="closeModal('modal-goalRequest')">✕</button>
+    <div style="font-size:36px;text-align:center;margin-bottom:6px;">✏️</div>
+    <div class="modal-title" style="text-align:center;">Modifier l'objectif</div>
+    <div class="modal-sub" style="text-align:center;" id="goalReqProjectName">—</div>
+
+    <div style="background:#EEF2FF;border-radius:10px;padding:12px 14px;margin:16px 0;font-size:13px;color:var(--primary);">
+      <strong>Règle :</strong> la modification doit être <strong>en hausse uniquement</strong>. Elle sera validée par l'admin sous 24h.
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Objectif actuel</label>
+      <div id="goalReqCurrentDisplay" style="font-size:16px;font-weight:800;color:var(--primary);padding:10px 0;">—</div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Nouvel objectif <span style="color:var(--error);">*</span></label>
+      <input type="number" id="goalReqNewAmount" class="form-control"
+        placeholder="Ex : 5 000 000"
+        min="1" step="1000"
+        style="font-size:16px;font-weight:700;" />
+      <div id="goalReqError" style="color:var(--error);font-size:12px;margin-top:6px;display:none;"></div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Raison (optionnel)</label>
+      <textarea id="goalReqReason" class="form-control" rows="2"
+        placeholder="Ex : Achat supplémentaire prévu, coût révisé…"
+        style="resize:none;"></textarea>
+    </div>
+
+    <button class="btn btn-accent" id="goalReqSubmitBtn" style="width:100%;padding:14px;font-size:15px;font-weight:700;"
+      onclick="submitGoalRequest()">
+      Envoyer la demande →
+    </button>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-newTicket" onclick="handleOverlayClick(event,'modal-newTicket')">
   <div class="modal" style="max-width:480px;">
     <button class="modal-close" onclick="closeModal('modal-newTicket')">✕</button>
@@ -3084,13 +3135,35 @@ function loadProjects() {
     PROJETS = dbProjects;
     localStorage.setItem('epargn_projets', JSON.stringify(PROJETS)); /* Cache local */
     syncBalanceFromProjects(); /* ← solde global = somme des projets */
-    renderProjectCards();
-    renderHomeProjects();
-    updateHomeOverview();
-    if (typeof updateProgressionGauge === 'function') updateProgressionGauge();
+    /* Charger les demandes de hausse d'objectif en parallèle */
+    loadGoalRequests(function() {
+      renderProjectCards();
+      renderHomeProjects();
+      updateHomeOverview();
+      if (typeof updateProgressionGauge === 'function') updateProgressionGauge();
+    });
   })
   .catch(function(err) {
     console.warn('[projets] Chargement DB impossible, cache local utilisé :', err.message);
+    renderProjectCards();
+  });
+}
+
+/* ── CHARGER LES DEMANDES DE HAUSSE D'OBJECTIF ── */
+window._GOAL_REQUESTS = [];
+function loadGoalRequests(callback) {
+  if (!_authToken) { if (callback) callback(); return; }
+  fetch('/api/user/me?resource=goal_requests', {
+    headers: { 'Authorization': 'Bearer ' + _authToken }
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(rows) {
+    window._GOAL_REQUESTS = Array.isArray(rows) ? rows : [];
+    if (callback) callback();
+  })
+  .catch(function() {
+    window._GOAL_REQUESTS = [];
+    if (callback) callback();
   });
 }
 
@@ -4355,6 +4428,10 @@ function renderProjectCards() {
     const isCollectif = isProjectCollective(p) ||
       TONTINES_USER.some(function(t){ return t.projectId === p.id; });
 
+    /* Badge demande de hausse d'objectif en attente */
+    const hasPendingGoalReq = Array.isArray(window._GOAL_REQUESTS) &&
+      window._GOAL_REQUESTS.some(function(r){ return r.project_id === p.id && r.status === 'pending'; });
+
     /* Badge statut */
     let stLabel, stClass;
     if ((p.status === 'closure_requested' || p.status === 'pending_close')) {
@@ -4470,10 +4547,16 @@ function renderProjectCards() {
         <span style="font-size:12px;font-weight:700;color:${ins.color};">${ins.icon} ${ins.text}</span>
       </div>
 
+      <!-- ── Badge hausse en attente ── -->
+      ${hasPendingGoalReq ? `<div style="margin-top:8px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:7px 12px;font-size:12px;color:#92400E;display:flex;align-items:center;gap:6px;">
+        ⏳ <strong>Hausse d'objectif en attente</strong> — l'admin validera sous 24h
+      </div>` : ''}
+
       <!-- ── Actions ── -->
       <div style="display:flex;gap:8px;padding-top:10px;border-top:1px solid var(--divider);">
         ${actionBtn}
         ${!isCollectif ? `<button class="btn btn-outline btn-sm" onclick="openProjectDetail(PROJETS[${idx}])" style="font-size:13px;padding:11px 14px;" title="Voir les détails">📊</button>` : ''}
+        ${(!isCollectif && !hasPendingGoalReq && p.status !== 'closure_requested' && p.status !== 'pending_close') ? `<button class="btn btn-outline btn-sm" onclick="openGoalRequest('${p.id||''}','${safeNom}',${p.cible||0})" style="font-size:13px;padding:11px 14px;" title="Modifier l'objectif">✏️</button>` : ''}
         ${(p.status !== 'closure_requested' && p.status !== 'pending_close' && !projectHasJoinedMembers(p) && (p.actuel || 0) === 0) ? `<button class="btn btn-outline btn-sm" onclick="deleteProject(${idx})" style="color:#DC2626;border-color:#FECACA;font-size:13px;padding:11px 14px;" title="Supprimer">🗑</button>` : ''}
       </div>
     </div>`;
@@ -5140,6 +5223,80 @@ function openRetraitForProject(projectId, nom, montant) {
   /* Navigation */
   showSection('retrait', null);
   setBottomNav('');
+}
+
+/* ── DEMANDE DE HAUSSE D'OBJECTIF ── */
+var _goalReqProjectId  = null;
+var _goalReqCurrentGoal = 0;
+
+function openGoalRequest(projectId, projectNom, currentGoal) {
+  _goalReqProjectId   = projectId;
+  _goalReqCurrentGoal = parseInt(currentGoal, 10) || 0;
+  var cur = (_currentUser && COUNTRY_LABELS[_currentUser.country]) ? COUNTRY_LABELS[_currentUser.country].currency : 'GNF';
+  var el = document.getElementById('goalReqProjectName');
+  if (el) el.textContent = projectNom;
+  var elCur = document.getElementById('goalReqCurrentDisplay');
+  if (elCur) elCur.textContent = fmt(_goalReqCurrentGoal) + ' ' + cur;
+  var inp = document.getElementById('goalReqNewAmount');
+  if (inp) { inp.value = ''; inp.min = _goalReqCurrentGoal + 1; }
+  var err = document.getElementById('goalReqError');
+  if (err) { err.style.display = 'none'; err.textContent = ''; }
+  var ra = document.getElementById('goalReqReason');
+  if (ra) ra.value = '';
+  openModal('goalRequest');
+}
+
+function submitGoalRequest() {
+  var inp = document.getElementById('goalReqNewAmount');
+  var err = document.getElementById('goalReqError');
+  var btn = document.getElementById('goalReqSubmitBtn');
+  var ra  = document.getElementById('goalReqReason');
+  if (!inp || !err) return;
+
+  var newGoal = parseInt(inp.value, 10);
+  err.style.display = 'none';
+
+  if (!newGoal || isNaN(newGoal) || newGoal <= 0) {
+    err.textContent = 'Entrez un montant valide.';
+    err.style.display = '';
+    return;
+  }
+  if (newGoal <= _goalReqCurrentGoal) {
+    var cur = (_currentUser && COUNTRY_LABELS[_currentUser.country]) ? COUNTRY_LABELS[_currentUser.country].currency : 'GNF';
+    err.textContent = 'Le nouvel objectif doit être supérieur à ' + fmt(_goalReqCurrentGoal) + ' ' + cur + '.';
+    err.style.display = '';
+    return;
+  }
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Envoi…'; }
+
+  fetch('/api/user/me?resource=goal_requests', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
+    body: JSON.stringify({
+      project_id:     _goalReqProjectId,
+      requested_goal: newGoal,
+      reason:         (ra && ra.value.trim()) || null,
+    }),
+  })
+  .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+  .then(function(res) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Envoyer la demande →'; }
+    if (!res.ok) {
+      err.textContent = res.data.error || 'Erreur lors de l\'envoi.';
+      err.style.display = '';
+      return;
+    }
+    closeModal('goalRequest');
+    showToast('✅ Demande envoyée — l\'admin validera sous 24h', 'success');
+    /* Recharger les demandes + re-rendre les cartes */
+    loadGoalRequests(function() { renderProjectCards(); });
+  })
+  .catch(function() {
+    if (btn) { btn.disabled = false; btn.textContent = 'Envoyer la demande →'; }
+    err.textContent = 'Erreur réseau. Réessayez.';
+    err.style.display = '';
+  });
 }
 
 function deleteProject(idx) {

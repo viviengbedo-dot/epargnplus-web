@@ -124,6 +124,16 @@ module.exports = async (req, res) => {
       console.warn('[admin/data] alipayDeposits:', e.message);
     }
 
+    /* ── 2c-bis. Demandes de modification d'objectif ── */
+    let goalRequests = [];
+    try {
+      goalRequests = await supabaseRequest('GET',
+        '/project_goal_requests?order=created_at.desc&limit=200&select=*');
+      if (!Array.isArray(goalRequests)) goalRequests = [];
+    } catch (e) {
+      console.warn('[admin/data] goalRequests:', e.message);
+    }
+
     /* ── 2d. Toutes les transactions récentes ── */
     let allTransactions = [];
     try {
@@ -371,6 +381,7 @@ module.exports = async (req, res) => {
       emailTemplates,
       emailLogs,
       emailCampaigns,
+      goalRequests,
       stats: {
         total, epargneTotal, kycPending, kycVerified, pendingCount, byCountry,
         alipay: { pending: alipayPending, confirmed: alipayConfirmed, total: alipayTotal },

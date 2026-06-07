@@ -68,6 +68,69 @@ module.exports = async (req, res) => {
 
   const now = new Date().toISOString();
 
+  /* ════════════ APPROVE-GOAL-REQUEST ════════════ */
+  if (action === 'approve-goal-request') {
+    const { requestId, admin_note } = body;
+    if (!requestId) return res.status(400).json({ error: 'requestId requis' });
+    try {
+      /* Récupérer la demande */
+      const reqs = await supabaseRequest('GET',
+        '/project_goal_requests?id=eq.' + encodeURIComponent(requestId) + '&select=*&limit=1');
+      const req2 = Array.isArray(reqs) && reqs[0];
+      if (!req2) return res.status(404).json({ error: 'Demande introuvable' });
+      if (req2.status !== 'pending') return res.status(409).json({ error: 'Demande déjà traitée' });
+
+      /* Appliquer le nouvel objectif sur le projet */
+      await supabaseRequest('PATCH',
+        '/projects?id=eq.' + encodeURIComponent(req2.project_id),
+        { goal: req2.requested_goal });
+
+      /* Marquer la demande comme approuvée */
+      await supabaseRequest('PATCH',
+        '/project_goal_requests?id=eq.' + encodeURIComponent(requestId),
+        { status: 'approved', admin_note: admin_note || null, updated_at: now });
+
+      /* Notification au client */
+      await createNotification(req2.user_id, 'goal_approved',
+        '✅ Modification d\'objectif approuvée',
+        `Votre demande de hausse d'objectif a été validée. Nouvel objectif : ${Number(req2.requested_goal).toLocaleString('fr')} GNF.`,
+        { project_id: req2.project_id });
+
+      await logAudit(null, 'goal_request_approved', { requestId, project_id: req2.project_id, new_goal: req2.requested_goal }, req);
+      return res.status(200).json({ ok: true, action: 'approve-goal-request', requestId });
+    } catch (err) {
+      return res.status(500).json({ error: 'Erreur approbation : ' + err.message });
+    }
+  }
+
+  /* ════════════ REJECT-GOAL-REQUEST ════════════ */
+  if (action === 'reject-goal-request') {
+    const { requestId, admin_note } = body;
+    if (!requestId) return res.status(400).json({ error: 'requestId requis' });
+    try {
+      const reqs = await supabaseRequest('GET',
+        '/project_goal_requests?id=eq.' + encodeURIComponent(requestId) + '&select=*&limit=1');
+      const req2 = Array.isArray(reqs) && reqs[0];
+      if (!req2) return res.status(404).json({ error: 'Demande introuvable' });
+      if (req2.status !== 'pending') return res.status(409).json({ error: 'Demande déjà traitée' });
+
+      await supabaseRequest('PATCH',
+        '/project_goal_requests?id=eq.' + encodeURIComponent(requestId),
+        { status: 'rejected', admin_note: admin_note || null, updated_at: now });
+
+      /* Notification au client */
+      await createNotification(req2.user_id, 'goal_rejected',
+        '❌ Modification d\'objectif refusée',
+        `Votre demande de hausse d'objectif a été refusée.${admin_note ? ' Motif : ' + admin_note : ''}`,
+        { project_id: req2.project_id });
+
+      await logAudit(null, 'goal_request_rejected', { requestId, project_id: req2.project_id }, req);
+      return res.status(200).json({ ok: true, action: 'reject-goal-request', requestId });
+    } catch (err) {
+      return res.status(500).json({ error: 'Erreur rejet : ' + err.message });
+    }
+  }
+
   /* ════════════ UPDATE-PROJECT ════════════ */
   if (action === 'update-project') {
     const { projectId, status } = body;

@@ -208,6 +208,10 @@
       <button class="nav-item" onclick="showAdminSection('projets', this)">
         <span class="nav-icon">🎯</span> Projets
       </button>
+      <button class="nav-item" onclick="showAdminSection('goal-requests', this)">
+        <span class="nav-icon">✏️</span> Modif. Objectifs
+        <span class="nav-badge" id="navGoalReqsBadge" style="display:none;">0</span>
+      </button>
       <button class="nav-item" onclick="showAdminSection('tontines', this)">
         <span class="nav-icon">🤝</span> Épargne Coll.
       </button>
@@ -640,6 +644,44 @@
             <table>
               <thead><tr><th>Projet</th><th>Utilisateur</th><th>Objectif</th><th>Épargné</th><th>Progression</th><th>Statut</th></tr></thead>
               <tbody id="projetsAdminTbody"><!-- injected --></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════ DEMANDES DE HAUSSE D'OBJECTIF ════════ -->
+      <section id="sec-goal-requests" style="display:none;">
+        <div class="flex-between mb-6">
+          <div>
+            <h2 style="font-size:22px;font-weight:800;color:var(--primary);">✏️ Modifications d'objectif</h2>
+            <p class="text-muted">Demandes de hausse d'objectif soumises par les clients</p>
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="loadData()">🔄 Actualiser</button>
+        </div>
+        <!-- Filtre statut -->
+        <div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;">
+          <button class="btn btn-sm goal-req-filter active" data-filter="pending" onclick="filterGoalReqs('pending',this)" style="background:var(--primary);color:#fff;">⏳ En attente</button>
+          <button class="btn btn-sm goal-req-filter" data-filter="approved" onclick="filterGoalReqs('approved',this)">✅ Approuvées</button>
+          <button class="btn btn-sm goal-req-filter" data-filter="rejected" onclick="filterGoalReqs('rejected',this)">❌ Refusées</button>
+          <button class="btn btn-sm goal-req-filter" data-filter="all" onclick="filterGoalReqs('all',this)">Toutes</button>
+        </div>
+        <div class="card">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Client</th>
+                  <th>Projet</th>
+                  <th>Objectif actuel</th>
+                  <th>Objectif demandé</th>
+                  <th>Hausse</th>
+                  <th>Raison</th>
+                  <th>Date</th>
+                  <th>Statut</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="goalReqsTbody"><!-- injected --></tbody>
             </table>
           </div>
         </div>
@@ -2060,11 +2102,34 @@ function populateAdminData(data) {
   var elV = document.getElementById('tontStatVolume');
   if (elV) elV.textContent = fmt(TONTINES_ALL.reduce(function(s,t){return s+(t.goal||0);},0));
 
+  /* ── Demandes de hausse d'objectif ── */
+  var rawGoalReqs = data.goalRequests || [];
+  window.GOAL_REQUESTS = rawGoalReqs.map(function(r) {
+    var u = userMap[r.user_id] || {};
+    var proj = (data.allProjects || []).find(function(p){ return p.id === r.project_id; }) || {};
+    return {
+      id:             r.id,
+      userId:         r.user_id,
+      userName:       u.name || u.phone || r.user_id,
+      userPhone:      u.phone || '—',
+      projectId:      r.project_id,
+      projectName:    proj.name || '—',
+      currentGoal:    r.current_goal,
+      requestedGoal:  r.requested_goal,
+      reason:         r.reason || '',
+      status:         r.status,
+      adminNote:      r.admin_note || '',
+      date:           r.created_at ? new Date(r.created_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric' }) : '—',
+    };
+  });
+  renderGoalRequests();
+
   /* ── Cloche de notifications admin ── */
   var pendingDep = PENDING_TXNS.length ||
     USERS.filter(function(u){ return u.pendingDeposit > 0; }).length;
   var pendingKyc = USERS.filter(function(u){ return u.kyc === 'pending'; }).length;
-  updateAdminBell(pendingDep, pendingKyc, TONTINES_DELETE.length);
+  var pendingGoalReqs = (window.GOAL_REQUESTS || []).filter(function(r){ return r.status === 'pending'; }).length;
+  updateAdminBell(pendingDep, pendingKyc, TONTINES_DELETE.length + pendingGoalReqs);
 
   /* Section demandes de suppression */
   var delSec = document.getElementById('tontDeleteRequestsSection');
@@ -3309,6 +3374,119 @@ function adminRejectTontineDelete(projectId) {
 }
 
 /* ── PROJETS ADMIN ── */
+/* ══════════════════════════════════════════════════════
+   DEMANDES DE HAUSSE D'OBJECTIF
+══════════════════════════════════════════════════════ */
+var _goalReqFilter = 'pending';
+window.GOAL_REQUESTS = [];
+
+function renderGoalRequests() {
+  var tbody = document.getElementById('goalReqsTbody');
+  if (!tbody) return;
+
+  var list = (window.GOAL_REQUESTS || []).filter(function(r) {
+    return _goalReqFilter === 'all' || r.status === _goalReqFilter;
+  });
+
+  /* Badge dans la nav */
+  var pendingCount = (window.GOAL_REQUESTS || []).filter(function(r){ return r.status === 'pending'; }).length;
+  var badge = document.getElementById('navGoalReqsBadge');
+  if (badge) { badge.textContent = pendingCount; badge.style.display = pendingCount > 0 ? '' : 'none'; }
+
+  if (!list.length) {
+    var label = _goalReqFilter === 'pending' ? 'Aucune demande en attente 🎉'
+              : _goalReqFilter === 'approved' ? 'Aucune demande approuvée'
+              : _goalReqFilter === 'rejected' ? 'Aucune demande refusée'
+              : 'Aucune demande';
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:28px;color:var(--text-muted);">' + label + '</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = list.map(function(r) {
+    var hausse  = r.requestedGoal - r.currentGoal;
+    var pct     = r.currentGoal > 0 ? Math.round((hausse / r.currentGoal) * 100) : 100;
+    var statusBadge =
+      r.status === 'approved' ? '<span class="badge badge-success">✅ Approuvée</span>' :
+      r.status === 'rejected' ? '<span class="badge" style="background:#FEE2E2;color:#DC2626;">❌ Refusée</span>' :
+      '<span class="badge badge-warning">⏳ En attente</span>';
+
+    var actions = '';
+    if (r.status === 'pending') {
+      var safeId = r.id.replace(/'/g, "\\'");
+      actions = '<div class="action-col">' +
+        '<button class="btn btn-success btn-sm" style="font-size:11px;padding:4px 10px;" ' +
+        'onclick="adminApproveGoalReq(\'' + safeId + '\')">✅ Approuver</button>' +
+        '<button class="btn btn-sm" style="font-size:11px;padding:4px 10px;background:#FEE2E2;color:#DC2626;" ' +
+        'onclick="adminRejectGoalReq(\'' + safeId + '\')">❌ Refuser</button>' +
+        '</div>';
+    } else {
+      actions = r.adminNote ? '<span style="font-size:12px;color:var(--text-muted);">' + r.adminNote + '</span>' : '—';
+    }
+
+    return '<tr>' +
+      '<td><strong>' + r.userName + '</strong><br><span style="font-size:11px;color:var(--text-muted);">' + r.userPhone + '</span></td>' +
+      '<td>' + r.projectName + '</td>' +
+      '<td style="font-weight:700;">' + fmt(r.currentGoal) + '</td>' +
+      '<td style="font-weight:800;color:var(--primary);">' + fmt(r.requestedGoal) + '</td>' +
+      '<td><span style="color:#059669;font-weight:700;">+' + fmt(hausse) + '</span><br><span style="font-size:11px;color:var(--text-muted);">+' + pct + '%</span></td>' +
+      '<td style="max-width:140px;font-size:12px;">' + (r.reason || '<em style="color:var(--text-muted)">—</em>') + '</td>' +
+      '<td style="font-size:12px;">' + r.date + '</td>' +
+      '<td>' + statusBadge + '</td>' +
+      '<td>' + actions + '</td>' +
+      '</tr>';
+  }).join('');
+}
+
+function filterGoalReqs(status, btn) {
+  _goalReqFilter = status;
+  document.querySelectorAll('.goal-req-filter').forEach(function(b) {
+    b.classList.remove('active');
+    b.style.background = '';
+    b.style.color = '';
+  });
+  if (btn) { btn.classList.add('active'); btn.style.background = 'var(--primary)'; btn.style.color = '#fff'; }
+  renderGoalRequests();
+}
+
+function adminApproveGoalReq(requestId) {
+  var req = (window.GOAL_REQUESTS || []).find(function(r){ return r.id === requestId; });
+  if (!req) return;
+  var note = prompt('Note admin (optionnel) — visible par le client :', '') ;
+  if (note === null) return; /* Annulé */
+
+  fetch('/api/admin/update-balance', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
+    body: JSON.stringify({ action: 'approve-goal-request', requestId: requestId, admin_note: note || null })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (!data.ok) { showAdminToast('❌ ' + (data.error || 'Erreur'), 'error'); return; }
+    showAdminToast('✅ Objectif mis à jour sur le projet', 'success');
+    loadData();
+  })
+  .catch(function() { showAdminToast('❌ Erreur réseau', 'error'); });
+}
+
+function adminRejectGoalReq(requestId) {
+  var note = prompt('Motif du refus (communiqué au client) :');
+  if (note === null) return; /* Annulé */
+  if (!note.trim()) { showAdminToast('Entrez un motif de refus', 'warning'); return; }
+
+  fetch('/api/admin/update-balance', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
+    body: JSON.stringify({ action: 'reject-goal-request', requestId: requestId, admin_note: note })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (!data.ok) { showAdminToast('❌ ' + (data.error || 'Erreur'), 'error'); return; }
+    showAdminToast('Demande refusée — client notifié', 'info');
+    loadData();
+  })
+  .catch(function() { showAdminToast('❌ Erreur réseau', 'error'); });
+}
+
 function renderProjetsAdmin() {
   const tbody = document.getElementById('projetsAdminTbody');
   if (!tbody) return;
