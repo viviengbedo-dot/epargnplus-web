@@ -82,10 +82,37 @@ module.exports = async (req, res) => {
         '/ambassadors?id=eq.' + encodeURIComponent(ambassadorId),
         { status: 'active', tier, admin_note: admin_note||null,
           approved_at: now, updated_at: now });
+      const tierLabel = tier === 'platinum' ? 'Platine' : tier === 'gold' ? 'Gold' : 'Silver';
+      const tierEmoji = tier === 'platinum' ? '💎' : tier === 'gold' ? '🥇' : '🥈';
+      const bonusMap  = { silver: '7 500 GNF', gold: '10 000 GNF', platinum: '15 000 GNF' };
+      const feeMap    = { silver: '1%', gold: '0.8%', platinum: '0.5%' };
+
       await createNotification(amb.user_id, 'ambassador_approved',
         '🎉 Bienvenue dans le Programme Ambassadeur !',
-        `Votre candidature a été acceptée. Vous êtes maintenant Ambassadeur ${tier === 'platinum' ? 'Platine 💎' : tier === 'gold' ? 'Gold 🥇' : 'Silver 🥈'} Epargn+.`,
+        `Votre candidature a été acceptée. Vous êtes maintenant Ambassadeur ${tierLabel} ${tierEmoji} Epargn+. Ouvrez la section Ambassadeur pour récupérer votre lien.`,
         { tier });
+
+      /* Email de bienvenue ambassadeur */
+      try {
+        const uRows = await supabaseRequest('GET',
+          '/users?id=eq.' + encodeURIComponent(amb.user_id) + '&select=email,prenom&limit=1');
+        const u = Array.isArray(uRows) && uRows[0];
+        const waGroup = process.env.AMBASSADOR_WHATSAPP_GROUP || null;
+        if (u && u.email) {
+          await emailTrig('ambassador_approved', amb.user_id, {
+            prenom:       u.prenom || 'Ambassadeur',
+            tier_label:   tierLabel,
+            tier_emoji:   tierEmoji,
+            bonus_label:  bonusMap[tier] || '7 500 GNF',
+            fee_label:    feeMap[tier] || '1%',
+            admin_note:   admin_note || null,
+            whatsapp_group: waGroup,
+          }, u.email);
+        }
+      } catch (emailErr) {
+        console.warn('[ambassador_approved] email:', emailErr.message);
+      }
+
       await logAudit(null, 'ambassador_approved', { ambassadorId, tier }, req);
       return res.status(200).json({ ok: true, action: 'approve-ambassador' });
     } catch (e) {
@@ -109,6 +136,22 @@ module.exports = async (req, res) => {
         'Candidature ambassadeur non retenue',
         `Votre candidature n'a pas été retenue pour le moment.${admin_note ? ' Motif : ' + admin_note : ' Vous pouvez postuler à nouveau dans 30 jours.'}`,
         {});
+
+      /* Email de notification refus */
+      try {
+        const uRows = await supabaseRequest('GET',
+          '/users?id=eq.' + encodeURIComponent(amb.user_id) + '&select=email,prenom&limit=1');
+        const u = Array.isArray(uRows) && uRows[0];
+        if (u && u.email) {
+          await emailTrig('ambassador_rejected', amb.user_id, {
+            prenom:     u.prenom || 'Candidat',
+            admin_note: admin_note || null,
+          }, u.email);
+        }
+      } catch (emailErr) {
+        console.warn('[ambassador_rejected] email:', emailErr.message);
+      }
+
       await logAudit(null, 'ambassador_rejected', { ambassadorId }, req);
       return res.status(200).json({ ok: true, action: 'reject-ambassador' });
     } catch (e) {

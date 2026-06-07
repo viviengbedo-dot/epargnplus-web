@@ -347,6 +347,30 @@
           </div>
         </div>
 
+        <!-- ── Objectif de lancement : 10 ambassadeurs en 30 jours ── -->
+        <div class="card" style="margin-bottom:24px;padding:20px 24px;border:2px solid #C8E600;">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px;">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <div style="font-size:28px;">👑</div>
+              <div>
+                <div style="font-size:15px;font-weight:800;color:var(--primary);">Objectif de lancement — Ambassadeurs</div>
+                <div style="font-size:12px;color:var(--text-secondary);">10 ambassadeurs actifs dans les 30 prochains jours</div>
+              </div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:22px;font-weight:900;color:var(--primary);" id="ambObjectifCount">0 / 10</div>
+              <div style="font-size:11px;color:var(--text-secondary);" id="ambObjectifDays">Démarré aujourd'hui</div>
+            </div>
+          </div>
+          <div style="height:10px;background:#F3F4F6;border-radius:5px;overflow:hidden;margin-bottom:8px;">
+            <div id="ambObjectifBar" style="height:100%;background:linear-gradient(90deg,#0B1566,#C8E600);border-radius:5px;width:0%;transition:width .6s ease;"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-secondary);">
+            <span id="ambObjectifPending">⏳ 0 candidature(s) en attente</span>
+            <a onclick="showAdminSection('ambassadors',null)" href="#" style="color:var(--primary);font-weight:700;font-size:12px;">Gérer les ambassadeurs →</a>
+          </div>
+        </div>
+
         <div class="grid-2" style="margin-bottom:24px;">
 
           <!-- Épargne mensuelle (bar chart) -->
@@ -2181,6 +2205,7 @@ function populateAdminData(data) {
     };
   });
   renderAmbassadors();
+  updateAmbObjectif();
 
   /* ── Demandes de hausse d'objectif ── */
   var rawGoalReqs = data.goalRequests || [];
@@ -3471,6 +3496,22 @@ var AMB_TIERS_ADMIN = {
   gold:     { label:'Gold',    emoji:'🥇' },
   platinum: { label:'Platine', emoji:'💎' },
 };
+
+function updateAmbObjectif() {
+  var all     = window.AMBASSADORS || [];
+  var active  = all.filter(function(a){ return a.status === 'active'; }).length;
+  var pending = all.filter(function(a){ return a.status === 'pending'; }).length;
+  var goal    = 10;
+  var pct     = Math.min(100, Math.round(active / goal * 100));
+
+  var elCount = document.getElementById('ambObjectifCount');
+  var elBar   = document.getElementById('ambObjectifBar');
+  var elPend  = document.getElementById('ambObjectifPending');
+
+  if (elCount) elCount.textContent = active + ' / ' + goal;
+  if (elBar)   elBar.style.width = pct + '%';
+  if (elPend)  elPend.textContent = '⏳ ' + pending + ' candidature' + (pending > 1 ? 's' : '') + ' en attente de validation';
+}
 
 function renderAmbassadors() {
   var tbody = document.getElementById('ambassadorsTbody');

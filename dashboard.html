@@ -2950,6 +2950,11 @@ function fetchMerchantSettings() {
     if (typeof initDepositModal === 'function') {
       try { initDepositModal(); } catch (e) {}
     }
+    /* Lien WhatsApp groupe ambassadeurs */
+    if (cfg.ambassador_whatsapp_group) {
+      window._AMB_WA_GROUP = cfg.ambassador_whatsapp_group;
+    }
+
     /* Config Alipay */
     if (cfg.alipay) {
       var alipayIdEl = document.getElementById('alipayAccountId');
@@ -3355,14 +3360,26 @@ function renderAmbassadorSection(data) {
     '</div>' +
 
     /* Lien ambassadeur */
-    '<div class="card" style="padding:18px;">' +
+    '<div class="card mb-3" style="padding:18px;">' +
     '<div class="card-title" style="margin-bottom:12px;">🔗 Votre lien ambassadeur</div>' +
     '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">' +
     '<div style="flex:1;background:var(--bg-light);border-radius:8px;padding:10px 14px;font-size:13px;font-weight:700;color:var(--primary);word-break:break-all;">' + link + '</div>' +
     '<button class="btn btn-accent btn-sm" onclick="copyAmbLink()"  style="font-size:12px;">📋 Copier</button>' +
     '<button class="btn btn-outline btn-sm" onclick="shareAmbLink()" style="font-size:12px;">📤 Partager</button>' +
     '</div>' +
-    '<div style="font-size:12px;color:var(--text-secondary);margin-top:8px;">Partagez ce lien. Chaque inscription via ce lien vous est automatiquement attribuée.</div>' +
+    '<div style="font-size:12px;color:var(--text-secondary);margin-top:8px;">Chaque inscription via ce lien vous est automatiquement attribuée.</div>' +
+    '</div>' +
+
+    /* Groupe WhatsApp ambassadeurs */
+    '<div class="card" style="padding:16px;background:#F0FDF4;border:1px solid #BBF7D0;">' +
+    '<div style="display:flex;align-items:center;gap:12px;">' +
+    '<div style="font-size:28px;">📱</div>' +
+    '<div style="flex:1;">' +
+    '<div style="font-size:14px;font-weight:700;color:#065F46;">Groupe WhatsApp Ambassadeurs</div>' +
+    '<div style="font-size:12px;color:#374151;margin-top:2px;">Rejoignez le groupe privé — conseils, actualités et entraide entre ambassadeurs.</div>' +
+    '</div>' +
+    '<a href="' + (window._AMB_WA_GROUP || 'https://wa.me/224') + '" target="_blank" class="btn btn-sm" style="background:#25D366;color:#fff;font-weight:700;font-size:12px;padding:8px 14px;border-radius:20px;text-decoration:none;white-space:nowrap;">Rejoindre →</a>' +
+    '</div>' +
     '</div>';
 }
 

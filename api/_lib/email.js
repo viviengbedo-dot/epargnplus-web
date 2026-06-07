@@ -635,6 +635,60 @@ const TEMPLATES = {
     }),
   }),
 
+  ambassador_approved: (v) => ({
+    subject: `🎉 Bienvenue dans le Programme Ambassadeur Epargn+ !`,
+    body: wrapHtml({
+      title: 'Ambassadeur Epargn+',
+      preheader: 'Votre candidature a été acceptée. Commencez à recruter dès maintenant.',
+      bodyHtml: `
+        <div style="background:linear-gradient(135deg,#0B1566,#1a2a8a);border-radius:16px;padding:28px 24px;text-align:center;margin-bottom:24px;">
+          <div style="font-size:48px;margin-bottom:10px;">👑</div>
+          <h2 style="color:#C8E600;margin:0 0 8px;font-size:24px;font-weight:900;">Félicitations, ${v.prenom} !</h2>
+          <p style="color:rgba(255,255,255,.85);margin:0;font-size:14px;">Vous êtes maintenant <strong style="color:#C8E600;">Ambassadeur ${v.tier_label} Epargn+</strong></p>
+        </div>
+        <p style="color:#374151;font-size:15px;line-height:1.7;margin:0 0 20px;">
+          Votre candidature a été examinée et acceptée par notre équipe. Vous faites désormais partie du réseau d'ambassadeurs Epargn+.
+        </p>
+        <div style="background:#F0F3FF;border-radius:14px;padding:20px;margin-bottom:20px;">
+          <p style="font-weight:700;color:#0B1566;margin:0 0 12px;font-size:15px;">🎯 Votre palier de départ : ${v.tier_emoji} ${v.tier_label}</p>
+          <p style="color:#374151;font-size:14px;margin:0 0 8px;">✅ <strong>${v.bonus_label}</strong> par filleul actif</p>
+          <p style="color:#374151;font-size:14px;margin:0 0 8px;">✅ Retrait à <strong>${v.fee_label}</strong></p>
+          <p style="color:#374151;font-size:14px;margin:0;">✅ Accès au tableau de bord ambassadeur</p>
+        </div>
+        <p style="font-weight:700;color:#0B1566;margin:0 0 10px;font-size:15px;">📋 Vos 3 premières étapes :</p>
+        <ol style="color:#374151;font-size:14px;line-height:2;padding-left:20px;margin:0 0 20px;">
+          <li>Connectez-vous et ouvrez la section <strong>«&nbsp;Ambassadeur&nbsp;»</strong></li>
+          <li>Copiez votre <strong>lien ambassadeur unique</strong></li>
+          <li>Partagez-le sur WhatsApp, Facebook et dans votre réseau</li>
+        </ol>
+        ${v.whatsapp_group ? `<div style="background:#F0FDF4;border-radius:12px;padding:16px;margin-bottom:20px;text-align:center;">
+          <p style="color:#065F46;font-weight:700;margin:0 0 8px;">📱 Rejoignez le groupe WhatsApp Ambassadeurs</p>
+          <p style="color:#374151;font-size:13px;margin:0 0 12px;">Entraide, conseils et actualités réservés aux ambassadeurs.</p>
+          <a href="${v.whatsapp_group}" style="background:#25D366;color:#fff;padding:10px 24px;border-radius:20px;text-decoration:none;font-weight:700;font-size:13px;">Rejoindre le groupe →</a>
+        </div>` : ''}
+        ${btn('Accéder à mon espace ambassadeur →', APP_URL + '/espace-client')}
+        ${v.admin_note ? `<p style="color:#6B7280;font-size:13px;text-align:center;margin-top:16px;">Note de l'équipe : ${v.admin_note}</p>` : ''}`,
+    }),
+  }),
+
+  ambassador_rejected: (v) => ({
+    subject: `Candidature Ambassadeur Epargn+ — Réponse`,
+    body: wrapHtml({
+      title: 'Candidature Ambassadeur',
+      preheader: 'Votre candidature a été examinée par notre équipe.',
+      bodyHtml: `
+        <h2 style="color:#0B1566;margin:0 0 16px;font-size:20px;">Bonjour ${v.prenom},</h2>
+        <p style="color:#374151;font-size:15px;line-height:1.7;margin:0 0 20px;">
+          Nous avons examiné votre candidature au Programme Ambassadeur Epargn+ avec attention. Malheureusement, nous ne pouvons pas y donner suite pour le moment.
+        </p>
+        ${v.admin_note ? `${infoBox('Motif', v.admin_note, '#FEF2F2')}` : ''}
+        <p style="color:#374151;font-size:14px;margin:20px 0;">
+          Vous pouvez postuler à nouveau dans 30 jours. N'hésitez pas à développer votre réseau entre-temps et à revenir avec une candidature renforcée.
+        </p>
+        ${btn('Postuler à nouveau →', APP_URL + '/espace-client')}`,
+    }),
+  }),
+
   ai_suggestion: (v) => ({
     subject: v.sujet || `Conseil personnalisé pour votre épargne`,
     body: wrapHtml({
@@ -682,6 +736,8 @@ const TRIGGER_PREF = {
   collective_closed:    'collective',
   ai_suggestion:        'marketing',
   new_device:           'security',
+  ambassador_approved:  'marketing',
+  ambassador_rejected:  'marketing',
 };
 
 /**
