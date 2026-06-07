@@ -11,6 +11,45 @@
   <meta property="og:type" content="website" />
   <meta property="og:image" content="https://www.epargnplus.com/icon-512.png" />
   <link rel="canonical" href="https://www.epargnplus.com/presentation" />
+
+  <!-- ══ Schema.org JSON-LD ══ -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://www.epargnplus.com/#organization",
+        "name": "Epargn+",
+        "url": "https://www.epargnplus.com",
+        "logo": "https://www.epargnplus.com/icon-512.png",
+        "telephone": "+224-623-76-96-34",
+        "email": "ceo@epargnplus.com",
+        "description": "Plateforme d'épargne numérique pour la Guinée, le Bénin et la Côte d'Ivoire.",
+        "areaServed": ["Guinée", "Bénin", "Côte d'Ivoire"]
+      },
+      {
+        "@type": "WebPage",
+        "name": "Epargn+ — Comment ça fonctionne",
+        "url": "https://www.epargnplus.com/presentation",
+        "description": "Présentation complète d'Epargn+ : épargne numérique sans banque, Mobile Money, projets collectifs, tarifs, sécurité.",
+        "publisher": { "@id": "https://www.epargnplus.com/#organization" }
+      },
+      {
+        "@type": "HowTo",
+        "name": "Comment épargner avec Epargn+",
+        "description": "Ouvrir un compte et commencer à épargner via Mobile Money en 5 étapes.",
+        "step": [
+          { "@type": "HowToStep", "position": 1, "name": "Créer son compte", "text": "Entrez votre numéro de téléphone, une adresse email et choisissez un code PIN à 4 chiffres. Vérification par code OTP envoyé par email." },
+          { "@type": "HowToStep", "position": 2, "name": "Créer un projet", "text": "Donnez un nom à votre objectif d'épargne, fixez le montant cible et la date souhaitée." },
+          { "@type": "HowToStep", "position": 3, "name": "Déposer via Mobile Money", "text": "Transférez le montant via Orange Money, MTN MoMo, Wave ou un autre opérateur compatible. Votre solde est mis à jour dès confirmation." },
+          { "@type": "HowToStep", "position": 4, "name": "Suivre sa progression", "text": "Votre tableau de bord affiche votre solde, la progression de chaque projet et l'historique complet." },
+          { "@type": "HowToStep", "position": 5, "name": "Retirer ses fonds", "text": "Quand votre objectif est atteint, faites une demande de retrait. Vous recevez les fonds sur votre Mobile Money (frais de 1%)." }
+        ]
+      }
+    ]
+  }
+  </script>
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
   <link rel="icon" type="image/svg+xml" href="/logo.svg" />
   <link rel="manifest" href="/manifest.json" />

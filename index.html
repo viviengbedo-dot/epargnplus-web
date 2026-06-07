@@ -11,6 +11,122 @@
   <meta property="og:url" content="https://epargnplus.com/" />
   <meta property="og:type" content="website" />
   <link rel="canonical" href="https://epargnplus.com/" />
+
+  <!-- ══ Schema.org JSON-LD — Organisation + Site + FAQ ══ -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://www.epargnplus.com/#organization",
+        "name": "Epargn+",
+        "url": "https://www.epargnplus.com",
+        "logo": "https://www.epargnplus.com/icon-512.png",
+        "description": "Plateforme d'épargne numérique pour la Guinée, le Bénin et la Côte d'Ivoire. Épargne individuelle et collective via Mobile Money.",
+        "foundingLocation": "Conakry, Guinée",
+        "areaServed": ["Guinée", "Bénin", "Côte d'Ivoire"],
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "telephone": "+224-623-76-96-34",
+          "contactType": "customer support",
+          "availableLanguage": "French",
+          "contactOption": "TollFree"
+        },
+        "sameAs": ["https://www.epargnplus.com"]
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://www.epargnplus.com/#website",
+        "url": "https://www.epargnplus.com",
+        "name": "Epargn+",
+        "description": "L'épargne numérique sans banque pour l'Afrique de l'Ouest",
+        "publisher": { "@id": "https://www.epargnplus.com/#organization" },
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": "https://www.epargnplus.com/connexion",
+          "query-input": "required name=search_term_string"
+        }
+      },
+      {
+        "@type": "SoftwareApplication",
+        "name": "Epargn+",
+        "operatingSystem": "Web, Android, iOS",
+        "applicationCategory": "FinanceApplication",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "GNF",
+          "description": "Accès gratuit. Frais de 1% uniquement sur les retraits."
+        },
+        "description": "Application d'épargne mobile pour la Guinée, le Bénin et la Côte d'Ivoire. Compatible Orange Money, MTN MoMo, Wave, Moov, Celtiis, Coris.",
+        "url": "https://www.epargnplus.com"
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "Qu'est-ce qu'Epargn+ ?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Epargn+ est une plateforme d'épargne numérique disponible en Guinée, au Bénin et en Côte d'Ivoire. Elle permet d'épargner seul ou en groupe via Mobile Money (Orange Money, MTN MoMo, Wave, Moov, Celtiis, Coris), sans avoir besoin d'un compte bancaire. L'accès est gratuit, avec des frais de 1% uniquement sur les retraits."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Comment fonctionne Epargn+ ?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "1. Créez votre compte sur epargnplus.com avec votre numéro de téléphone et un code PIN. 2. Créez un projet d'épargne avec un objectif en GNF, FCFA ou autres devises locales. 3. Déposez via votre Mobile Money en quelques minutes. 4. Suivez votre progression en temps réel sur votre tableau de bord. 5. Retirez une fois votre objectif atteint."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Epargn+ est-il disponible en Guinée ?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Oui. Epargn+ est disponible en Guinée (+224) avec Orange Money, MTN MoMo et Wave. Le solde est en Francs Guinéens (GNF). Le site est accessible sur epargnplus.com."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Quels opérateurs Mobile Money sont compatibles avec Epargn+ ?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Epargn+ est compatible avec Orange Money (Guinée, Côte d'Ivoire), MTN MoMo (Guinée, Bénin, Côte d'Ivoire), Wave (Guinée, Bénin, Côte d'Ivoire), Moov Money (Bénin, Côte d'Ivoire), Celtiis Cash (Bénin) et Coris Money (Côte d'Ivoire)."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Epargn+ est-il gratuit ?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "L'inscription et l'utilisation d'Epargn+ sont entièrement gratuites. Les dépôts sont gratuits. Epargn+ prélève uniquement 1% de frais au moment du retrait. Il n'y a aucun abonnement, aucun frais caché."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Comment épargner en groupe avec Epargn+ ?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Epargn+ permet de créer des projets d'épargne collective (tontine numérique). Le créateur invite les membres via un lien. Chaque dépôt est visible par tous les membres en temps réel. L'historique est traçable et transparent, ce qui évite les disputes liées aux tontines en espèces."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Comment contacter Epargn+ ?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Vous pouvez contacter Epargn+ par WhatsApp au +224 623 76 96 34 ou par email à ceo@epargnplus.com. Le site est accessible sur www.epargnplus.com."
+            }
+          }
+        ]
+      }
+    ]
+  }
+  </script>
+
   <!-- PWA / icône écran d'accueil -->
   <link rel="manifest" href="/manifest.json" />
   <meta name="theme-color" content="#0B1566" />
@@ -341,6 +457,89 @@
         <div>Coris Money</div>
         <div style="font-size:10px;color:var(--text-secondary);">🇨🇮</div>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───── FAQ ───── -->
+<section class="section" style="background:#F8F9FF;" id="faq">
+  <div class="container">
+    <div class="section-header" style="text-align:center;">
+      <div class="section-tag">FAQ</div>
+      <h2>Questions fréquentes</h2>
+      <p style="color:#8A90A6;">Tout ce que vous devez savoir avant de commencer.</p>
+    </div>
+    <div style="max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:12px;">
+
+      <details style="background:#fff;border-radius:14px;padding:18px 20px;border:1px solid #E5E7F0;cursor:pointer;">
+        <summary style="font-weight:700;font-size:15px;color:#0B1566;list-style:none;display:flex;justify-content:space-between;align-items:center;">
+          Qu'est-ce qu'Epargn+ ?
+          <span style="font-size:20px;color:#C8E600;margin-left:12px;">+</span>
+        </summary>
+        <p style="margin-top:12px;font-size:14px;color:#6B7280;line-height:1.7;">
+          Epargn+ est une plateforme d'épargne numérique disponible en <strong>Guinée, au Bénin et en Côte d'Ivoire</strong>. Elle permet d'épargner seul ou en groupe via Mobile Money, sans compte bancaire. L'inscription est gratuite. Epargn+ prélève uniquement 1% au moment du retrait.
+        </p>
+      </details>
+
+      <details style="background:#fff;border-radius:14px;padding:18px 20px;border:1px solid #E5E7F0;cursor:pointer;">
+        <summary style="font-weight:700;font-size:15px;color:#0B1566;list-style:none;display:flex;justify-content:space-between;align-items:center;">
+          Quels opérateurs Mobile Money sont acceptés ?
+          <span style="font-size:20px;color:#C8E600;margin-left:12px;">+</span>
+        </summary>
+        <p style="margin-top:12px;font-size:14px;color:#6B7280;line-height:1.7;">
+          <strong>Guinée :</strong> Orange Money, MTN MoMo, Wave<br>
+          <strong>Bénin :</strong> MTN MoMo, Moov Money, Wave, Celtiis Cash<br>
+          <strong>Côte d'Ivoire :</strong> Orange Money, MTN MoMo, Moov Africa, Wave, Coris Money<br>
+          Aucune carte bancaire ni compte en banque requis.
+        </p>
+      </details>
+
+      <details style="background:#fff;border-radius:14px;padding:18px 20px;border:1px solid #E5E7F0;cursor:pointer;">
+        <summary style="font-weight:700;font-size:15px;color:#0B1566;list-style:none;display:flex;justify-content:space-between;align-items:center;">
+          Epargn+ est-il une banque ?
+          <span style="font-size:20px;color:#C8E600;margin-left:12px;">+</span>
+        </summary>
+        <p style="margin-top:12px;font-size:14px;color:#6B7280;line-height:1.7;">
+          Non. Epargn+ n'est pas une banque et ne prête pas d'argent. C'est un <strong>outil d'organisation de votre épargne</strong>. Votre argent vous appartient, vous pouvez le retirer à tout moment dès que votre objectif est atteint. Aucun rendement garanti.
+        </p>
+      </details>
+
+      <details style="background:#fff;border-radius:14px;padding:18px 20px;border:1px solid #E5E7F0;cursor:pointer;">
+        <summary style="font-weight:700;font-size:15px;color:#0B1566;list-style:none;display:flex;justify-content:space-between;align-items:center;">
+          Comment créer une tontine en ligne avec Epargn+ ?
+          <span style="font-size:20px;color:#C8E600;margin-left:12px;">+</span>
+        </summary>
+        <p style="margin-top:12px;font-size:14px;color:#6B7280;line-height:1.7;">
+          Créez un compte, puis ouvrez la section <strong>Épargne Collective</strong>. Donnez un nom au groupe, fixez l'objectif commun et invitez vos membres via un lien de partage. Chaque dépôt est visible par tous en temps réel. Fini les disputes sur "qui a payé ou pas" — tout est traçable.
+        </p>
+      </details>
+
+      <details style="background:#fff;border-radius:14px;padding:18px 20px;border:1px solid #E5E7F0;cursor:pointer;">
+        <summary style="font-weight:700;font-size:15px;color:#0B1566;list-style:none;display:flex;justify-content:space-between;align-items:center;">
+          Combien coûte Epargn+ ?
+          <span style="font-size:20px;color:#C8E600;margin-left:12px;">+</span>
+        </summary>
+        <p style="margin-top:12px;font-size:14px;color:#6B7280;line-height:1.7;">
+          <strong>Inscription :</strong> gratuite<br>
+          <strong>Dépôts :</strong> gratuits<br>
+          <strong>Projets illimités :</strong> gratuits<br>
+          <strong>Retrait :</strong> 1% du montant retiré — c'est le seul frais.<br>
+          Exemple : vous retirez 1 000 000 GNF → vous recevez 990 000 GNF.
+        </p>
+      </details>
+
+      <details style="background:#fff;border-radius:14px;padding:18px 20px;border:1px solid #E5E7F0;cursor:pointer;">
+        <summary style="font-weight:700;font-size:15px;color:#0B1566;list-style:none;display:flex;justify-content:space-between;align-items:center;">
+          Comment contacter Epargn+ ?
+          <span style="font-size:20px;color:#C8E600;margin-left:12px;">+</span>
+        </summary>
+        <p style="margin-top:12px;font-size:14px;color:#6B7280;line-height:1.7;">
+          WhatsApp : <strong><a href="https://wa.me/22462376934" style="color:#0B1566;">+224 623 76 96 34</a></strong><br>
+          Email : <a href="mailto:ceo@epargnplus.com" style="color:#0B1566;">ceo@epargnplus.com</a><br>
+          Site : <a href="https://www.epargnplus.com" style="color:#0B1566;">www.epargnplus.com</a>
+        </p>
+      </details>
+
     </div>
   </div>
 </section>
