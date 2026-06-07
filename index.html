@@ -19,19 +19,43 @@
     "@graph": [
       {
         "@type": "Organization",
+        "@id": "https://www.epargnplus.com/#koutouki",
+        "name": "Koutouki Express",
+        "description": "Entreprise de services numériques basée à Conakry, Guinée. Koutouki Express développe des solutions technologiques pour l'Afrique de l'Ouest, dont Epargn+, sa filiale d'épargne numérique.",
+        "foundingLocation": {
+          "@type": "Place",
+          "name": "Conakry, République de Guinée"
+        },
+        "address": {
+          "@type": "PostalAddress",
+          "addressLocality": "Conakry",
+          "addressCountry": "GN"
+        },
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "telephone": "+224-623-76-96-34",
+          "email": "ceo@epargnplus.com",
+          "contactType": "customer support",
+          "availableLanguage": "French"
+        },
+        "areaServed": ["Guinée", "Bénin", "Côte d'Ivoire"]
+      },
+      {
+        "@type": "Organization",
         "@id": "https://www.epargnplus.com/#organization",
         "name": "Epargn+",
         "url": "https://www.epargnplus.com",
         "logo": "https://www.epargnplus.com/icon-512.png",
-        "description": "Plateforme d'épargne numérique pour la Guinée, le Bénin et la Côte d'Ivoire. Épargne individuelle et collective via Mobile Money.",
+        "description": "Filiale de Koutouki Express. Plateforme d'épargne numérique pour la Guinée, le Bénin et la Côte d'Ivoire. Épargne individuelle et collective via Mobile Money, sans compte bancaire.",
         "foundingLocation": "Conakry, Guinée",
+        "parentOrganization": { "@id": "https://www.epargnplus.com/#koutouki" },
         "areaServed": ["Guinée", "Bénin", "Côte d'Ivoire"],
         "contactPoint": {
           "@type": "ContactPoint",
           "telephone": "+224-623-76-96-34",
+          "email": "ceo@epargnplus.com",
           "contactType": "customer support",
-          "availableLanguage": "French",
-          "contactOption": "TollFree"
+          "availableLanguage": "French"
         },
         "sameAs": ["https://www.epargnplus.com"]
       },
