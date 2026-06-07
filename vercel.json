@@ -16,6 +16,7 @@
     { "source": "/administration",     "destination": "/admin.html" },
     { "source": "/join/:code",         "destination": "/join.html" },
     { "source": "/join/:code/(.*)",    "destination": "/join.html" },
+    { "source": "/presentation",        "destination": "/presentation.html" },
     { "source": "/cgu",                "destination": "/cgu.html" },
     { "source": "/confidentialite",    "destination": "/confidentialite.html" },
     { "source": "/suppression-compte", "destination": "/suppression-compte.html" }

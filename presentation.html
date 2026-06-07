@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Epargn+ — Comment ça fonctionne concrètement ?</title>
+  <meta name="description" content="Découvrez Epargn+ : la plateforme d'épargne numérique pour la Guinée, le Bénin et la Côte d'Ivoire. Épargne individuelle, collective, Mobile Money. Sécurisé, simple, sans banque." />
+  <meta property="og:title" content="Epargn+ — L'épargne numérique pour l'Afrique de l'Ouest" />
+  <meta property="og:description" content="Épargnez seul ou en groupe, fixez des objectifs, suivez vos progrès. Compatible Orange Money, MTN, Wave, Moov, Celtiis, Coris." />
+  <meta property="og:url" content="https://www.epargnplus.com/presentation" />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="https://www.epargnplus.com/icon-512.png" />
+  <link rel="canonical" href="https://www.epargnplus.com/presentation" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
+  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#0B1566" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy:   #0B1566;
+      --lime:   #C8E600;
+      --lime-d: #a8c000;
+      --bg:     #F0F0FA;
+      --white:  #ffffff;
+      --text:   #1a1a2e;
+      --muted:  #6b7280;
+      --card:   #ffffff;
+      --border: #e5e7f0;
+      --radius: 16px;
+      --shadow: 0 2px 20px rgba(11,21,102,.08);
+    }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    /* ── NAV ── */
+    .nav {
+      background: var(--navy);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: white;
+      font-weight: 800;
+      font-size: 20px;
+    }
+    .nav-logo img { height: 32px; }
+    .nav-logo strong { color: var(--lime); }
+    .nav-cta {
+      background: var(--lime);
+      color: var(--navy);
+      font-weight: 700;
+      font-size: 14px;
+      padding: 10px 20px;
+      border-radius: 50px;
+      text-decoration: none;
+      transition: background .2s;
+    }
+    .nav-cta:hover { background: var(--lime-d); }
+
+    /* ── HERO ── */
+    .hero {
+      background: linear-gradient(135deg, var(--navy) 0%, #1a2a8a 100%);
+      color: white;
+      padding: 64px 24px 80px;
+      text-align: center;
+    }
+    .hero-tag {
+      display: inline-block;
+      background: rgba(200,230,0,.15);
+      color: var(--lime);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      padding: 6px 16px;
+      border-radius: 50px;
+      margin-bottom: 20px;
+      border: 1px solid rgba(200,230,0,.3);
+    }
+    .hero h1 {
+      font-size: clamp(28px, 6vw, 52px);
+      font-weight: 900;
+      line-height: 1.15;
+      margin-bottom: 20px;
+    }
+    .hero h1 .accent { color: var(--lime); }
+    .hero p {
+      font-size: clamp(16px, 2.5vw, 20px);
+      opacity: .85;
+      max-width: 620px;
+      margin: 0 auto 36px;
+    }
+    .hero-btns {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .btn-primary {
+      background: var(--lime);
+      color: var(--navy);
+      font-weight: 800;
+      font-size: 15px;
+      padding: 14px 28px;
+      border-radius: 50px;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: transform .2s, background .2s;
+    }
+    .btn-primary:hover { transform: translateY(-2px); background: var(--lime-d); }
+    .btn-wa {
+      background: #25D366;
+      color: white;
+      font-weight: 700;
+      font-size: 14px;
+      padding: 14px 24px;
+      border-radius: 50px;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: transform .2s;
+    }
+    .btn-wa:hover { transform: translateY(-2px); }
+
+    /* ── CONTAINER ── */
+    .container { max-width: 860px; margin: 0 auto; padding: 0 20px; }
+
+    /* ── SECTION ── */
+    .section { padding: 64px 20px; }
+    .section-tag {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      color: var(--navy);
+      background: rgba(11,21,102,.08);
+      display: inline-block;
+      padding: 5px 14px;
+      border-radius: 50px;
+      margin-bottom: 14px;
+    }
+    .section-title {
+      font-size: clamp(22px, 4vw, 34px);
+      font-weight: 800;
+      line-height: 1.2;
+      margin-bottom: 12px;
+      color: var(--navy);
+    }
+    .section-sub {
+      font-size: 16px;
+      color: var(--muted);
+      max-width: 580px;
+    }
+    .section-header { margin-bottom: 40px; }
+
+    /* ── CARD ── */
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 28px;
+      border: 1px solid var(--border);
+    }
+
+    /* ── INTRO BLOCK (C'est quoi ?) ── */
+    .intro-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      max-width: 860px;
+      margin: 0 auto;
+    }
+    @media (max-width: 600px) { .intro-grid { grid-template-columns: 1fr; } }
+    .intro-card {
+      background: white;
+      border-radius: var(--radius);
+      padding: 24px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+    }
+    .intro-icon { font-size: 36px; margin-bottom: 12px; }
+    .intro-card h3 { font-size: 17px; font-weight: 700; margin-bottom: 8px; color: var(--navy); }
+    .intro-card p  { font-size: 14px; color: var(--muted); line-height: 1.6; }
+
+    /* ── PROBLEM ── */
+    .problem-section { background: var(--navy); color: white; }
+    .problem-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-top: 32px;
+    }
+    .problem-card {
+      background: rgba(255,255,255,.07);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+    .problem-card .icon { font-size: 28px; margin-bottom: 10px; }
+    .problem-card h4 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+    .problem-card p  { font-size: 13px; opacity: .75; line-height: 1.5; }
+
+    /* ── HOW IT WORKS ── */
+    .steps { display: flex; flex-direction: column; gap: 0; max-width: 680px; margin: 0 auto; }
+    .step {
+      display: flex;
+      gap: 20px;
+      position: relative;
+    }
+    .step:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      left: 22px;
+      top: 52px;
+      width: 2px;
+      height: calc(100% - 10px);
+      background: linear-gradient(to bottom, var(--navy), transparent);
+      opacity: .15;
+    }
+    .step-num {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      background: var(--navy);
+      color: var(--lime);
+      font-weight: 900;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .step-body { padding: 8px 0 32px; }
+    .step-body h3 { font-size: 17px; font-weight: 700; color: var(--navy); margin-bottom: 6px; }
+    .step-body p  { font-size: 14px; color: var(--muted); line-height: 1.6; }
+    .step-example {
+      margin-top: 10px;
+      background: #f6f7ff;
+      border-left: 3px solid var(--navy);
+      border-radius: 0 8px 8px 0;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: var(--navy);
+      font-style: italic;
+    }
+
+    /* ── SCENARIOS ── */
+    .scenarios-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+    }
+    .scenario {
+      background: white;
+      border-radius: var(--radius);
+      padding: 24px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+    }
+    .scenario-avatar {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      margin-bottom: 14px;
+    }
+    .scenario h4 { font-size: 16px; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
+    .scenario .role { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+    .scenario p { font-size: 13px; color: #444; line-height: 1.6; }
+    .scenario .result {
+      margin-top: 12px;
+      background: #f0fdf4;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 13px;
+      color: #166534;
+      font-weight: 600;
+    }
+
+    /* ── FEATURES ── */
+    .features-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+    }
+    .feat {
+      display: flex;
+      gap: 14px;
+      background: white;
+      border-radius: 12px;
+      padding: 18px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+    }
+    .feat-icon {
+      font-size: 28px;
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .feat-body h4 { font-size: 15px; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
+    .feat-body p  { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+    /* ── SECURITY ── */
+    .security-section { background: #f6f7ff; }
+    .security-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+    .sec-item {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      border: 1px solid var(--border);
+      text-align: center;
+    }
+    .sec-item .icon { font-size: 32px; margin-bottom: 10px; }
+    .sec-item h4 { font-size: 14px; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
+    .sec-item p  { font-size: 12px; color: var(--muted); }
+
+    /* ── OPERATORS ── */
+    .ops-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+    }
+    .op-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 50px;
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--navy);
+      box-shadow: var(--shadow);
+    }
+    .op-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+    /* ── PRICING ── */
+    .pricing-box {
+      background: white;
+      border-radius: var(--radius);
+      padding: 32px;
+      border: 2px solid var(--navy);
+      max-width: 500px;
+      margin: 0 auto;
+      text-align: center;
+      box-shadow: var(--shadow);
+    }
+    .pricing-box h3 { font-size: 22px; font-weight: 800; color: var(--navy); margin-bottom: 8px; }
+    .pricing-box .price { font-size: 42px; font-weight: 900; color: var(--navy); }
+    .pricing-box .price span { font-size: 18px; font-weight: 500; color: var(--muted); }
+    .pricing-items { list-style: none; margin: 20px 0; text-align: left; display: flex; flex-direction: column; gap: 10px; }
+    .pricing-items li { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+    .pricing-items li::before { content: '✅'; font-size: 14px; }
+    .pricing-note { font-size: 12px; color: var(--muted); margin-top: 8px; }
+
+    /* ── CTA FINAL ── */
+    .cta-final {
+      background: linear-gradient(135deg, var(--navy) 0%, #1a2a8a 100%);
+      color: white;
+      text-align: center;
+      padding: 64px 24px;
+    }
+    .cta-final h2 { font-size: clamp(22px, 4vw, 36px); font-weight: 900; margin-bottom: 12px; }
+    .cta-final p  { opacity: .8; font-size: 16px; margin-bottom: 32px; }
+    .cta-btns { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+
+    /* ── FOOTER ── */
+    .footer-mini {
+      background: #0a0f40;
+      color: rgba(255,255,255,.5);
+      text-align: center;
+      padding: 20px;
+      font-size: 12px;
+    }
+    .footer-mini a { color: var(--lime); text-decoration: none; }
+
+    /* ── DIVIDER ── */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 0 auto;
+      max-width: 860px;
+    }
+
+    @media (max-width: 480px) {
+      .hero { padding: 48px 20px 60px; }
+      .section { padding: 48px 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── NAV ── -->
+<nav class="nav">
+  <a href="https://www.epargnplus.com" class="nav-logo">
+    <img src="logo.svg" alt="Epargn+" />
+    Epargn<strong>+</strong>
+  </a>
+  <a href="https://www.epargnplus.com/connexion" class="nav-cta">Créer un compte →</a>
+</nav>
+
+<!-- ── HERO ── -->
+<section class="hero">
+  <div class="hero-tag">PRÉSENTATION COMPLÈTE</div>
+  <h1>
+    Votre argent, vos objectifs.<br />
+    <span class="accent">Épargner devient simple.</span>
+  </h1>
+  <p>
+    Epargn+ est une plateforme numérique qui vous permet d'épargner seul ou en groupe,
+    de fixer des objectifs concrets et de suivre vos progrès — via votre Mobile Money, sans banque.
+  </p>
+  <div class="hero-btns">
+    <a href="https://www.epargnplus.com/connexion" class="btn-primary">
+      Ouvrir un compte gratuit →
+    </a>
+    <a href="https://wa.me/?text=Découvre+Epargn%2B+%3A+l%27épargne+numérique+pour+l%27Afrique+de+l%27Ouest+%E2%86%92+https%3A%2F%2Fwww.epargnplus.com%2Fpresentation"
+       target="_blank" class="btn-wa">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+      Partager sur WhatsApp
+    </a>
+  </div>
+</section>
+
+<!-- ── C'EST QUOI ? ── -->
+<section class="section" style="background:white;">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-tag">EN 2 MOTS</div>
+      <h2 class="section-title">Qu'est-ce qu'Epargn+ ?</h2>
+      <p class="section-sub">
+        Une application web et mobile qui remplace la tirelire, le carnet d'épargne et le groupe WhatsApp de tontine — par un outil numérique sécurisé.
+      </p>
+    </div>
+    <div class="intro-grid">
+      <div class="intro-card">
+        <div class="intro-icon">🏦</div>
+        <h3>Ce qu'on n'est pas</h3>
+        <p>Nous ne sommes <strong>pas une banque</strong>. Nous ne prêtons pas d'argent. Nous ne promettons aucun rendement. Votre argent reste <strong>à vous</strong>, dans votre compte, géré par vous.</p>
+      </div>
+      <div class="intro-card">
+        <div class="intro-icon">📱</div>
+        <h3>Ce qu'on est</h3>
+        <p>Un outil d'<strong>organisation de votre épargne</strong>. Vous déposez via Mobile Money, vous définissez des objectifs, vous suivez votre progression. Simple, traçable, sécurisé.</p>
+      </div>
+      <div class="intro-card">
+        <div class="intro-icon">🌍</div>
+        <h3>Pour qui ?</h3>
+        <p>Pour toute personne en <strong>Guinée, au Bénin ou en Côte d'Ivoire</strong> qui veut mieux gérer son argent — commerçants, salariés, familles, groupes.</p>
+      </div>
+      <div class="intro-card">
+        <div class="intro-icon">💸</div>
+        <h3>Combien ça coûte ?</h3>
+        <p>L'accès est <strong>gratuit</strong>. Epargn+ prend une marge de <strong>1% sur les retraits</strong> uniquement — aucun frais caché, aucun abonnement, aucun frais de dépôt.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── LE PROBLÈME ── -->
+<section class="section problem-section">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-tag" style="background:rgba(200,230,0,.15);color:var(--lime);">LE PROBLÈME QU'ON RÉSOUT</div>
+      <h2 class="section-title" style="color:white;">Pourquoi épargner est difficile sans outil ?</h2>
+      <p class="section-sub" style="color:rgba(255,255,255,.7);">
+        Des millions de personnes veulent épargner mais n'ont pas les bons outils.
+      </p>
+    </div>
+    <div class="problem-grid">
+      <div class="problem-card">
+        <div class="icon">😣</div>
+        <h4>L'argent "disparaît"</h4>
+        <p>Sans objectif précis, l'argent se dépense. Il faut un endroit séparé, dédié à l'épargne.</p>
+      </div>
+      <div class="problem-card">
+        <div class="icon">🤷</div>
+        <h4>Les tontines papier</h4>
+        <p>Qui a payé ? Qui doit combien ? Les disputes viennent souvent du manque de traçabilité.</p>
+      </div>
+      <div class="problem-card">
+        <div class="icon">📉</div>
+        <h4>Pas de suivi</h4>
+        <p>Sans tableau de bord, on ne sait pas combien on a épargné ni combien il reste pour atteindre son but.</p>
+      </div>
+      <div class="problem-card">
+        <div class="icon">🏛️</div>
+        <h4>La banque, trop loin</h4>
+        <p>Ouverture de compte difficile, frais élevés, déplacement obligatoire. Le Mobile Money, c'est déjà là.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── COMMENT ÇA MARCHE ── -->
+<section class="section" style="background:white;">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-tag">COMMENT ÇA MARCHE</div>
+      <h2 class="section-title">Concrètement, voilà ce qu'on fait</h2>
+      <p class="section-sub">De l'inscription au premier retrait — en moins de 10 minutes.</p>
+    </div>
+    <div class="steps">
+
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h3>Vous créez votre compte</h3>
+          <p>Entrez votre numéro de téléphone, votre adresse email et choisissez un code PIN à 4 chiffres. Vous recevez un code OTP par email pour confirmer. C'est tout.</p>
+          <div class="step-example">
+            Ex : Mamadou entre son numéro Orange Guinée, reçoit le code sur Gmail, choisit le PIN 8421. Compte créé.
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h3>Vous créez un projet d'épargne</h3>
+          <p>Donnez un nom à votre objectif, fixez le montant cible et la date à laquelle vous voulez l'atteindre. Vous pouvez avoir plusieurs projets en parallèle.</p>
+          <div class="step-example">
+            Ex : Fatou crée un projet "Terrain Ratoma" → objectif 15 000 000 GNF → date : décembre 2026.
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h3>Vous faites un dépôt</h3>
+          <p>Vous indiquez le montant dans l'application. Un numéro Mobile Money vous est fourni pour effectuer le transfert. Votre solde est mis à jour dès confirmation par l'équipe Epargn+.</p>
+          <div class="step-example">
+            Ex : Oumar dépose 500 000 GNF via Orange Money → envoie le montant au numéro indiqué → son solde passe à 500 000 GNF en quelques minutes.
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <h3>Vous suivez votre progression</h3>
+          <p>Votre tableau de bord affiche en temps réel votre solde total, la progression de chaque projet (en % et en montant), et l'historique de toutes vos transactions.</p>
+          <div class="step-example">
+            Ex : Le projet "Terrain" est à 33% → barre de progression verte → "5 000 000 / 15 000 000 GNF". Aucun doute.
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-body">
+          <h3>Vous retirez quand l'objectif est atteint</h3>
+          <p>Quand vous avez atteint 100% de votre objectif (et la date prévue), vous faites une demande de retrait. L'équipe transfère le montant sur votre Mobile Money. Epargn+ prélève 1% à ce moment uniquement.</p>
+          <div class="step-example">
+            Ex : Fatou atteint 15 000 000 GNF → demande de retrait → reçoit 14 850 000 GNF sur Orange Money (1% = 150 000 GNF de frais).
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── SCÉNARIOS RÉELS ── -->
+<section class="section" style="background:var(--bg);">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-tag">EXEMPLES CONCRETS</div>
+      <h2 class="section-title">Qui utilise Epargn+ et comment ?</h2>
+      <p class="section-sub">Des profils variés, des usages différents, un même outil.</p>
+    </div>
+    <div class="scenarios-grid">
+
+      <div class="scenario">
+        <div class="scenario-avatar" style="background:#EEF2FF;">👩‍💼</div>
+        <h4>Aminata</h4>
+        <p class="role">Commerçante, Conakry · 38 ans</p>
+        <p>Elle met de côté 300 000 GNF chaque mois pour acheter un nouveau stock en fin d'année. Elle suit sa progression depuis son téléphone, sans avoir à compter l'argent physique.</p>
+        <div class="result">✅ Objectif atteint en 12 mois — achat stock réalisé</div>
+      </div>
+
+      <div class="scenario">
+        <div class="scenario-avatar" style="background:#F0FDF4;">👨‍👩‍👧‍👦</div>
+        <h4>Groupe Famille Diallo</h4>
+        <p class="role">Épargne collective · 8 membres</p>
+        <p>8 membres de la famille épargnent ensemble pour acheter un terrain commun. Chacun dépose selon ses moyens. Tout est visible par tous : qui a déposé, combien, quand.</p>
+        <div class="result">✅ Plus de disputes — traçabilité totale</div>
+      </div>
+
+      <div class="scenario">
+        <div class="scenario-avatar" style="background:#FFFBEB;">🎓</div>
+        <h4>Ibrahim</h4>
+        <p class="role">Étudiant, Cotonou · 24 ans</p>
+        <p>Il économise pour payer sa formation professionnelle. Il a créé 2 projets : "Formation" (objectif 500 000 FCFA) et "Fonds d'urgence" (200 000 FCFA). Il gère les deux en parallèle.</p>
+        <div class="result">✅ Formation payée — 0 emprunt</div>
+      </div>
+
+      <div class="scenario">
+        <div class="scenario-avatar" style="background:#FFF1F2;">💼</div>
+        <h4>Koné & ses collègues</h4>
+        <p class="role">Tontine bureau, Abidjan · 12 personnes</p>
+        <p>Leur tontine mensuelle passe par Epargn+. Chaque mois, les 12 membres déposent. Le bénéficiaire du mois reçoit le total directement sur son Mobile Money. Zéro cash, zéro risque.</p>
+        <div class="result">✅ Tontine numérique — rapide et sécurisée</div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── FONCTIONNALITÉS ── -->
+<section class="section" style="background:white;">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-tag">FONCTIONNALITÉS</div>
+      <h2 class="section-title">Tout ce qu'inclut le compte Epargn+</h2>
+    </div>
+    <div class="features-list">
+      <div class="feat">
+        <div class="feat-icon" style="background:#EEF2FF;">💰</div>
+        <div class="feat-body">
+          <h4>Coffre principal</h4>
+          <p>Solde global disponible à tout moment.</p>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="feat-icon" style="background:#F0FDF4;">🎯</div>
+        <div class="feat-body">
+          <h4>Projets avec objectifs</h4>
+          <p>Créez autant de projets que nécessaire, chacun avec son montant cible et sa date.</p>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="feat-icon" style="background:#FFFBEB;">👥</div>
+        <div class="feat-body">
+          <h4>Épargne collective</h4>
+          <p>Invitez des proches via un lien. Tout le groupe voit la progression en temps réel.</p>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="feat-icon" style="background:#FFF1F2;">📊</div>
+        <div class="feat-body">
+          <h4>Tableau de bord</h4>
+          <p>Solde, projets, transactions, historique complet — tout en un coup d'oeil.</p>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="feat-icon" style="background:#F0F9FF;">🔔</div>
+        <div class="feat-body">
+          <h4>Notifications intelligentes</h4>
+          <p>Rappels si vous n'avez pas épargné depuis 7 jours. Célébration à chaque palier atteint.</p>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="feat-icon" style="background:#F5F3FF;">🎁</div>
+        <div class="feat-body">
+          <h4>Parrainage</h4>
+          <p>Invitez un ami, gagnez un bonus dès qu'il fait son premier dépôt.</p>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="feat-icon" style="background:#FEF3C7;">📜</div>
+        <div class="feat-body">
+          <h4>Historique complet</h4>
+          <p>Chaque dépôt et retrait est enregistré avec date, montant et statut.</p>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="feat-icon" style="background:#ECFDF5;">✅</div>
+        <div class="feat-body">
+          <h4>Vérification KYC</h4>
+          <p>Photo de pièce d'identité + selfie pour valider votre identité et débloquer les retraits.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── OPÉRATEURS ── -->
+<section class="section" style="background:var(--bg);">
+  <div class="container">
+    <div class="section-header" style="text-align:center;">
+      <div class="section-tag">COMPATIBILITÉ</div>
+      <h2 class="section-title">Compatible avec vos opérateurs Mobile Money</h2>
+      <p class="section-sub" style="margin:0 auto;">Pas de nouvelle application à installer. Vous utilisez ce que vous avez déjà.</p>
+    </div>
+    <div class="ops-grid">
+      <div class="op-pill"><div class="op-dot" style="background:#FF6600;"></div>Orange Money <span style="font-size:11px;color:var(--muted);">🇬🇳 🇨🇮</span></div>
+      <div class="op-pill"><div class="op-dot" style="background:#FFCB05;"></div>MTN MoMo <span style="font-size:11px;color:var(--muted);">🇬🇳 🇧🇯 🇨🇮</span></div>
+      <div class="op-pill"><div class="op-dot" style="background:#0BA6E0;"></div>Wave <span style="font-size:11px;color:var(--muted);">🇬🇳 🇧🇯 🇨🇮</span></div>
+      <div class="op-pill"><div class="op-dot" style="background:#0066CC;"></div>Moov Money <span style="font-size:11px;color:var(--muted);">🇧🇯 🇨🇮</span></div>
+      <div class="op-pill"><div class="op-dot" style="background:#E30613;"></div>Celtiis Cash <span style="font-size:11px;color:var(--muted);">🇧🇯</span></div>
+      <div class="op-pill"><div class="op-dot" style="background:#8B1A1A;"></div>Coris Money <span style="font-size:11px;color:var(--muted);">🇨🇮</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ── TARIFS ── -->
+<section class="section" style="background:white;">
+  <div class="container">
+    <div class="section-header" style="text-align:center;">
+      <div class="section-tag">TARIFS</div>
+      <h2 class="section-title">Simple et transparent</h2>
+      <p class="section-sub" style="margin:0 auto;">Un seul frais, au moment du retrait uniquement.</p>
+    </div>
+    <div class="pricing-box">
+      <h3>Compte Epargn+</h3>
+      <div class="price">0 <span>/ mois</span></div>
+      <p style="color:var(--muted);font-size:14px;margin-top:4px;">Accès complet, sans abonnement</p>
+      <ul class="pricing-items">
+        <li>Création de compte — gratuit</li>
+        <li>Dépôts — gratuits</li>
+        <li>Projets illimités — gratuits</li>
+        <li>Épargne collective — gratuite</li>
+        <li>Notifications & tableau de bord — gratuits</li>
+        <li>Retrait : 1% du montant retiré</li>
+      </ul>
+      <p class="pricing-note">
+        Exemple : vous retirez 1 000 000 GNF → vous recevez 990 000 GNF. Les 10 000 GNF sont les seuls frais.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ── SÉCURITÉ ── -->
+<section class="section security-section">
+  <div class="container">
+    <div class="section-header" style="text-align:center;">
+      <div class="section-tag">SÉCURITÉ</div>
+      <h2 class="section-title">Votre argent est protégé</h2>
+    </div>
+    <div class="security-grid">
+      <div class="sec-item">
+        <div class="icon">🔐</div>
+        <h4>Code PIN chiffré</h4>
+        <p>Votre PIN ne circule jamais en clair. Il est chiffré avec PBKDF2-SHA256 avant d'être enregistré.</p>
+      </div>
+      <div class="sec-item">
+        <div class="icon">📧</div>
+        <h4>Vérification OTP</h4>
+        <p>Chaque connexion depuis un nouvel appareil est confirmée par un code envoyé sur votre email.</p>
+      </div>
+      <div class="sec-item">
+        <div class="icon">🛡️</div>
+        <h4>Anti-fraude actif</h4>
+        <p>5 tentatives maximum avant blocage automatique. Chaque action sensible est journalisée.</p>
+      </div>
+      <div class="sec-item">
+        <div class="icon">📁</div>
+        <h4>Documents KYC privés</h4>
+        <p>Vos pièces d'identité sont stockées dans un espace de stockage privé, jamais en clair dans notre base de données.</p>
+      </div>
+      <div class="sec-item">
+        <div class="icon">🔔</div>
+        <h4>Alerte connexion</h4>
+        <p>Vous recevez un email dès qu'une connexion est détectée depuis un appareil inconnu.</p>
+      </div>
+      <div class="sec-item">
+        <div class="icon">👁️</div>
+        <h4>Transparence totale</h4>
+        <p>Chaque dépôt, retrait et décision admin est enregistré dans un journal d'audit consultable.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA FINAL ── -->
+<section class="cta-final">
+  <div class="container">
+    <h2>Prêt à commencer ?</h2>
+    <p>Créez votre compte en 5 minutes — depuis votre téléphone, sans aller en agence.</p>
+    <div class="cta-btns">
+      <a href="https://www.epargnplus.com/connexion" class="btn-primary" style="font-size:16px;padding:16px 32px;">
+        Créer mon compte gratuit →
+      </a>
+      <a href="https://wa.me/?text=Découvre+Epargn%2B+%3A+l%27épargne+numérique+pour+l%27Afrique+de+l%27Ouest+%E2%86%92+https%3A%2F%2Fwww.epargnplus.com%2Fpresentation"
+         target="_blank" class="btn-wa" style="font-size:15px;padding:16px 28px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+        Partager cette page
+      </a>
+    </div>
+    <p style="margin-top:20px;font-size:13px;opacity:.6;">
+      Des questions ? Écrivez à <a href="mailto:ceo@epargnplus.com" style="color:var(--lime);">ceo@epargnplus.com</a>
+    </p>
+  </div>
+</section>
+
+<footer class="footer-mini">
+  <p>© 2026 Epargn+ — une marque de Koutouki Express •
+  <a href="/cgu">CGU</a> •
+  <a href="/confidentialite">Confidentialité</a> •
+  <a href="https://www.epargnplus.com">epargnplus.com</a></p>
+  <p style="margin-top:6px;font-size:11px;">Epargn+ n'est pas une banque. Aucun rendement garanti. Orange Money, MTN MoMo, Wave, Moov, Celtiis et Coris sont des marques de leurs détenteurs respectifs.</p>
+</footer>
+
+</body>
+</html>

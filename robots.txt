@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /espace-client
+Disallow: /administration
+
+Sitemap: https://www.epargnplus.com/sitemap.xml
