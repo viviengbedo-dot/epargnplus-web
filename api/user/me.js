@@ -97,6 +97,7 @@ module.exports = async (req, res) => {
   if (resource === 'challenge')        return handleChallengeDetail(req, res, payload, resourceId);
   if (resource === 'activity')         return handleActivity(req, res, payload);
   if (resource === 'goal_requests')    return handleGoalRequests(req, res, payload);
+  if (resource === 'ambassador')       return handleAmbassador(req, res, payload);
 
   /* ══════════ ROUTE PROFIL ══════════ */
   if (!['GET', 'PATCH'].includes(req.method)) {
@@ -2021,6 +2022,90 @@ async function handleGoalRequests(req, res, payload) {
 
     } catch (e) {
       return res.status(500).json({ error: 'Erreur création demande : ' + e.message });
+    }
+  }
+
+  return res.status(405).json({ error: 'Méthode non autorisée' });
+}
+
+/* ══════════════════════════════════════════════════════════
+   PROGRAMME AMBASSADEUR
+   GET  ?resource=ambassador  → statut + stats du user
+   POST ?resource=ambassador  → soumettre une candidature
+   ══════════════════════════════════════════════════════════ */
+async function handleAmbassador(req, res, payload) {
+  const userId = payload.userId;
+
+  /* ── GET : statut + stats ── */
+  if (req.method === 'GET') {
+    try {
+      const rows = await supabaseRequest('GET',
+        '/ambassadors?user_id=eq.' + encodeURIComponent(userId) + '&select=*&limit=1');
+      const ambassador = Array.isArray(rows) && rows[0] ? rows[0] : null;
+
+      /* Compter les filleuls via code_parrain */
+      let recruitsData = { total: 0, active: 0 };
+      try {
+        const urows = await supabaseRequest('GET',
+          '/users?id=eq.' + encodeURIComponent(userId) + '&select=code_parrain&limit=1');
+        const code = Array.isArray(urows) && urows[0] ? urows[0].code_parrain : null;
+        if (code) {
+          const recruits = await supabaseRequest('GET',
+            '/users?parraine_par=eq.' + encodeURIComponent(code) + '&select=id,epargne');
+          if (Array.isArray(recruits)) {
+            recruitsData.total  = recruits.length;
+            recruitsData.active = recruits.filter(r => (r.epargne || 0) > 0).length;
+          }
+        }
+      } catch (_) {}
+
+      return res.status(200).json({ ambassador, stats: recruitsData });
+    } catch (e) {
+      return res.status(500).json({ error: 'Erreur statut ambassadeur : ' + e.message });
+    }
+  }
+
+  /* ── POST : soumettre une candidature ── */
+  if (req.method === 'POST') {
+    const body = await parseBody(req);
+    const { motivation, whatsapp, experience } = body;
+
+    if (!motivation || motivation.trim().length < 20) {
+      return res.status(400).json({ error: 'Veuillez décrire votre motivation (au moins 20 caractères)' });
+    }
+
+    try {
+      /* Vérifier si une entrée existe déjà */
+      const existing = await supabaseRequest('GET',
+        '/ambassadors?user_id=eq.' + encodeURIComponent(userId) + '&select=id,status&limit=1');
+
+      if (Array.isArray(existing) && existing.length > 0) {
+        const s = existing[0].status;
+        if (s === 'active')    return res.status(409).json({ error: 'Vous êtes déjà ambassadeur !' });
+        if (s === 'pending')   return res.status(409).json({ error: 'Votre candidature est déjà en cours d\'examen' });
+        if (s === 'suspended') return res.status(409).json({ error: 'Statut suspendu — contactez le support' });
+        /* rejected → nouvelle tentative */
+        await supabaseRequest('PATCH',
+          '/ambassadors?user_id=eq.' + encodeURIComponent(userId),
+          { status: 'pending', motivation: motivation.trim(),
+            whatsapp: (whatsapp||'').trim()||null,
+            experience: (experience||'').trim()||null,
+            applied_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+        return res.status(200).json({ ok: true, message: 'Candidature renvoyée' });
+      }
+
+      /* Première candidature */
+      const result = await supabaseRequest('POST', '/ambassadors', {
+        user_id:    userId,
+        status:     'pending',
+        tier:       'silver',
+        motivation: motivation.trim(),
+        whatsapp:   (whatsapp || '').trim() || null,
+        experience: (experience || '').trim() || null,
+      });
+      return res.status(201).json({ ok: true, ambassador: Array.isArray(result) ? result[0] : result });
+    } catch (e) {
+      return res.status(500).json({ error: 'Erreur candidature : ' + e.message });
     }
   }
 

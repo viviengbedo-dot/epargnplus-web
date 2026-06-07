@@ -124,6 +124,16 @@ module.exports = async (req, res) => {
       console.warn('[admin/data] alipayDeposits:', e.message);
     }
 
+    /* ── 2c-ter. Ambassadeurs ── */
+    let ambassadors = [];
+    try {
+      ambassadors = await supabaseRequest('GET',
+        '/ambassadors?order=applied_at.desc&select=*');
+      if (!Array.isArray(ambassadors)) ambassadors = [];
+    } catch (e) {
+      console.warn('[admin/data] ambassadors:', e.message);
+    }
+
     /* ── 2c-bis. Demandes de modification d'objectif ── */
     let goalRequests = [];
     try {
@@ -382,6 +392,7 @@ module.exports = async (req, res) => {
       emailLogs,
       emailCampaigns,
       goalRequests,
+      ambassadors,
       stats: {
         total, epargneTotal, kycPending, kycVerified, pendingCount, byCountry,
         alipay: { pending: alipayPending, confirmed: alipayConfirmed, total: alipayTotal },

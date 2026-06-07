@@ -68,6 +68,81 @@ module.exports = async (req, res) => {
 
   const now = new Date().toISOString();
 
+  /* ════════════ APPROVE-AMBASSADOR ════════════ */
+  if (action === 'approve-ambassador') {
+    const { ambassadorId, tier = 'silver', admin_note } = body;
+    if (!ambassadorId) return res.status(400).json({ error: 'ambassadorId requis' });
+    try {
+      const rows = await supabaseRequest('GET',
+        '/ambassadors?id=eq.' + encodeURIComponent(ambassadorId) + '&select=*&limit=1');
+      const amb = Array.isArray(rows) && rows[0];
+      if (!amb) return res.status(404).json({ error: 'Candidature introuvable' });
+      if (amb.status === 'active') return res.status(409).json({ error: 'Déjà actif' });
+      await supabaseRequest('PATCH',
+        '/ambassadors?id=eq.' + encodeURIComponent(ambassadorId),
+        { status: 'active', tier, admin_note: admin_note||null,
+          approved_at: now, updated_at: now });
+      await createNotification(amb.user_id, 'ambassador_approved',
+        '🎉 Bienvenue dans le Programme Ambassadeur !',
+        `Votre candidature a été acceptée. Vous êtes maintenant Ambassadeur ${tier === 'platinum' ? 'Platine 💎' : tier === 'gold' ? 'Gold 🥇' : 'Silver 🥈'} Epargn+.`,
+        { tier });
+      await logAudit(null, 'ambassador_approved', { ambassadorId, tier }, req);
+      return res.status(200).json({ ok: true, action: 'approve-ambassador' });
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
+  /* ════════════ REJECT-AMBASSADOR ════════════ */
+  if (action === 'reject-ambassador') {
+    const { ambassadorId, admin_note } = body;
+    if (!ambassadorId) return res.status(400).json({ error: 'ambassadorId requis' });
+    try {
+      const rows = await supabaseRequest('GET',
+        '/ambassadors?id=eq.' + encodeURIComponent(ambassadorId) + '&select=*&limit=1');
+      const amb = Array.isArray(rows) && rows[0];
+      if (!amb) return res.status(404).json({ error: 'Candidature introuvable' });
+      await supabaseRequest('PATCH',
+        '/ambassadors?id=eq.' + encodeURIComponent(ambassadorId),
+        { status: 'rejected', admin_note: admin_note||null, updated_at: now });
+      await createNotification(amb.user_id, 'ambassador_rejected',
+        'Candidature ambassadeur non retenue',
+        `Votre candidature n'a pas été retenue pour le moment.${admin_note ? ' Motif : ' + admin_note : ' Vous pouvez postuler à nouveau dans 30 jours.'}`,
+        {});
+      await logAudit(null, 'ambassador_rejected', { ambassadorId }, req);
+      return res.status(200).json({ ok: true, action: 'reject-ambassador' });
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
+  /* ════════════ UPDATE-AMBASSADOR-TIER ════════════ */
+  if (action === 'update-ambassador-tier') {
+    const { ambassadorId, tier, admin_note } = body;
+    if (!ambassadorId || !tier) return res.status(400).json({ error: 'ambassadorId et tier requis' });
+    const allowed = ['silver','gold','platinum','suspended'];
+    if (!allowed.includes(tier)) return res.status(400).json({ error: 'tier invalide' });
+    try {
+      const rows = await supabaseRequest('GET',
+        '/ambassadors?id=eq.' + encodeURIComponent(ambassadorId) + '&select=user_id&limit=1');
+      const amb = Array.isArray(rows) && rows[0];
+      if (!amb) return res.status(404).json({ error: 'Ambassadeur introuvable' });
+      const patch = { updated_at: now, admin_note: admin_note||null };
+      if (tier === 'suspended') { patch.status = 'suspended'; }
+      else { patch.tier = tier; patch.status = 'active'; }
+      await supabaseRequest('PATCH',
+        '/ambassadors?id=eq.' + encodeURIComponent(ambassadorId), patch);
+      if (tier !== 'suspended') {
+        await createNotification(amb.user_id, 'ambassador_tier_update',
+          '🆙 Niveau ambassadeur mis à jour',
+          `Votre niveau a été changé : ${tier === 'platinum' ? 'Platine 💎' : tier === 'gold' ? 'Gold 🥇' : 'Silver 🥈'}.`, { tier });
+      }
+      return res.status(200).json({ ok: true, action: 'update-ambassador-tier', tier });
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
   /* ════════════ APPROVE-GOAL-REQUEST ════════════ */
   if (action === 'approve-goal-request') {
     const { requestId, admin_note } = body;

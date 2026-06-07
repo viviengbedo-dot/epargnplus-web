@@ -212,6 +212,10 @@
         <span class="nav-icon">✏️</span> Modif. Objectifs
         <span class="nav-badge" id="navGoalReqsBadge" style="display:none;">0</span>
       </button>
+      <button class="nav-item" onclick="showAdminSection('ambassadors', this)">
+        <span class="nav-icon">👑</span> Ambassadeurs
+        <span class="nav-badge" id="navAmbassadorsBadge" style="display:none;">0</span>
+      </button>
       <button class="nav-item" onclick="showAdminSection('tontines', this)">
         <span class="nav-icon">🤝</span> Épargne Coll.
       </button>
@@ -644,6 +648,59 @@
             <table>
               <thead><tr><th>Projet</th><th>Utilisateur</th><th>Objectif</th><th>Épargné</th><th>Progression</th><th>Statut</th></tr></thead>
               <tbody id="projetsAdminTbody"><!-- injected --></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════ PROGRAMME AMBASSADEUR ════════ -->
+      <section id="sec-ambassadors" style="display:none;">
+        <div class="flex-between mb-6">
+          <div>
+            <h2 style="font-size:22px;font-weight:800;color:var(--primary);">👑 Programme Ambassadeur</h2>
+            <p class="text-muted">Gérez les candidatures et les ambassadeurs actifs</p>
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="loadData()">🔄 Actualiser</button>
+        </div>
+
+        <!-- Stats -->
+        <div class="stat-cards" style="margin-bottom:20px;">
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#FFFBEB;">⏳</div>
+            <div class="stat-card-info"><div class="stat-card-value" id="ambStatPending">0</div><div class="stat-card-label">Candidatures en attente</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#F0FDF4;">✅</div>
+            <div class="stat-card-info"><div class="stat-card-value" id="ambStatActive">0</div><div class="stat-card-label">Ambassadeurs actifs</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#EEF2FF;">🥇</div>
+            <div class="stat-card-info"><div class="stat-card-value" id="ambStatGold">0</div><div class="stat-card-label">Gold + Platine</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:linear-gradient(135deg,#EEF2FF,#F5F3FF);">💎</div>
+            <div class="stat-card-info"><div class="stat-card-value" id="ambStatPlat">0</div><div class="stat-card-label">Platine</div></div>
+          </div>
+        </div>
+
+        <!-- Filtre -->
+        <div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;">
+          <button class="btn btn-sm amb-filter active" data-filter="pending" onclick="filterAmbassadors('pending',this)" style="background:var(--primary);color:#fff;">⏳ En attente</button>
+          <button class="btn btn-sm amb-filter" data-filter="active"  onclick="filterAmbassadors('active',this)">✅ Actifs</button>
+          <button class="btn btn-sm amb-filter" data-filter="all"     onclick="filterAmbassadors('all',this)">Tous</button>
+          <button class="btn btn-sm amb-filter" data-filter="suspended" onclick="filterAmbassadors('suspended',this)">⚠️ Suspendus</button>
+        </div>
+
+        <div class="card">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Client</th><th>Motivation</th><th>WhatsApp</th>
+                  <th>Palier</th><th>Statut</th><th>Date</th><th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="ambassadorsTbody"><!-- injected --></tbody>
             </table>
           </div>
         </div>
@@ -2102,6 +2159,29 @@ function populateAdminData(data) {
   var elV = document.getElementById('tontStatVolume');
   if (elV) elV.textContent = fmt(TONTINES_ALL.reduce(function(s,t){return s+(t.goal||0);},0));
 
+  /* ── Programme Ambassadeur ── */
+  var rawAmbs = data.ambassadors || [];
+  window.AMBASSADORS = rawAmbs.map(function(a) {
+    var u = userMap[a.user_id] || {};
+    return {
+      id:         a.id,
+      userId:     a.user_id,
+      userName:   u.name || u.phone || a.user_id,
+      userPhone:  u.phone || '—',
+      status:     a.status,
+      tier:       a.tier || 'silver',
+      motivation: a.motivation || '',
+      whatsapp:   a.whatsapp || '',
+      experience: a.experience || '',
+      totalRecruits:   a.total_recruits || 0,
+      activeRecruits:  a.active_recruits || 0,
+      commissionPaid:  a.total_commission_paid || 0,
+      adminNote:  a.admin_note || '',
+      date:       a.applied_at ? new Date(a.applied_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'}) : '—',
+    };
+  });
+  renderAmbassadors();
+
   /* ── Demandes de hausse d'objectif ── */
   var rawGoalReqs = data.goalRequests || [];
   window.GOAL_REQUESTS = rawGoalReqs.map(function(r) {
@@ -3379,6 +3459,136 @@ function adminRejectTontineDelete(projectId) {
 ══════════════════════════════════════════════════════ */
 var _goalReqFilter = 'pending';
 window.GOAL_REQUESTS = [];
+
+/* ══════════════════════════════════════════════════════
+   AMBASSADEURS
+══════════════════════════════════════════════════════ */
+var _ambFilter = 'pending';
+window.AMBASSADORS = [];
+
+var AMB_TIERS_ADMIN = {
+  silver:   { label:'Silver',  emoji:'🥈' },
+  gold:     { label:'Gold',    emoji:'🥇' },
+  platinum: { label:'Platine', emoji:'💎' },
+};
+
+function renderAmbassadors() {
+  var tbody = document.getElementById('ambassadorsTbody');
+  if (!tbody) return;
+
+  var all  = window.AMBASSADORS || [];
+  var list = _ambFilter === 'all' ? all : all.filter(function(a){ return a.status === _ambFilter; });
+
+  /* Stats */
+  var pending  = all.filter(function(a){ return a.status === 'pending'; }).length;
+  var active   = all.filter(function(a){ return a.status === 'active'; }).length;
+  var gold     = all.filter(function(a){ return a.status === 'active' && (a.tier === 'gold' || a.tier === 'platinum'); }).length;
+  var plat     = all.filter(function(a){ return a.status === 'active' && a.tier === 'platinum'; }).length;
+  var sp = document.getElementById('ambStatPending'); if (sp) sp.textContent = pending;
+  var sa = document.getElementById('ambStatActive');  if (sa) sa.textContent = active;
+  var sg = document.getElementById('ambStatGold');    if (sg) sg.textContent = gold;
+  var spl = document.getElementById('ambStatPlat');   if (spl) spl.textContent = plat;
+
+  /* Badge nav */
+  var badge = document.getElementById('navAmbassadorsBadge');
+  if (badge) { badge.textContent = pending; badge.style.display = pending > 0 ? '' : 'none'; }
+
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--text-muted);">Aucune entrée</td></tr>';
+    return;
+  }
+
+  var tierLabels = { silver:'🥈 Silver', gold:'🥇 Gold', platinum:'💎 Platine' };
+
+  tbody.innerHTML = list.map(function(a) {
+    var statusBadge =
+      a.status === 'active'    ? '<span class="badge badge-success">✅ Actif</span>' :
+      a.status === 'rejected'  ? '<span class="badge" style="background:#FEE2E2;color:#DC2626;">❌ Rejeté</span>' :
+      a.status === 'suspended' ? '<span class="badge badge-warning">⚠️ Suspendu</span>' :
+      '<span class="badge badge-warning">⏳ En attente</span>';
+
+    var safeId = a.id.replace(/'/g,"\\'");
+    var actions = '';
+    if (a.status === 'pending') {
+      actions = '<div class="action-col">' +
+        '<button class="btn btn-success btn-sm" style="font-size:11px;" onclick="adminApproveAmbassador(\'' + safeId + '\')">✅ Approuver</button>' +
+        '<button class="btn btn-sm" style="font-size:11px;background:#FEE2E2;color:#DC2626;" onclick="adminRejectAmbassador(\'' + safeId + '\')">❌ Refuser</button>' +
+        '</div>';
+    } else if (a.status === 'active') {
+      actions = '<div class="action-col">' +
+        '<select onchange="adminSetAmbTier(\'' + safeId + '\',this.value)" style="font-size:11px;padding:4px 6px;border-radius:6px;border:1px solid var(--border);">' +
+        '<option value="">-- Changer tier --</option>' +
+        '<option value="silver">🥈 Silver</option>' +
+        '<option value="gold">🥇 Gold</option>' +
+        '<option value="platinum">💎 Platine</option>' +
+        '<option value="suspended">⚠️ Suspendre</option>' +
+        '</select></div>';
+    }
+
+    return '<tr>' +
+      '<td><strong>' + a.userName + '</strong><br><span style="font-size:11px;color:var(--text-muted);">' + a.userPhone + '</span></td>' +
+      '<td style="max-width:180px;font-size:12px;">' + (a.motivation ? a.motivation.slice(0,80) + (a.motivation.length>80?'…':'') : '—') + (a.experience ? '<br><em style="color:var(--text-muted);">' + a.experience.slice(0,60) + '</em>' : '') + '</td>' +
+      '<td style="font-size:12px;">' + (a.whatsapp || '—') + '</td>' +
+      '<td>' + (a.status === 'active' ? (tierLabels[a.tier] || a.tier) : '—') + '</td>' +
+      '<td>' + statusBadge + '</td>' +
+      '<td style="font-size:12px;">' + a.date + '</td>' +
+      '<td>' + actions + '</td>' +
+      '</tr>';
+  }).join('');
+}
+
+function filterAmbassadors(status, btn) {
+  _ambFilter = status;
+  document.querySelectorAll('.amb-filter').forEach(function(b) { b.classList.remove('active'); b.style.background=''; b.style.color=''; });
+  if (btn) { btn.classList.add('active'); btn.style.background='var(--primary)'; btn.style.color='#fff'; }
+  renderAmbassadors();
+}
+
+function adminApproveAmbassador(ambassadorId) {
+  var tierChoice = prompt('Palier de départ ?\n1 = Silver 🥈\n2 = Gold 🥇\n3 = Platine 💎\n\nEntrez 1, 2 ou 3 :', '1');
+  if (tierChoice === null) return;
+  var tier = tierChoice === '2' ? 'gold' : tierChoice === '3' ? 'platinum' : 'silver';
+  var note = prompt('Note admin (optionnel) :') || null;
+  if (note === '') note = null;
+
+  fetch('/api/admin/update-balance', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
+    body: JSON.stringify({ action: 'approve-ambassador', ambassadorId, tier, admin_note: note })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){ if(d.ok){ showAdminToast('✅ Ambassadeur approuvé — palier ' + tier, 'success'); loadData(); } else showAdminToast('❌ ' + (d.error||'Erreur'), 'error'); })
+  .catch(function(){ showAdminToast('❌ Erreur réseau', 'error'); });
+}
+
+function adminRejectAmbassador(ambassadorId) {
+  var note = prompt('Motif du refus (communiqué au client) :');
+  if (note === null) return;
+  if (!note.trim()) { showAdminToast('Entrez un motif', 'warning'); return; }
+
+  fetch('/api/admin/update-balance', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
+    body: JSON.stringify({ action: 'reject-ambassador', ambassadorId, admin_note: note })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){ if(d.ok){ showAdminToast('Candidature refusée', 'info'); loadData(); } else showAdminToast('❌ ' + (d.error||'Erreur'), 'error'); })
+  .catch(function(){ showAdminToast('❌ Erreur réseau', 'error'); });
+}
+
+function adminSetAmbTier(ambassadorId, tier) {
+  if (!tier) return;
+  if (!confirm('Changer le palier en "' + tier + '" ?')) return;
+
+  fetch('/api/admin/update-balance', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
+    body: JSON.stringify({ action: 'update-ambassador-tier', ambassadorId, tier })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){ if(d.ok){ showAdminToast('✅ Palier mis à jour : ' + tier, 'success'); loadData(); } else showAdminToast('❌ ' + (d.error||'Erreur'), 'error'); })
+  .catch(function(){ showAdminToast('❌ Erreur réseau', 'error'); });
+}
 
 function renderGoalRequests() {
   var tbody = document.getElementById('goalReqsTbody');

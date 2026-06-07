@@ -55,6 +55,10 @@
         <span class="nav-icon">🎁</span> Parrainage
         <span class="nav-badge" id="navParrainBadge" style="display:none;">0</span>
       </button>
+      <button class="nav-item" data-section="ambassadeur" onclick="showSection('ambassadeur', this)">
+        <span class="nav-icon">👑</span> Ambassadeur
+        <span class="nav-badge" id="navAmbassadeurBadge" style="background:#C8E600;color:#0B1566;display:none;">●</span>
+      </button>
       <button class="nav-item" data-section="suggestions" onclick="showSection('suggestions', this)">
         <span class="nav-icon">🤖</span> Suggestions IA
         <span class="nav-badge" style="background:var(--accent);color:var(--primary);">NEW</span>
@@ -534,6 +538,54 @@
             </div>
           </div>
         </div>
+      </section>
+
+      <!-- ════════ PROGRAMME AMBASSADEUR ════════ -->
+      <section id="sec-ambassadeur" style="display:none;">
+
+        <!-- Hero -->
+        <div style="background:linear-gradient(135deg,#0B1566 0%,#1a29a8 60%,#0B1566 100%);border-radius:var(--radius-xl);padding:36px 28px;margin-bottom:20px;text-align:center;color:#fff;position:relative;overflow:hidden;">
+          <div style="position:absolute;top:-30px;right:-30px;width:160px;height:160px;background:rgba(200,230,0,.08);border-radius:50%;"></div>
+          <div style="position:absolute;bottom:-40px;left:-20px;width:120px;height:120px;background:rgba(200,230,0,.05);border-radius:50%;"></div>
+          <div style="position:relative;z-index:1;">
+            <div style="font-size:52px;margin-bottom:8px;">👑</div>
+            <h2 style="font-size:26px;font-weight:900;margin-bottom:8px;">Programme Ambassadeur<br><span style="color:#C8E600;">Epargn+</span></h2>
+            <p id="ambHeroDesc" style="opacity:.8;font-size:14px;line-height:1.6;max-width:480px;margin:0 auto 20px;">
+              Rejoignez notre réseau d'ambassadeurs. Recrutez vos proches, développez votre réseau et gagnez des commissions sur chaque filleul actif.
+            </p>
+            <div id="ambHeroCta"><!-- injected by loadAmbassadorSection() --></div>
+          </div>
+        </div>
+
+        <!-- Paliers -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:20px;" id="ambTiersGrid">
+          <div style="background:#fff;border-radius:var(--radius-lg);padding:20px;border:2px solid #E5E7F0;text-align:center;">
+            <div style="font-size:32px;margin-bottom:6px;">🥈</div>
+            <div style="font-size:15px;font-weight:800;color:var(--primary);">Silver</div>
+            <div style="font-size:12px;color:var(--text-secondary);margin:6px 0 10px;line-height:1.5;">Dès votre activation</div>
+            <div style="font-size:11px;font-weight:700;color:var(--success);background:#F0FDF4;border-radius:8px;padding:6px 10px;margin-bottom:6px;">+7 500 GNF / filleul actif</div>
+            <div style="font-size:11px;color:var(--text-secondary);">Accès au tableau de bord ambassadeur</div>
+          </div>
+          <div style="background:#fff;border-radius:var(--radius-lg);padding:20px;border:2px solid #C8E600;text-align:center;position:relative;">
+            <div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:#C8E600;color:#0B1566;font-size:10px;font-weight:800;padding:3px 12px;border-radius:20px;letter-spacing:.06em;">POPULAIRE</div>
+            <div style="font-size:32px;margin-bottom:6px;">🥇</div>
+            <div style="font-size:15px;font-weight:800;color:var(--primary);">Gold</div>
+            <div style="font-size:12px;color:var(--text-secondary);margin:6px 0 10px;line-height:1.5;">20 filleuls actifs</div>
+            <div style="font-size:11px;font-weight:700;color:var(--success);background:#F0FDF4;border-radius:8px;padding:6px 10px;margin-bottom:6px;">+10 000 GNF / filleul actif</div>
+            <div style="font-size:11px;color:var(--text-secondary);">Retrait à 0.8% (vs 1%)</div>
+          </div>
+          <div style="background:linear-gradient(135deg,#1a1a2e,#0B1566);border-radius:var(--radius-lg);padding:20px;border:2px solid #C8E600;text-align:center;color:#fff;">
+            <div style="font-size:32px;margin-bottom:6px;">💎</div>
+            <div style="font-size:15px;font-weight:800;color:#C8E600;">Platine</div>
+            <div style="font-size:12px;color:rgba(255,255,255,.7);margin:6px 0 10px;line-height:1.5;">50 filleuls actifs</div>
+            <div style="font-size:11px;font-weight:700;color:#C8E600;background:rgba(200,230,0,.15);border-radius:8px;padding:6px 10px;margin-bottom:6px;">+15 000 GNF / filleul actif</div>
+            <div style="font-size:11px;color:rgba(255,255,255,.7);">Retrait à 0.5% · Support prioritaire</div>
+          </div>
+        </div>
+
+        <!-- Statut dynamique (injected) -->
+        <div id="ambStatusBlock"><!-- injected --></div>
+
       </section>
 
       <!-- ════════ PROFIL ════════ -->
@@ -1146,6 +1198,45 @@
 
 <!-- Dépôt -->
 <!-- ══ Modal nouveau ticket support ══ -->
+<!-- ── MODAL : Candidature Ambassadeur ── -->
+<div class="modal-overlay" id="modal-ambassadeur" onclick="handleOverlayClick(event,'modal-ambassadeur')">
+  <div class="modal" style="max-width:480px;max-height:90vh;overflow-y:auto;">
+    <button class="modal-close" onclick="closeModal('modal-ambassadeur')">✕</button>
+    <div style="font-size:40px;text-align:center;margin-bottom:8px;">👑</div>
+    <div class="modal-title" style="text-align:center;">Postuler — Programme Ambassadeur</div>
+    <div class="modal-sub" style="text-align:center;margin-bottom:20px;">Répondez à ces 3 questions. Notre équipe examine chaque candidature sous 48h.</div>
+
+    <div class="form-group">
+      <label class="form-label">Pourquoi souhaitez-vous devenir ambassadeur ? <span style="color:var(--error);">*</span></label>
+      <textarea id="ambMotivation" class="form-control" rows="3"
+        placeholder="Ex : J'ai un grand réseau de commerçants, je peux recruter 30+ personnes en 2 mois…"
+        style="resize:none;"></textarea>
+      <div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">Minimum 20 caractères.</div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Votre expérience en vente ou recrutement (optionnel)</label>
+      <textarea id="ambExperience" class="form-control" rows="2"
+        placeholder="Ex : Gérant d'une boutique, commercial pendant 3 ans, animateur communautaire…"
+        style="resize:none;"></textarea>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Numéro WhatsApp de contact (optionnel)</label>
+      <input type="tel" id="ambWhatsapp" class="form-control" placeholder="Ex : +224620000000" />
+      <div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">Pour que l'équipe puisse vous contacter rapidement.</div>
+    </div>
+
+    <div id="ambFormError" style="color:var(--error);font-size:13px;margin-bottom:12px;display:none;"></div>
+
+    <button class="btn btn-accent" id="ambSubmitBtn"
+      style="width:100%;padding:14px;font-size:15px;font-weight:700;"
+      onclick="submitAmbassadorApplication()">
+      Envoyer ma candidature →
+    </button>
+  </div>
+</div>
+
 <!-- ── MODAL : Demande de hausse d'objectif ── -->
 <div class="modal-overlay" id="modal-goalRequest" onclick="handleOverlayClick(event,'modal-goalRequest')">
   <div class="modal" style="max-width:440px;">
@@ -3149,6 +3240,181 @@ function loadProjects() {
   });
 }
 
+/* ══════════════════════════════════════════════════════
+   PROGRAMME AMBASSADEUR
+══════════════════════════════════════════════════════ */
+var _ambassadorData = null; /* cache de session */
+
+var AMB_TIERS = {
+  silver:   { label:'Silver',  emoji:'🥈', bonus:7500,  fee:1.0, min_recruits:0  },
+  gold:     { label:'Gold',    emoji:'🥇', bonus:10000, fee:0.8, min_recruits:20 },
+  platinum: { label:'Platine', emoji:'💎', bonus:15000, fee:0.5, min_recruits:50 },
+};
+
+function loadAmbassadorSection() {
+  if (!_authToken) return;
+  fetch('/api/user/me?resource=ambassador', {
+    headers: { 'Authorization': 'Bearer ' + _authToken }
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    _ambassadorData = data;
+    renderAmbassadorSection(data);
+  })
+  .catch(function() {
+    renderAmbassadorSection(null);
+  });
+}
+
+function renderAmbassadorSection(data) {
+  var amb  = data && data.ambassador;
+  var stats = data && data.stats || { total: 0, active: 0 };
+  var cur  = (_currentUser && COUNTRY_LABELS[_currentUser.country]) ? COUNTRY_LABELS[_currentUser.country].currency : 'GNF';
+
+  var cta   = document.getElementById('ambHeroCta');
+  var block = document.getElementById('ambStatusBlock');
+  if (!cta || !block) return;
+
+  /* ── Badge nav ── */
+  var navBadge = document.getElementById('navAmbassadeurBadge');
+  if (navBadge) navBadge.style.display = amb && amb.status === 'active' ? '' : 'none';
+
+  /* ── CAS 1 : pas encore candidaté ── */
+  if (!amb) {
+    cta.innerHTML = '<button class="btn btn-accent btn-lg" style="font-size:15px;font-weight:800;padding:14px 32px;" onclick="openModal(\'ambassadeur\')">👑 Postuler maintenant →</button>';
+    block.innerHTML = '<div class="card" style="padding:20px;text-align:center;border:2px dashed var(--divider);">' +
+      '<div style="font-size:32px;margin-bottom:8px;">🚀</div>' +
+      '<div style="font-size:15px;font-weight:700;color:var(--primary);">Prêt à rejoindre le programme ?</div>' +
+      '<p style="font-size:13px;color:var(--text-secondary);margin:8px 0 16px;line-height:1.5;">Postulez en 2 minutes. Notre équipe examine toutes les candidatures sous 48h ouvrées.</p>' +
+      '<button class="btn btn-primary" style="padding:12px 28px;" onclick="openModal(\'ambassadeur\')">Postuler maintenant</button>' +
+      '</div>';
+    return;
+  }
+
+  /* ── CAS 2 : en attente ── */
+  if (amb.status === 'pending') {
+    cta.innerHTML = '<div style="background:rgba(255,255,255,.12);border-radius:12px;padding:12px 20px;display:inline-block;font-size:14px;font-weight:700;">⏳ Candidature en cours d\'examen</div>';
+    block.innerHTML = '<div class="card" style="padding:24px;text-align:center;background:#FFFBEB;border:1px solid #FDE68A;">' +
+      '<div style="font-size:36px;margin-bottom:8px;">⏳</div>' +
+      '<div style="font-size:16px;font-weight:800;color:#92400E;">Candidature en cours d\'examen</div>' +
+      '<p style="font-size:13px;color:#92400E;margin:8px 0;line-height:1.5;">Notre équipe examine votre candidature. Vous serez notifié par email et notification dans l\'application sous 48h ouvrées.</p>' +
+      '<div style="font-size:12px;color:#B45309;margin-top:8px;">Candidature soumise le ' + new Date(amb.applied_at).toLocaleDateString('fr-FR', {day:'2-digit',month:'long',year:'numeric'}) + '</div>' +
+      '</div>';
+    return;
+  }
+
+  /* ── CAS 3 : suspendu ou rejeté ── */
+  if (amb.status === 'suspended' || amb.status === 'rejected') {
+    var isRejected = amb.status === 'rejected';
+    cta.innerHTML = '';
+    block.innerHTML = '<div class="card" style="padding:24px;text-align:center;background:#FEF2F2;border:1px solid #FECACA;">' +
+      '<div style="font-size:36px;margin-bottom:8px;">' + (isRejected ? '❌' : '⚠️') + '</div>' +
+      '<div style="font-size:15px;font-weight:700;color:#DC2626;">' + (isRejected ? 'Candidature non retenue' : 'Compte suspendu') + '</div>' +
+      (amb.admin_note ? '<p style="font-size:13px;color:#DC2626;margin:8px 0;">Motif : ' + amb.admin_note + '</p>' : '') +
+      (isRejected ? '<button class="btn btn-outline btn-sm" style="margin-top:12px;" onclick="openModal(\'ambassadeur\')">Postuler à nouveau</button>' : '<p style="font-size:12px;color:var(--text-secondary);margin-top:8px;">Contactez le support pour plus d\'informations.</p>') +
+      '</div>';
+    return;
+  }
+
+  /* ── CAS 4 : ambassadeur actif ── */
+  var tier      = AMB_TIERS[amb.tier] || AMB_TIERS.silver;
+  var tiers     = Object.values(AMB_TIERS);
+  var tierIdx   = tiers.findIndex(function(t){ return t.label === tier.label; });
+  var nextTier  = tiers[tierIdx + 1] || null;
+  var toNext    = nextTier ? Math.max(0, nextTier.min_recruits - stats.active) : 0;
+
+  cta.innerHTML = '<div style="display:inline-flex;align-items:center;gap:10px;background:rgba(200,230,0,.15);border:1px solid rgba(200,230,0,.4);border-radius:20px;padding:8px 20px;">' +
+    '<span style="font-size:20px;">' + tier.emoji + '</span>' +
+    '<span style="font-weight:800;color:#C8E600;font-size:15px;">Ambassadeur ' + tier.label + '</span>' +
+    '</div>';
+
+  /* Copier le lien ambassadeur */
+  var code = (_currentUser && _currentUser.code_parrain) || '';
+  var link = 'https://www.epargnplus.com/connexion?ref=' + code;
+
+  block.innerHTML =
+    /* Stats cards */
+    '<div class="stat-cards mb-4">' +
+    '<div class="stat-card"><div class="stat-card-icon" style="background:#EEF2FF;">👥</div><div class="stat-card-info"><div class="stat-card-value">' + stats.total + '</div><div class="stat-card-label">Filleuls recrutés</div></div></div>' +
+    '<div class="stat-card"><div class="stat-card-icon" style="background:#F0FDF4;">✅</div><div class="stat-card-info"><div class="stat-card-value">' + stats.active + '</div><div class="stat-card-label">Filleuls actifs</div></div></div>' +
+    '<div class="stat-card"><div class="stat-card-icon" style="background:#FFFBEB;">💰</div><div class="stat-card-info"><div class="stat-card-value">' + fmt(amb.total_commission_paid || 0) + '</div><div class="stat-card-label">' + cur + ' versés</div></div></div>' +
+    '</div>' +
+
+    /* Niveau actuel */
+    '<div class="card mb-4" style="padding:20px;">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">' +
+    '<div style="display:flex;align-items:center;gap:10px;">' +
+    '<span style="font-size:28px;">' + tier.emoji + '</span>' +
+    '<div><div style="font-size:16px;font-weight:800;color:var(--primary);">Ambassadeur ' + tier.label + '</div>' +
+    '<div style="font-size:12px;color:var(--text-secondary);">+' + fmt(tier.bonus) + ' ' + cur + ' par filleul actif · Retrait à ' + tier.fee + '%</div></div>' +
+    '</div>' +
+    (nextTier ? '<div style="text-align:right;font-size:12px;color:var(--text-secondary);">Prochain palier : <strong>' + nextTier.emoji + ' ' + nextTier.label + '</strong><br><span style="color:var(--primary);font-weight:700;">' + toNext + ' filleul' + (toNext>1?'s':'') + ' manquant' + (toNext>1?'s':'') + '</span></div>' : '<div style="background:#F0FDF4;border-radius:8px;padding:6px 12px;font-size:12px;color:#065F46;font-weight:700;">🏆 Niveau maximum !</div>') +
+    '</div>' +
+    (nextTier ? '<div style="height:6px;background:#F3F4F6;border-radius:3px;overflow:hidden;"><div style="width:' + Math.min(100,Math.round(stats.active/nextTier.min_recruits*100)) + '%;height:100%;background:var(--primary);border-radius:3px;transition:width .6s;"></div></div>' +
+    '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-secondary);margin-top:4px;"><span>' + stats.active + ' filleuls actifs</span><span>Objectif : ' + nextTier.min_recruits + '</span></div>' : '') +
+    '</div>' +
+
+    /* Lien ambassadeur */
+    '<div class="card" style="padding:18px;">' +
+    '<div class="card-title" style="margin-bottom:12px;">🔗 Votre lien ambassadeur</div>' +
+    '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">' +
+    '<div style="flex:1;background:var(--bg-light);border-radius:8px;padding:10px 14px;font-size:13px;font-weight:700;color:var(--primary);word-break:break-all;">' + link + '</div>' +
+    '<button class="btn btn-accent btn-sm" onclick="copyAmbLink()"  style="font-size:12px;">📋 Copier</button>' +
+    '<button class="btn btn-outline btn-sm" onclick="shareAmbLink()" style="font-size:12px;">📤 Partager</button>' +
+    '</div>' +
+    '<div style="font-size:12px;color:var(--text-secondary);margin-top:8px;">Partagez ce lien. Chaque inscription via ce lien vous est automatiquement attribuée.</div>' +
+    '</div>';
+}
+
+function submitAmbassadorApplication() {
+  var mot = (document.getElementById('ambMotivation') || {}).value || '';
+  var exp = (document.getElementById('ambExperience') || {}).value || '';
+  var wa  = (document.getElementById('ambWhatsapp')   || {}).value || '';
+  var err = document.getElementById('ambFormError');
+  var btn = document.getElementById('ambSubmitBtn');
+  if (err) err.style.display = 'none';
+
+  if (mot.trim().length < 20) {
+    if (err) { err.textContent = 'Veuillez décrire votre motivation (minimum 20 caractères).'; err.style.display = ''; }
+    return;
+  }
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Envoi…'; }
+  fetch('/api/user/me?resource=ambassador', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
+    body: JSON.stringify({ motivation: mot.trim(), experience: exp.trim(), whatsapp: wa.trim() }),
+  })
+  .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+  .then(function(res) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Envoyer ma candidature →'; }
+    if (!res.ok) {
+      if (err) { err.textContent = res.data.error || 'Erreur lors de l\'envoi.'; err.style.display = ''; }
+      return;
+    }
+    closeModal('ambassadeur');
+    showToast('✅ Candidature envoyée ! Réponse sous 48h.', 'success');
+    _ambassadorData = null;
+    loadAmbassadorSection();
+  })
+  .catch(function() {
+    if (btn) { btn.disabled = false; btn.textContent = 'Envoyer ma candidature →'; }
+    if (err) { err.textContent = 'Erreur réseau. Réessayez.'; err.style.display = ''; }
+  });
+}
+
+function copyAmbLink() {
+  var code = (_currentUser && _currentUser.code_parrain) || '';
+  var link = 'https://www.epargnplus.com/connexion?ref=' + code;
+  navigator.clipboard.writeText(link).then(function() { showToast('Lien ambassadeur copié !', 'success'); });
+}
+function shareAmbLink() {
+  var code = (_currentUser && _currentUser.code_parrain) || '';
+  var link = 'https://www.epargnplus.com/connexion?ref=' + code;
+  var msg  = encodeURIComponent('Rejoins Epargn+ et épargne intelligemment 👉 ' + link);
+  window.open('https://wa.me/?text=' + msg, '_blank');
+}
+
 /* ── CHARGER LES DEMANDES DE HAUSSE D'OBJECTIF ── */
 window._GOAL_REQUESTS = [];
 function loadGoalRequests(callback) {
@@ -3257,7 +3523,7 @@ function setupResponsiveSidebar() {
 /* ── SECTION NAV ── */
 const SECTION_TITLES = {
   home: 'Accueil', projets: 'Mes Projets', mouvements: 'Mouvements',
-  tontine: 'Épargne Collective', parrainage: 'Parrainage', profil: 'Compte & Paramètres',
+  tontine: 'Épargne Collective', parrainage: 'Parrainage', ambassadeur: '👑 Programme Ambassadeur', profil: 'Compte & Paramètres',
   kyc: 'Vérification d\'identité', notifications: 'Notifications',
   parametres: 'Paramètres', retrait: 'Retrait', 'projet-detail': 'Détail Projet',
   suggestions: 'Suggestions IA', communaute: 'Communauté & Défis'
@@ -3289,6 +3555,10 @@ function showSection(id, btn) {
   /* ── Journal d'activité (sécurité) ── */
   if (id === 'parametres' && _authToken) {
     loadAccountActivity();
+  }
+  /* ── Programme Ambassadeur ── */
+  if (id === 'ambassadeur' && _authToken) {
+    loadAmbassadorSection();
   }
 }
 
