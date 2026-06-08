@@ -51,7 +51,7 @@
         <span class="nav-icon">🏆</span> Communauté &amp; Défis
         <span class="nav-badge" style="background:var(--accent);color:var(--primary);">NEW</span>
       </button>
-      <button class="nav-item" data-section="parrainage" onclick="showSection('parrainage', this)">
+      <button class="nav-item" id="navParrainageItem" data-section="parrainage" onclick="showSection('parrainage', this)" style="display:none;">
         <span class="nav-icon">🎁</span> Parrainage
         <span class="nav-badge" id="navParrainBadge" style="display:none;">0</span>
       </button>
@@ -469,7 +469,7 @@
         <div class="flex-between mb-6">
           <div>
             <h2 style="font-size:22px;font-weight:800;color:var(--primary);">Programme de Parrainage</h2>
-            <p class="text-muted">Invitez vos proches, gagnez jusqu'à <strong id="parrMaxPrime">5 000 GNF</strong> par filleul</p>
+            <p class="text-muted">Réservé aux ambassadeurs — cumulez jusqu'à <strong id="parrMaxPrime">50 points</strong> par filleul</p>
           </div>
         </div>
 
@@ -478,8 +478,8 @@
           <div style="position:absolute;inset:0;background:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 200 200%22><circle cx=%22160%22 cy=%2240%22 r=%2280%22 fill=%22rgba(200,230,0,.05)%22/></svg>');"></div>
           <div style="position:relative;z-index:1;">
             <div style="font-size:44px;margin-bottom:6px;">🎁</div>
-            <h3 style="font-size:26px;font-weight:900;margin-bottom:6px;">Gagnez jusqu'à <span style="color:var(--accent);" id="parrHeroMax">5 000 GNF</span></h3>
-            <p style="opacity:.75;font-size:13px;margin-bottom:18px;line-height:1.5;" id="parrHeroDesc">500 GNF par tranche de 100 000 GNF déposée par votre filleul.<br>Prime totale de 5 000 GNF atteinte à 1 000 000 GNF cumulés.</p>
+            <h3 style="font-size:26px;font-weight:900;margin-bottom:6px;">Cumulez jusqu'à <span style="color:var(--accent);" id="parrHeroMax">50 points</span></h3>
+            <p style="opacity:.75;font-size:13px;margin-bottom:18px;line-height:1.5;" id="parrHeroDesc">5 points par tranche de 100 000 GNF déposée par votre filleul.<br>Prime totale de 50 points à 1 000 000 GNF cumulés.<br><span style="opacity:.6;">1 point = 100 GNF</span></p>
             <!-- Code parrainage -->
             <div style="background:rgba(255,255,255,.12);border-radius:10px;padding:12px 16px;display:flex;align-items:center;justify-content:center;gap:12px;max-width:360px;margin:0 auto 10px;">
               <span style="font-size:15px;font-weight:800;letter-spacing:.08em;color:#fff;" id="parrainageCode">…</span>
@@ -495,10 +495,10 @@
         <div class="card mb-4" style="padding:16px 18px;">
           <div style="font-size:13px;font-weight:700;color:var(--primary);margin-bottom:12px;">📊 Comment fonctionne la commission ?</div>
           <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:12px;color:var(--text-secondary);" id="parrCommissionGrid">
-            <span style="font-weight:700;color:var(--success);">+500 GNF</span><span>dès 100 000 GNF déposés par votre filleul</span>
-            <span style="font-weight:700;color:var(--success);">+1 000 GNF</span><span>à 200 000 GNF déposés</span>
-            <span style="font-weight:700;color:var(--success);">+2 500 GNF</span><span>à 500 000 GNF déposés</span>
-            <span style="font-weight:700;color:var(--accent);">+5 000 GNF</span><span style="font-weight:700;color:var(--primary);">à 1 000 000 GNF — prime complète !</span>
+            <span style="font-weight:700;color:var(--success);">+5 points</span><span>dès 100 000 GNF déposés par votre filleul</span>
+            <span style="font-weight:700;color:var(--success);">+10 points</span><span>à 200 000 GNF déposés</span>
+            <span style="font-weight:700;color:var(--success);">+25 points</span><span>à 500 000 GNF déposés</span>
+            <span style="font-weight:700;color:var(--accent);">+50 points</span><span style="font-weight:700;color:var(--primary);">à 1 000 000 GNF — prime complète !</span>
           </div>
         </div>
 
@@ -515,7 +515,7 @@
             <div class="stat-card-icon" style="background:#F0FDF4;">💵</div>
             <div class="stat-card-info">
               <div class="stat-card-value" id="statGagnes">0</div>
-              <div class="stat-card-label"><span id="parrCurLabel">GNF</span> gagnés</div>
+              <div class="stat-card-label"><span id="parrCurLabel">points</span> gagnés</div>
             </div>
           </div>
           <div class="stat-card">
@@ -563,7 +563,7 @@
             <div style="font-size:32px;margin-bottom:6px;">🥈</div>
             <div style="font-size:15px;font-weight:800;color:var(--primary);">Silver</div>
             <div style="font-size:12px;color:var(--text-secondary);margin:6px 0 10px;line-height:1.5;">Dès votre activation</div>
-            <div style="font-size:11px;font-weight:700;color:var(--success);background:#F0FDF4;border-radius:8px;padding:6px 10px;margin-bottom:6px;">+7 500 GNF / filleul actif</div>
+            <div style="font-size:11px;font-weight:700;color:var(--success);background:#F0FDF4;border-radius:8px;padding:6px 10px;margin-bottom:6px;">+75 points / filleul actif</div>
             <div style="font-size:11px;color:var(--text-secondary);">Accès au tableau de bord ambassadeur</div>
           </div>
           <div style="background:#fff;border-radius:var(--radius-lg);padding:20px;border:2px solid #C8E600;text-align:center;position:relative;">
@@ -571,14 +571,14 @@
             <div style="font-size:32px;margin-bottom:6px;">🥇</div>
             <div style="font-size:15px;font-weight:800;color:var(--primary);">Gold</div>
             <div style="font-size:12px;color:var(--text-secondary);margin:6px 0 10px;line-height:1.5;">20 filleuls actifs</div>
-            <div style="font-size:11px;font-weight:700;color:var(--success);background:#F0FDF4;border-radius:8px;padding:6px 10px;margin-bottom:6px;">+10 000 GNF / filleul actif</div>
+            <div style="font-size:11px;font-weight:700;color:var(--success);background:#F0FDF4;border-radius:8px;padding:6px 10px;margin-bottom:6px;">+100 points / filleul actif</div>
             <div style="font-size:11px;color:var(--text-secondary);">Retrait à 0.8% (vs 1%)</div>
           </div>
           <div style="background:linear-gradient(135deg,#1a1a2e,#0B1566);border-radius:var(--radius-lg);padding:20px;border:2px solid #C8E600;text-align:center;color:#fff;">
             <div style="font-size:32px;margin-bottom:6px;">💎</div>
             <div style="font-size:15px;font-weight:800;color:#C8E600;">Platine</div>
             <div style="font-size:12px;color:rgba(255,255,255,.7);margin:6px 0 10px;line-height:1.5;">50 filleuls actifs</div>
-            <div style="font-size:11px;font-weight:700;color:#C8E600;background:rgba(200,230,0,.15);border-radius:8px;padding:6px 10px;margin-bottom:6px;">+15 000 GNF / filleul actif</div>
+            <div style="font-size:11px;font-weight:700;color:#C8E600;background:rgba(200,230,0,.15);border-radius:8px;padding:6px 10px;margin-bottom:6px;">+150 points / filleul actif</div>
             <div style="font-size:11px;color:rgba(255,255,255,.7);">Retrait à 0.5% · Support prioritaire</div>
           </div>
         </div>
@@ -1175,7 +1175,7 @@
 
       <button onclick="closeServiceMenu();showSection('parrainage',null);setBottomNav('')" style="display:flex;align-items:center;gap:14px;padding:13px 12px;border:none;background:none;cursor:pointer;border-radius:14px;width:100%;font-family:inherit;text-align:left;transition:background .15s;" onmouseover="this.style.background='#F8FAFF'" onmouseout="this.style.background='none'">
         <div style="width:44px;height:44px;border-radius:14px;background:#FDF2F8;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">🎁</div>
-        <div><div style="font-size:14px;font-weight:800;color:var(--primary);">Parrainage</div><div style="font-size:12px;color:var(--text-secondary);">Gagnez jusqu'à 5 000 GNF par filleul</div></div>
+        <div><div style="font-size:14px;font-weight:800;color:var(--primary);">Espace Ambassadeur</div><div style="font-size:12px;color:var(--text-secondary);">Cumulez des points bonus par filleul</div></div>
       </button>
 
       <div style="margin-top:8px;border-top:1px solid var(--divider);padding-top:8px;">
@@ -3248,6 +3248,7 @@ function loadProjects() {
    PROGRAMME AMBASSADEUR
 ══════════════════════════════════════════════════════ */
 var _ambassadorData = null; /* cache de session */
+var _isAmbassador = false; /* parrainage réservé aux ambassadeurs actifs */
 
 var AMB_TIERS = {
   silver:   { label:'Silver',  emoji:'🥈', bonus:7500,  fee:1.0, min_recruits:0  },
@@ -3282,6 +3283,11 @@ function renderAmbassadorSection(data) {
   /* ── Badge nav ── */
   var navBadge = document.getElementById('navAmbassadeurBadge');
   if (navBadge) navBadge.style.display = amb && amb.status === 'active' ? '' : 'none';
+
+  /* ── Parrainage réservé aux ambassadeurs : menu visible seulement si actif ── */
+  _isAmbassador = !!(amb && amb.status === 'active');
+  var navParr = document.getElementById('navParrainageItem');
+  if (navParr) navParr.style.display = _isAmbassador ? '' : 'none';
 
   /* ── CAS 1 : pas encore candidaté ── */
   if (!amb) {
@@ -3545,6 +3551,8 @@ const SECTION_TITLES = {
   suggestions: 'Suggestions IA', communaute: 'Communauté & Défis'
 };
 function showSection(id, btn) {
+  // Parrainage réservé aux ambassadeurs : rediriger les autres vers la candidature
+  if (id === 'parrainage' && !_isAmbassador) { id = 'ambassadeur'; }
   document.querySelectorAll('[id^="sec-"]').forEach(s => s.style.display = 'none');
   const sec = document.getElementById('sec-' + id);
   if (sec) sec.style.display = '';
@@ -5379,11 +5387,12 @@ function renderInstitutions() {
     '</div>' +
   '</div>';
 
-  var parrainHtml = '<div style="background:linear-gradient(135deg,#0B1566,#1a29a8);border-radius:14px;padding:18px 20px;display:flex;align-items:center;gap:16px;margin-top:12px;cursor:pointer;" onclick="showSection(\'parrainage\',null)">' +
+  // Carte parrainage affichée uniquement aux ambassadeurs (sinon image MLM/Ponzi)
+  var parrainHtml = !_isAmbassador ? '' : '<div style="background:linear-gradient(135deg,#0B1566,#1a29a8);border-radius:14px;padding:18px 20px;display:flex;align-items:center;gap:16px;margin-top:12px;cursor:pointer;" onclick="showSection(\'parrainage\',null)">' +
     '<div style="font-size:32px;flex-shrink:0;">🎁</div>' +
     '<div style="flex:1;">' +
-      '<div style="font-size:14px;font-weight:800;color:#fff;margin-bottom:3px;">Invitez vos proches</div>' +
-      '<div style="font-size:12px;color:rgba(255,255,255,.7);line-height:1.4;">Partagez votre lien de parrainage et gagnez ensemble à chaque inscription.</div>' +
+      '<div style="font-size:14px;font-weight:800;color:#fff;margin-bottom:3px;">Espace Ambassadeur</div>' +
+      '<div style="font-size:12px;color:rgba(255,255,255,.7);line-height:1.4;">Partagez votre lien et cumulez des points bonus à chaque filleul actif.</div>' +
     '</div>' +
     '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>' +
   '</div>';
@@ -5804,24 +5813,27 @@ function renderParrainageSection() {
   const elCurLabel = document.getElementById('parrCurLabel');
   const elGrid     = document.getElementById('parrCommissionGrid');
 
-  if (elMaxPrime) elMaxPrime.textContent = f(cfg.max) + ' ' + sym;
-  if (elHeroMax)  elHeroMax.textContent  = f(cfg.max) + ' ' + sym;
-  if (elCurLabel) elCurLabel.textContent = sym;
+  // Récompenses ambassadeur exprimées en POINTS BONUS (1 point = 100 GNF). Seuils de dépôt restent en GNF.
+  var P = function(g){ return f(Math.round((g||0)/100)); };
+  if (elMaxPrime) elMaxPrime.textContent = P(cfg.max) + ' points';
+  if (elHeroMax)  elHeroMax.textContent  = P(cfg.max) + ' points';
+  if (elCurLabel) elCurLabel.textContent = 'points';
 
   if (elHeroDesc && cfg.tiers.length >= 4) {
     const t = cfg.tiers;
     elHeroDesc.innerHTML =
-      f(t[0][1]) + ' ' + sym + ' par tranche de ' + f(t[0][0]) + ' ' + sym + ' déposée par votre filleul.<br>' +
-      'Prime totale de ' + f(cfg.max) + ' ' + sym + ' atteinte à ' + f(t[3][0]) + ' ' + sym + ' cumulés.';
+      P(t[0][1]) + ' points par tranche de ' + f(t[0][0]) + ' ' + sym + ' déposée par votre filleul.<br>' +
+      'Prime totale de ' + P(cfg.max) + ' points à ' + f(t[3][0]) + ' ' + sym + ' cumulés.<br>' +
+      '<span style="opacity:.6;">1 point = 100 GNF</span>';
   }
 
   if (elGrid && cfg.tiers.length >= 4) {
     const t = cfg.tiers;
     elGrid.innerHTML = `
-      <span style="font-weight:700;color:var(--success);">+${f(t[0][1])} ${sym}</span><span>dès ${f(t[0][0])} ${sym} déposés par votre filleul</span>
-      <span style="font-weight:700;color:var(--success);">+${f(t[1][1])} ${sym}</span><span>à ${f(t[1][0])} ${sym} déposés</span>
-      <span style="font-weight:700;color:var(--success);">+${f(t[2][1])} ${sym}</span><span>à ${f(t[2][0])} ${sym} déposés</span>
-      <span style="font-weight:700;color:var(--accent);">+${f(t[3][1])} ${sym}</span><span style="font-weight:700;color:var(--primary);">à ${f(t[3][0])} ${sym} — prime complète !</span>`;
+      <span style="font-weight:700;color:var(--success);">+${P(t[0][1])} points</span><span>dès ${f(t[0][0])} ${sym} déposés par votre filleul</span>
+      <span style="font-weight:700;color:var(--success);">+${P(t[1][1])} points</span><span>à ${f(t[1][0])} ${sym} déposés</span>
+      <span style="font-weight:700;color:var(--success);">+${P(t[2][1])} points</span><span>à ${f(t[2][0])} ${sym} déposés</span>
+      <span style="font-weight:700;color:var(--accent);">+${P(t[3][1])} points</span><span style="font-weight:700;color:var(--primary);">à ${f(t[3][0])} ${sym} — prime complète !</span>`;
   }
 
   /* ── Code parrainage ── */
@@ -5837,7 +5849,7 @@ function renderParrainageSection() {
   const statG = document.getElementById('statGagnes');
   const statA = document.getElementById('statEnAttente');
   if (statF) statF.textContent = FILLEULS.length;
-  if (statG) statG.textContent = totalGagne > 0 ? f(totalGagne) : '0';
+  if (statG) statG.textContent = totalGagne > 0 ? P(totalGagne) : '0';
   if (statA) statA.textContent = FILLEULS.filter(ff => ff.statut !== 'actif').length;
 
   const box = document.getElementById('parrainageFilleuls');
