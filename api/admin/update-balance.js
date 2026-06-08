@@ -1363,6 +1363,47 @@ module.exports = async (req, res) => {
         '/users?id=eq.' + encodeURIComponent(userId),
         { epargne: newEpargne, pending_deposit: null });
 
+      /* ── Prime de parrainage en POINTS (réservée aux ambassadeurs actifs) ──
+         Barème proportionnel au CUMUL des dépôts validés du filleul :
+         5 points par tranche de 100 000 GNF, plafond 50 points / filleul.
+         Anti-double-crédit via users.referral_points_generated (réservé AVANT crédit). */
+      try {
+        const fRows = await supabaseRequest('GET',
+          '/users?id=eq.' + encodeURIComponent(userId) + '&select=parraine_par,referral_points_generated');
+        const filleul = Array.isArray(fRows) && fRows[0];
+        const parrainCode = filleul && filleul.parraine_par;
+        if (parrainCode) {
+          const pRows = await supabaseRequest('GET',
+            '/users?code_parrain=eq.' + encodeURIComponent(parrainCode) + '&select=id,points&limit=1');
+          const parrain = Array.isArray(pRows) && pRows[0];
+          if (parrain) {
+            const aRows = await supabaseRequest('GET',
+              '/ambassadors?user_id=eq.' + encodeURIComponent(parrain.id) + '&status=eq.active&select=id&limit=1');
+            if (Array.isArray(aRows) && aRows.length) {
+              /* cumul dépôts validés du filleul */
+              const txRows = await supabaseRequest('GET',
+                '/transactions?user_id=eq.' + encodeURIComponent(userId) +
+                '&type=eq.deposit&statut=eq.completed&select=amount');
+              const cumul = (Array.isArray(txRows) ? txRows : []).reduce((s, t) => s + (Number(t.amount) || 0), 0);
+              const earned = Math.min(50, Math.floor(cumul / 100000) * 5);
+              const already = Number(filleul.referral_points_generated) || 0;
+              const delta = Math.max(0, earned - already);
+              if (delta > 0) {
+                /* Réserver d'abord (échoue si la colonne n'existe pas → pas de crédit, pas de double) */
+                await supabaseRequest('PATCH', '/users?id=eq.' + encodeURIComponent(userId),
+                  { referral_points_generated: earned });
+                await supabaseRequest('PATCH', '/users?id=eq.' + encodeURIComponent(parrain.id),
+                  { points: (Number(parrain.points) || 0) + delta });
+                console.log('[referral] +' + delta + ' pts → parrain=' + parrain.id +
+                  ' (filleul=' + userId + ' cumul=' + cumul + ' earned=' + earned + ')');
+              }
+            }
+          }
+        }
+      } catch (refErr) {
+        console.warn('[referral] prime ignorée:', refErr.message);
+      }
+
       /* ── Mettre à jour projects.actuel (avec cap strict sur goal) ── */
       if (projectId) {
         try {
