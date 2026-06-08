@@ -469,9 +469,11 @@
             <div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">✉️ Votre code de vérification sera envoyé à cette adresse.</div>
           </div>
 
-          <div class="auth-group">
-            <label class="auth-label">CODE DE PARRAINAGE <span style="font-weight:400;color:#9CA3AF;">(optionnel)</span></label>
-            <input class="auth-input" type="text" id="regParrain" placeholder="ex: MAM4XK2" maxlength="12" autocomplete="off" style="letter-spacing:.1em;text-transform:uppercase;" />
+          <!-- Code parrainage masqué à l'inscription (image MLM/Ponzi). Conservé caché pour
+               l'attribution silencieuse via lien ?ref ; sinon l'ambassadeur ajoute son filleul
+               depuis son espace. -->
+          <div class="auth-group" style="display:none;">
+            <input class="auth-input" type="text" id="regParrain" maxlength="12" autocomplete="off" />
           </div>
 
           <button class="auth-submit" type="button" id="btnRegisterStep1" onclick="sendRegisterOTP(event)">

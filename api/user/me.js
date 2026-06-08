@@ -2068,6 +2068,35 @@ async function handleAmbassador(req, res, payload) {
   /* ── POST : soumettre une candidature ── */
   if (req.method === 'POST') {
     const body = await parseBody(req);
+
+    /* ── Sous-action : l'ambassadeur déclare un filleul par son numéro ── */
+    if (body.action === 'add-filleul') {
+      const digits = (body.phone || '').replace(/\D/g, '');
+      if (digits.length < 8) return res.status(400).json({ error: 'Numéro de filleul invalide.' });
+      try {
+        const amb = await supabaseRequest('GET',
+          '/ambassadors?user_id=eq.' + encodeURIComponent(userId) + '&status=eq.active&select=id&limit=1');
+        if (!Array.isArray(amb) || !amb.length) return res.status(403).json({ error: 'Réservé aux ambassadeurs actifs.' });
+        const meRows = await supabaseRequest('GET',
+          '/users?id=eq.' + encodeURIComponent(userId) + '&select=code_parrain&limit=1');
+        const myCode = Array.isArray(meRows) && meRows[0] ? meRows[0].code_parrain : null;
+        if (!myCode) return res.status(400).json({ error: 'Votre code parrain est introuvable.' });
+        const last = digits.slice(-8);
+        const targets = await supabaseRequest('GET',
+          '/users?phone=like.*' + encodeURIComponent(last) + '&select=id,phone,parraine_par,prenom&limit=2');
+        if (!Array.isArray(targets) || !targets.length) return res.status(404).json({ error: 'Aucun client avec ce numéro.' });
+        if (targets.length > 1) return res.status(409).json({ error: 'Plusieurs comptes correspondent — vérifiez le numéro.' });
+        const t = targets[0];
+        if (t.id === userId) return res.status(400).json({ error: 'Vous ne pouvez pas vous parrainer vous-même.' });
+        if (t.parraine_par) return res.status(409).json({ error: 'Ce client a déjà un parrain.' });
+        await supabaseRequest('PATCH',
+          '/users?id=eq.' + encodeURIComponent(t.id), { parraine_par: myCode });
+        return res.status(200).json({ ok: true, message: 'Filleul ajouté : ' + (t.prenom || t.phone) });
+      } catch (e) {
+        return res.status(500).json({ error: 'Erreur ajout filleul : ' + e.message });
+      }
+    }
+
     const { motivation, whatsapp, experience } = body;
 
     if (!motivation || motivation.trim().length < 20) {
