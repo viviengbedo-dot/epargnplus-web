@@ -1176,21 +1176,28 @@
     </div>
     <div id="koServiceDesc" style="font-size:14px;color:#374151;line-height:1.7;background:#F8F9FF;border-radius:10px;padding:14px;margin-bottom:14px;"></div>
     <div style="font-size:13px;font-weight:700;color:var(--primary);margin-bottom:8px;">Comment ça marche :</div>
-    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
-      <div style="display:flex;gap:10px;align-items:flex-start;"><div style="width:22px;height:22px;border-radius:50%;background:var(--primary);color:#C8E600;font-weight:900;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">1</div><div style="font-size:13px;color:#374151;">Vous acceptez et laissez vos instructions.</div></div>
-      <div style="display:flex;gap:10px;align-items:flex-start;"><div style="width:22px;height:22px;border-radius:50%;background:var(--primary);color:#C8E600;font-weight:900;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">2</div><div style="font-size:13px;color:#374151;">Koutouki agit immédiatement. Votre bien est sécurisé.</div></div>
-      <div style="display:flex;gap:10px;align-items:flex-start;"><div style="width:22px;height:22px;border-radius:50%;background:var(--primary);color:#C8E600;font-weight:900;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">3</div><div style="font-size:13px;color:#374151;">Vous continuez d'épargner. À 100%, votre bien vous est remis.</div></div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;">
+      <div style="display:flex;gap:10px;align-items:flex-start;"><div style="width:22px;height:22px;border-radius:50%;background:var(--primary);color:#C8E600;font-weight:900;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">1</div><div style="font-size:13px;color:#374151;">Vous décrivez votre besoin et envoyez votre demande.</div></div>
+      <div style="display:flex;gap:10px;align-items:flex-start;"><div style="width:22px;height:22px;border-radius:50%;background:var(--primary);color:#C8E600;font-weight:900;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">2</div><div style="font-size:13px;color:#374151;">Notre équipe vérifie les prix et vous contacte sous 24h pour valider ensemble.</div></div>
+      <div style="display:flex;gap:10px;align-items:flex-start;"><div style="width:22px;height:22px;border-radius:50%;background:var(--primary);color:#C8E600;font-weight:900;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">3</div><div style="font-size:13px;color:#374151;">Koutouki agit. Votre bien est sécurisé. Vous continuez à épargner.</div></div>
+      <div style="display:flex;gap:10px;align-items:flex-start;"><div style="width:22px;height:22px;border-radius:50%;background:#059669;color:#fff;font-weight:900;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✓</div><div style="font-size:13px;color:#374151;">À 100% de votre objectif, votre bien vous est remis.</div></div>
     </div>
+
     <div class="form-group">
-      <label class="form-label">Vos instructions pour Koutouki (optionnel mais recommandé)</label>
-      <textarea id="koInstructions" class="form-control" rows="3"
-        placeholder="Ex : Terrain à Coyah autour de 80M GNF / Billet Conakry Paris août 2026 classe économique / iPhone 15 Pro Max sur Amazon…"
+      <label class="form-label">Décrivez votre besoin <span style="color:var(--error);">*</span></label>
+      <textarea id="koInstructions" class="form-control" rows="4"
+        placeholder=""
         style="resize:none;"></textarea>
+      <div id="koTeamNote" style="font-size:11px;color:#059669;font-weight:600;margin-top:6px;background:#F0FDF4;border-radius:6px;padding:6px 10px;"></div>
     </div>
+
     <div id="koError" style="color:var(--error);font-size:13px;margin-bottom:12px;display:none;"></div>
     <button id="koSubmitBtn" class="btn btn-accent" style="width:100%;padding:14px;font-weight:800;font-size:15px;"
-      onclick="submitKoutoukiOffer()">Confirmer ma demande →</button>
-    <button onclick="closeModal('koutoukiOffer')" style="width:100%;margin-top:10px;background:none;border:none;color:var(--text-secondary);font-size:13px;cursor:pointer;padding:8px;">
+      onclick="submitKoutoukiOffer()">Envoyer ma demande à Koutouki →</button>
+    <div style="margin-top:10px;text-align:center;font-size:11px;color:var(--text-secondary);">
+      📞 Notre équipe vous contactera au <strong>+224 623 76 96 34</strong> pour confirmer
+    </div>
+    <button onclick="closeModal('koutoukiOffer')" style="width:100%;margin-top:8px;background:none;border:none;color:var(--text-secondary);font-size:13px;cursor:pointer;padding:8px;">
       Plus tard, je continue d'épargner normalement
     </button>
   </div>
@@ -10609,24 +10616,30 @@ var KOUTOUKI_SERVICE_INFO = {
     emoji: '🏠',
     color: '#059669',
     bg: '#F0FDF4',
-    pitch: 'Votre bien est déjà sécurisé dès 60%',
-    desc: 'Koutouki Immo identifie et réserve votre terrain ou bien immobilier maintenant. Vous continuez à épargner tranquillement. À 100%, il vous appartient.',
+    pitch: 'Votre bien est identifié et sécurisé dès 60%',
+    desc: 'Koutouki Immo recherche le terrain ou le bien correspondant à votre budget et vos critères. Notre équipe vous contacte sous 24h pour valider ensemble les options disponibles. Vous continuez à épargner. À 100%, il vous appartient.',
+    placeholder: 'Ex : Terrain à Coyah ou Dubréka entre 100 et 300M GNF / Appartement 2 pièces à Matoto / Parcelle avec titre foncier à Sonfonia…',
+    teamNote: 'Notre équipe vérifiera les prix du marché et vous soumettra les meilleures offres disponibles avant toute action.',
   },
   travel: {
     name: 'Koutouki Travel',
     emoji: '✈️',
     color: '#2563EB',
     bg: '#EFF6FF',
-    pitch: 'Votre voyage est déjà réservé dès 60%',
-    desc: 'Koutouki Travel réserve vos billets ou organise votre voyage maintenant. Vous continuez à épargner. Votre départ est sécurisé.',
+    pitch: 'Votre voyage est réservé et sécurisé dès 60%',
+    desc: 'Koutouki Travel recherche les meilleures offres de billets ou d\'hébergement correspondant à votre budget. Notre équipe vous contacte sous 24h pour confirmer les disponibilités et les prix avant de réserver.',
+    placeholder: 'Ex : Billet Conakry Paris aller-retour août 2026 / Voyage organisé Dubaï 5 jours / Visa + hôtel pour un séjour médical en Maroc…',
+    teamNote: 'Notre équipe vérifiera les prix en temps réel (vols à partir de 2M GNF selon la période) et vous soumettra les options avant réservation.',
   },
   express: {
     name: 'Koutouki Express',
     emoji: '📦',
     color: '#7C3AED',
     bg: '#F5F3FF',
-    pitch: 'Votre achat est déjà commandé dès 60%',
-    desc: 'Koutouki Express commande ou procure votre article maintenant. Vous payez le solde une fois votre épargne complète.',
+    pitch: 'Votre article est commandé et sécurisé dès 60%',
+    desc: 'Koutouki Express commande ou procure l\'article sur Amazon, Alibaba, SHEIN ou toute autre boutique internationale. Notre équipe vérifie la disponibilité et le prix total (livraison incluse) avant toute commande.',
+    placeholder: 'Ex : iPhone 15 Pro Max 256Go sur Amazon / MacBook Air M3 / Sac Louis Vuitton / Télévision Samsung 55 pouces…',
+    teamNote: 'Notre équipe vérifie le prix réel (article + frais de port + douane) et vous confirme le total avant de commander.',
   },
 };
 
@@ -10661,6 +10674,9 @@ function showKoutoukiOffer(p) {
   document.getElementById('koPct').textContent    = pct + '%';
   document.getElementById('koRestant').textContent = restant + ' ' + cur + ' restants';
   document.getElementById('koInstructions').value = '';
+  document.getElementById('koInstructions').placeholder = info.placeholder || '';
+  var teamNote = document.getElementById('koTeamNote');
+  if (teamNote) teamNote.textContent = info.teamNote || '';
   var errEl = document.getElementById('koError');
   if (errEl) errEl.style.display = 'none';
   openModal('koutoukiOffer');
