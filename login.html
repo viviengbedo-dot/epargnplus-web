@@ -6,10 +6,10 @@
   <title>Connexion / Inscription — Epargn+</title>
   <!-- PWA / icône écran d'accueil -->
   <link rel="manifest" href="/manifest.json" />
-  <meta name="theme-color" content="#0B1566" />
+  <meta name="theme-color" content="#F5F5F7" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Epargn+" />
   <link rel="apple-touch-icon" href="/icon-180.png" />
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
@@ -18,7 +18,23 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { min-height: 100vh; background: #F4F6FF; font-family: 'Inter', sans-serif; display: flex; flex-direction: column; }
+    body {
+      min-height: 100vh;
+      background: #F5F5F7;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+      display: flex; flex-direction: column;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      letter-spacing: -0.01em;
+    }
+    /* Palette iOS douce */
+    :root {
+      --ios-bg:      #F5F5F7;
+      --ios-surface: #F2F2F7;
+      --ios-border:  #E5E5EA;
+      --ios-gray:    #8E8E93;
+      --ios-blue:    #0B1566;
+    }
 
     /* ── Layout ── */
     .auth-wrap   { display: flex; width: 100%; flex: 1; min-height: 0; }
@@ -51,39 +67,69 @@
     .auth-op  { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }
 
     /* ── Right panel / card ── */
-    .auth-card { width: 100%; max-width: 480px; background: #fff; border-radius: 24px; box-shadow: 0 8px 48px rgba(11,21,102,.10); padding: 36px 36px 32px; }
-    .auth-card-title { font-size: 22px; font-weight: 900; color: var(--primary); margin-bottom: 4px; }
-    .auth-card-sub   { font-size: 13px; color: var(--text-secondary); margin-bottom: 24px; }
+    .auth-card {
+      width: 100%; max-width: 460px; background: #fff;
+      border-radius: 22px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 12px 40px rgba(11,21,102,.06);
+      padding: 36px 34px 30px;
+    }
+    .auth-card-title { font-size: 24px; font-weight: 800; color: var(--ios-blue); margin-bottom: 5px; letter-spacing: -0.02em; }
+    .auth-card-sub   { font-size: 14px; color: var(--ios-gray); margin-bottom: 24px; line-height: 1.45; }
 
-    /* ── Tabs ── */
-    .auth-tabs { display: flex; background: #F4F6FF; border-radius: 12px; padding: 4px; margin-bottom: 24px; }
-    .auth-tab  { flex: 1; padding: 10px; text-align: center; font-size: 13px; font-weight: 700; color: var(--text-secondary); border: none; background: none; border-radius: 10px; cursor: pointer; transition: all .2s; }
-    .auth-tab.active { background: #fff; color: var(--primary); box-shadow: 0 2px 8px rgba(11,21,102,.08); }
+    /* ── Tabs (segmented control iOS) ── */
+    .auth-tabs { display: flex; background: #EBEBF0; border-radius: 11px; padding: 2px; margin-bottom: 24px; }
+    .auth-tab  {
+      flex: 1; padding: 9px; text-align: center; font-size: 14px; font-weight: 600;
+      color: var(--ios-blue); border: none; background: none; border-radius: 9px;
+      cursor: pointer; transition: all .25s cubic-bezier(.4,0,.2,1);
+    }
+    .auth-tab.active {
+      background: #fff; color: var(--ios-blue);
+      box-shadow: 0 1px 3px rgba(0,0,0,.10), 0 0 1px rgba(0,0,0,.04);
+      font-weight: 700;
+    }
 
     /* ── Country selector ── */
     .country-selector { display: flex; gap: 8px; margin-bottom: 18px; }
     .country-btn {
       flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
-      padding: 10px 6px; border-radius: 12px; border: 2px solid #E2E6F0;
-      background: #F8FAFF; cursor: pointer; transition: all .2s; font-family: inherit;
+      padding: 11px 6px; border-radius: 14px; border: 1.5px solid transparent;
+      background: var(--ios-surface); cursor: pointer; font-family: inherit;
+      transition: all .18s ease;
     }
-    .country-btn:hover { border-color: #B0BBD0; background: #F0F3FF; }
-    .country-btn.active { border-color: var(--primary); background: #EEF2FF; }
-    .country-btn .c-flag { font-size: 22px; line-height: 1; }
-    .country-btn .c-name { font-size: 9px; font-weight: 700; color: var(--primary); text-align: center; letter-spacing: .02em; }
-    .country-btn .c-code { font-size: 10px; color: var(--text-secondary); font-weight: 600; }
-    .country-label { font-size: 11px; font-weight: 700; color: var(--text-secondary); letter-spacing: .06em; margin-bottom: 6px; }
+    .country-btn:hover { background: #EAEAEF; }
+    .country-btn.active {
+      border-color: var(--ios-blue); background: #fff;
+      box-shadow: 0 2px 8px rgba(11,21,102,.10);
+    }
+    .country-btn .c-flag { font-size: 24px; line-height: 1; }
+    .country-btn .c-name { font-size: 10px; font-weight: 600; color: var(--ios-blue); text-align: center; letter-spacing: 0; }
+    .country-btn .c-code { font-size: 11px; color: var(--ios-gray); font-weight: 500; }
+    .country-label { font-size: 12px; font-weight: 600; color: var(--ios-gray); letter-spacing: 0; margin-bottom: 8px; text-transform: none; }
 
     /* ── Forms ── */
     .auth-form { display: flex; flex-direction: column; gap: 16px; }
     .auth-group { display: flex; flex-direction: column; gap: 6px; }
-    .auth-label { font-size: 12px; font-weight: 700; color: var(--text-secondary); letter-spacing: .04em; }
-    .auth-input { border: 1.5px solid #E2E6F0; border-radius: 12px; padding: 13px 16px; font-size: 15px; font-family: inherit; color: var(--primary); outline: none; transition: border-color .2s, background .2s; background: #F8FAFF; }
-    .auth-input:focus { border-color: var(--primary); background: #fff; }
-    .auth-input::placeholder { color: #B0B8D0; }
-    .auth-phone-wrap { display: flex; align-items: center; gap: 0; }
-    .auth-prefix { background: #F4F6FF; border: 1.5px solid #E2E6F0; border-right: none; border-radius: 12px 0 0 12px; padding: 13px 12px; font-size: 13px; font-weight: 700; color: var(--primary); white-space: nowrap; transition: all .2s; }
-    .auth-phone-wrap .auth-input { border-radius: 0 12px 12px 0; flex: 1; }
+    .auth-label { font-size: 12px; font-weight: 600; color: var(--ios-gray); letter-spacing: .02em; text-transform: none; }
+    .auth-input {
+      border: 1px solid transparent; border-radius: 13px;
+      padding: 14px 16px; font-size: 16px; font-family: inherit;
+      color: var(--ios-blue); outline: none; background: var(--ios-surface);
+      transition: border-color .2s, background .2s, box-shadow .2s;
+    }
+    .auth-input:focus {
+      border-color: rgba(11,21,102,.30); background: #fff;
+      box-shadow: 0 0 0 4px rgba(11,21,102,.07);
+    }
+    .auth-input::placeholder { color: #B8B8BE; font-weight: 400; }
+    .auth-phone-wrap { display: flex; align-items: stretch; gap: 8px; }
+    .auth-prefix {
+      background: var(--ios-surface); border: 1px solid transparent;
+      border-radius: 13px; padding: 14px 14px; font-size: 15px; font-weight: 600;
+      color: var(--ios-blue); white-space: nowrap; transition: all .2s;
+      display: flex; align-items: center;
+    }
+    .auth-phone-wrap .auth-input { border-radius: 13px; flex: 1; }
 
     /* Operator selector */
     .op-selector { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -94,28 +140,43 @@
     .op-sel-name { font-size: 10px; font-weight: 700; color: var(--primary); text-align: center; }
 
     /* PIN row */
-    .pin-row { display: flex; gap: 8px; justify-content: center; }
-    .pin-digit { width: 44px; height: 52px; border: 1.5px solid #E2E6F0; border-radius: 12px; text-align: center; font-size: 22px; font-weight: 800; color: var(--primary); font-family: inherit; background: #F8FAFF; outline: none; transition: border-color .2s; }
-    .pin-digit:focus { border-color: var(--primary); background: #fff; }
+    .pin-row { display: flex; gap: 10px; justify-content: center; }
+    .pin-digit {
+      width: 52px; height: 58px; border: 1px solid transparent; border-radius: 14px;
+      text-align: center; font-size: 24px; font-weight: 700; color: var(--ios-blue);
+      font-family: inherit; background: var(--ios-surface); outline: none;
+      transition: border-color .2s, background .2s, box-shadow .2s;
+    }
+    .pin-digit:focus {
+      border-color: rgba(11,21,102,.30); background: #fff;
+      box-shadow: 0 0 0 4px rgba(11,21,102,.07);
+    }
 
     /* Form row */
     .auth-form-row { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px; }
     .auth-form-row .auth-input { width: 100%; box-sizing: border-box; }
 
     /* Error / success */
-    .auth-msg { font-size: 13px; border-radius: 10px; padding: 10px 14px; display: none; }
-    .auth-msg.error   { background: #FFF1F2; color: #BE123C; display: block; }
-    .auth-msg.success { background: #F0FDF4; color: #15803D; display: block; }
+    .auth-msg { font-size: 13.5px; border-radius: 12px; padding: 12px 14px; display: none; font-weight: 500; }
+    .auth-msg.error   { background: #FFEDED; color: #D70015; display: block; }
+    .auth-msg.success { background: #E8F8EE; color: #1A8B43; display: block; }
 
-    /* Submit */
-    .auth-submit { background: var(--primary); color: #fff; border: none; border-radius: 14px; padding: 16px; font-size: 16px; font-weight: 800; cursor: pointer; font-family: inherit; transition: opacity .2s, transform .1s; }
-    .auth-submit:hover   { opacity: .9; }
-    .auth-submit:active  { transform: scale(.98); }
-    .auth-submit:disabled{ opacity: .5; cursor: not-allowed; }
+    /* Submit (bouton iOS plein) */
+    .auth-submit {
+      background: var(--ios-blue); color: #fff; border: none; border-radius: 14px;
+      padding: 16px; font-size: 16px; font-weight: 700; cursor: pointer;
+      font-family: inherit; letter-spacing: -0.01em;
+      box-shadow: 0 4px 14px rgba(11,21,102,.22);
+      transition: transform .12s ease, box-shadow .2s, opacity .2s;
+    }
+    .auth-submit:hover   { box-shadow: 0 6px 18px rgba(11,21,102,.28); }
+    .auth-submit:active  { transform: scale(.975); box-shadow: 0 2px 8px rgba(11,21,102,.20); }
+    .auth-submit:disabled{ opacity: .45; cursor: not-allowed; box-shadow: none; }
 
     /* Demo link */
-    .auth-demo-link { text-align: center; font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
-    .auth-demo-link button { background: none; border: none; color: var(--primary); font-weight: 700; cursor: pointer; font-family: inherit; font-size: 13px; text-decoration: underline; }
+    .auth-demo-link { text-align: center; font-size: 14px; color: var(--ios-gray); margin-top: 4px; }
+    .auth-demo-link button { background: none; border: none; color: var(--ios-blue); font-weight: 600; cursor: pointer; font-family: inherit; font-size: 14px; text-decoration: none; }
+    .auth-demo-link button:hover { text-decoration: underline; }
 
     /* Section divider */
     .auth-section-title {
@@ -127,117 +188,108 @@
     .reg-prefix-wrap { position: relative; flex-shrink: 0; }
     .reg-prefix-btn {
       display: flex; align-items: center; gap: 5px;
-      background: #F4F6FF; border: 1.5px solid #E2E6F0; border-right: none;
-      border-radius: 12px 0 0 12px; padding: 13px 12px;
-      font-size: 13px; font-weight: 700; color: var(--primary);
+      background: var(--ios-surface); border: 1px solid transparent;
+      border-radius: 13px; padding: 14px 13px;
+      font-size: 15px; font-weight: 600; color: var(--ios-blue);
       cursor: pointer; white-space: nowrap; font-family: inherit;
-      transition: background .2s, border-color .2s; line-height: 1;
+      transition: background .2s; line-height: 1;
     }
-    .reg-prefix-btn:hover { background: #E8ECFF; border-color: #B0BBD0; }
-    .reg-prefix-arrow { font-size: 10px; color: var(--text-secondary); margin-left: 1px; opacity: .7; }
+    .reg-prefix-btn:hover { background: #EAEAEF; }
+    .reg-prefix-arrow { font-size: 10px; color: var(--ios-gray); margin-left: 1px; opacity: .7; }
     .reg-prefix-dropdown {
-      position: absolute; top: calc(100% + 4px); left: 0; z-index: 50;
-      background: #fff; border: 1.5px solid #E2E6F0; border-radius: 12px;
-      box-shadow: 0 8px 24px rgba(11,21,102,.13); overflow: hidden; min-width: 188px;
+      position: absolute; top: calc(100% + 6px); left: 0; z-index: 50;
+      background: #fff; border: 1px solid var(--ios-border); border-radius: 14px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.12); overflow: hidden; min-width: 200px;
     }
     .reg-prefix-opt {
       display: flex; align-items: center; gap: 10px; width: 100%;
-      padding: 10px 14px; border: none; background: none;
-      cursor: pointer; font-family: inherit; font-size: 14px;
-      color: var(--primary); transition: background .15s;
+      padding: 12px 16px; border: none; background: none;
+      cursor: pointer; font-family: inherit; font-size: 15px;
+      color: var(--ios-blue); transition: background .15s;
     }
-    .reg-prefix-opt:hover { background: #F0F3FF; }
-    .reg-prefix-opt .rpo-code { margin-left: auto; font-size: 12px; color: var(--text-secondary); font-weight: 600; }
+    .reg-prefix-opt:hover { background: var(--ios-surface); }
+    .reg-prefix-opt .rpo-code { margin-left: auto; font-size: 13px; color: var(--ios-gray); font-weight: 500; }
 
-    /* Mobile */
+    /* ════════ MOBILE (style iOS doux) ════════ */
     @media (max-width: 768px) {
       .auth-left  { display: none; }
-      .auth-wrap  { flex-direction: column; background: #0B1566; flex: none; }
+      .auth-wrap  { flex-direction: column; background: var(--ios-bg); flex: none; }
       .auth-right {
         padding: 0 !important;
         align-items: stretch;
-        background: transparent;
+        background: var(--ios-bg);
         min-height: unset;
         flex: none;
       }
 
-      /* Hero banner mobile */
+      /* Barre logo (header clair translucide façon iOS) */
+      .auth-mobile-logo {
+        background: rgba(245,245,247,.82) !important;
+        -webkit-backdrop-filter: saturate(180%) blur(20px);
+        backdrop-filter: saturate(180%) blur(20px);
+        border-bottom: 0.5px solid rgba(0,0,0,.08) !important;
+        justify-content: center;
+      }
+
+      /* Hero clair (plus de bandeau marine criard) */
       .auth-mobile-hero {
-        background: linear-gradient(135deg, #0B1566 0%, #1D2D8A 100%);
-        padding: 72px 24px 44px;
+        background: var(--ios-bg);
+        padding: 78px 24px 18px;
         display: flex;
         flex-direction: column;
         align-items: center;
         text-align: center;
-        position: relative;
-        overflow: hidden;
-      }
-      .auth-mobile-hero::after {
-        content: '';
-        position: absolute;
-        bottom: -50px; right: -50px;
-        width: 200px; height: 200px;
-        border-radius: 50%;
-        background: rgba(200,224,0,.07);
-        pointer-events: none;
       }
       .auth-mobile-hero h2 {
-        font-size: 26px; font-weight: 900; color: #fff;
-        line-height: 1.2; margin-bottom: 10px;
-        position: relative; z-index: 1;
+        font-size: 26px; font-weight: 800; color: var(--ios-blue);
+        line-height: 1.18; margin-bottom: 8px; letter-spacing: -0.02em;
       }
-      .auth-mobile-hero h2 span { color: #C8E600; }
+      .auth-mobile-hero h2 span { color: var(--ios-blue); }
       .auth-mobile-hero p {
-        font-size: 13px; color: rgba(255,255,255,.65);
-        line-height: 1.6; margin-bottom: 18px;
-        position: relative; z-index: 1;
+        font-size: 14px; color: var(--ios-gray);
+        line-height: 1.5; margin-bottom: 16px;
       }
       .auth-mobile-trust {
-        display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
-        position: relative; z-index: 1;
+        display: flex; gap: 7px; flex-wrap: wrap; justify-content: center;
       }
       .auth-mobile-trust-badge {
-        font-size: 10px; font-weight: 700;
-        color: rgba(255,255,255,.85);
-        background: rgba(255,255,255,.13);
+        font-size: 11px; font-weight: 600;
+        color: #6B6B70;
+        background: #fff;
+        border: 0.5px solid rgba(0,0,0,.06);
+        box-shadow: 0 1px 2px rgba(0,0,0,.04);
         border-radius: 20px; padding: 5px 12px;
       }
 
-      /* Card section (white) — arrondi qui chevauche le hero */
+      /* Section = carte blanche flottante (coins arrondis partout) */
       .auth-card-section {
-        background: #fff;
-        border-radius: 24px 24px 0 0;
-        margin-top: -24px;
-        position: relative;
-        z-index: 2;
-        padding: 28px 20px 16px;
+        background: transparent;
+        padding: 8px 16px calc(16px + env(safe-area-inset-bottom));
         flex: 1;
       }
 
-      /* Card elle-même devient transparente (la section porte le bg) */
       .auth-card {
-        border-radius: 0;
-        box-shadow: none;
-        padding: 0;
+        border-radius: 20px;
+        box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 28px rgba(11,21,102,.07);
+        padding: 26px 20px 24px;
         max-width: 100%;
-        background: transparent;
+        background: #fff;
       }
-      .auth-card-title { font-size: 20px; }
-      .auth-card-sub   { font-size: 12px; margin-bottom: 16px; }
+      .auth-card-title { font-size: 21px; }
+      .auth-card-sub   { font-size: 13px; margin-bottom: 20px; }
 
-      /* Country buttons — compacts */
-      .country-selector { gap: 6px; }
-      .country-btn { padding: 8px 3px; border-radius: 10px; }
-      .country-btn .c-flag  { font-size: 20px; }
-      .country-btn .c-name  { font-size: 8px; }
-      .country-btn .c-code  { font-size: 9px; }
+      /* Country buttons compacts mais lisibles */
+      .country-selector { gap: 7px; }
+      .country-btn { padding: 9px 4px; border-radius: 13px; }
+      .country-btn .c-flag  { font-size: 22px; }
+      .country-btn .c-name  { font-size: 9px; }
+      .country-btn .c-code  { font-size: 10px; }
 
-      /* PIN digits */
-      .pin-digit { width: 42px; height: 50px; }
+      .pin-digit { width: 48px; height: 56px; }
     }
 
     @media (max-width: 380px) {
-      .pin-digit { width: 36px; height: 44px; font-size: 18px; }
+      .pin-digit { width: 42px; height: 50px; font-size: 21px; }
       .country-btn .c-name { display: none; }
     }
 
@@ -250,21 +302,20 @@
 </head>
 <body>
 
-<!-- Mobile logo (barre fixe) -->
-<a href="/" class="auth-mobile-logo" style="position:fixed;top:0;left:0;width:100%;background:#0B1566;border-bottom:1px solid rgba(255,255,255,.1);z-index:100;padding:14px 20px;">
-  <img src="logo.svg" alt="Epargn+" style="width:28px;height:28px;" />
-  <span style="font-size:18px;font-weight:900;color:#fff;">Epargn<strong style="color:#C8E600;">+</strong></span>
+<!-- Mobile logo (barre fixe translucide iOS) -->
+<a href="/" class="auth-mobile-logo" style="position:fixed;top:0;left:0;width:100%;z-index:100;padding:13px 20px;gap:9px;">
+  <img src="logo.svg" alt="Epargn+" style="width:26px;height:26px;" />
+  <span style="font-size:18px;font-weight:800;color:#0B1566;letter-spacing:-0.02em;">Epargn<strong style="color:#0B1566;">+</strong></span>
 </a>
 
-<!-- Hero mobile (visible uniquement sur mobile) -->
+<!-- Hero mobile (clair, visible uniquement sur mobile) -->
 <div class="auth-mobile-hero">
-  <h2>L'épargne <span>sans attendre</span><br/>son tour.</h2>
-  <p>Guinée · Bénin · Côte d'Ivoire<br/>Épargne Mobile Money, sans banque.</p>
+  <h2>L'épargne sans attendre<br/>son tour.</h2>
+  <p>Guinée · Bénin · Côte d'Ivoire</p>
   <div class="auth-mobile-trust">
     <div class="auth-mobile-trust-badge">🔒 Chiffré</div>
     <div class="auth-mobile-trust-badge">✅ Gratuit</div>
     <div class="auth-mobile-trust-badge">📱 Mobile Money</div>
-    <div class="auth-mobile-trust-badge">🌍 3 Pays</div>
   </div>
 </div>
 
@@ -644,13 +695,13 @@
   </div>
 </div>
 
-<footer style="text-align:center;padding:16px 16px 32px;font-size:11px;color:#8A90A6;line-height:1.9;background:#fff;border-top:1px solid #F0F0F8;">
+<footer style="text-align:center;padding:8px 24px 32px;font-size:11.5px;color:#9A9AA0;line-height:1.9;background:transparent;">
   En continuant, vous acceptez nos
   <a href="/cgu" style="color:#0B1566;font-weight:600;">Conditions d'utilisation</a> et notre
   <a href="/confidentialite" style="color:#0B1566;font-weight:600;">Politique de confidentialité</a>.<br>
-  <a href="/suppression-compte" style="color:#9CA3AF;">Suppression de compte</a>
-  <span style="margin:0 6px;color:#D1D5DB;">·</span>
-  <span>© 2026 Epargn+ · <a href="https://koutoukiexpress.com" target="_blank" style="color:#9CA3AF;">Koutouki Express</a></span>
+  <a href="/suppression-compte" style="color:#9A9AA0;">Suppression de compte</a>
+  <span style="margin:0 6px;color:#C8C8CD;">·</span>
+  <span>© 2026 Epargn+ · <a href="https://koutoukiexpress.com" target="_blank" style="color:#9A9AA0;">Koutouki Express</a></span>
 </footer>
 
 <script>
