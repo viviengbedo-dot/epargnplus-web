@@ -18,10 +18,10 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { min-height: 100vh; background: #F4F6FF; font-family: 'Inter', sans-serif; display: flex; }
+    body { min-height: 100vh; background: #F4F6FF; font-family: 'Inter', sans-serif; display: flex; flex-direction: column; }
 
     /* ── Layout ── */
-    .auth-wrap   { display: flex; width: 100%; min-height: 100vh; }
+    .auth-wrap   { display: flex; width: 100%; flex: 1; min-height: 0; }
     .auth-left   { width: 42%; background: var(--primary); display: flex; flex-direction: column; padding: 48px 40px; position: relative; overflow: hidden; }
     .auth-right  { flex: 1; display: flex; align-items: center; justify-content: center; padding: 32px 24px; }
 
@@ -151,26 +151,122 @@
 
     /* Mobile */
     @media (max-width: 768px) {
-      .auth-left { display: none; }
-      .auth-right { padding: 20px 16px; align-items: flex-start; padding-top: 0; }
-      .auth-card { border-radius: 0; box-shadow: none; padding: 20px 16px; max-width: 100%; }
-      .auth-wrap { background: #fff; }
-      .auth-mobile-logo { display: flex; align-items: center; gap: 10px; padding: 20px 16px 8px; text-decoration: none; }
-      .auth-mobile-logo img { width: 32px; height: 32px; }
-      .auth-mobile-logo span { font-size: 20px; font-weight: 900; color: var(--primary); }
+      .auth-left  { display: none; }
+      .auth-wrap  { flex-direction: column; background: #0B1566; flex: none; }
+      .auth-right {
+        padding: 0 !important;
+        align-items: stretch;
+        background: transparent;
+        min-height: unset;
+        flex: none;
+      }
+
+      /* Hero banner mobile */
+      .auth-mobile-hero {
+        background: linear-gradient(135deg, #0B1566 0%, #1D2D8A 100%);
+        padding: 72px 24px 44px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+      }
+      .auth-mobile-hero::after {
+        content: '';
+        position: absolute;
+        bottom: -50px; right: -50px;
+        width: 200px; height: 200px;
+        border-radius: 50%;
+        background: rgba(200,224,0,.07);
+        pointer-events: none;
+      }
+      .auth-mobile-hero h2 {
+        font-size: 26px; font-weight: 900; color: #fff;
+        line-height: 1.2; margin-bottom: 10px;
+        position: relative; z-index: 1;
+      }
+      .auth-mobile-hero h2 span { color: #C8E600; }
+      .auth-mobile-hero p {
+        font-size: 13px; color: rgba(255,255,255,.65);
+        line-height: 1.6; margin-bottom: 18px;
+        position: relative; z-index: 1;
+      }
+      .auth-mobile-trust {
+        display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+        position: relative; z-index: 1;
+      }
+      .auth-mobile-trust-badge {
+        font-size: 10px; font-weight: 700;
+        color: rgba(255,255,255,.85);
+        background: rgba(255,255,255,.13);
+        border-radius: 20px; padding: 5px 12px;
+      }
+
+      /* Card section (white) — arrondi qui chevauche le hero */
+      .auth-card-section {
+        background: #fff;
+        border-radius: 24px 24px 0 0;
+        margin-top: -24px;
+        position: relative;
+        z-index: 2;
+        padding: 28px 20px 16px;
+        flex: 1;
+      }
+
+      /* Card elle-même devient transparente (la section porte le bg) */
+      .auth-card {
+        border-radius: 0;
+        box-shadow: none;
+        padding: 0;
+        max-width: 100%;
+        background: transparent;
+      }
+      .auth-card-title { font-size: 20px; }
+      .auth-card-sub   { font-size: 12px; margin-bottom: 16px; }
+
+      /* Country buttons — compacts */
+      .country-selector { gap: 6px; }
+      .country-btn { padding: 8px 3px; border-radius: 10px; }
+      .country-btn .c-flag  { font-size: 20px; }
+      .country-btn .c-name  { font-size: 8px; }
+      .country-btn .c-code  { font-size: 9px; }
+
+      /* PIN digits */
+      .pin-digit { width: 42px; height: 50px; }
     }
+
+    @media (max-width: 380px) {
+      .pin-digit { width: 36px; height: 44px; font-size: 18px; }
+      .country-btn .c-name { display: none; }
+    }
+
     @media (min-width: 769px) {
-      .auth-mobile-logo { display: none; }
+      .auth-mobile-logo  { display: none !important; }
+      .auth-mobile-hero  { display: none !important; }
+      .auth-card-section { display: contents; }
     }
   </style>
 </head>
 <body>
 
-<!-- Mobile logo -->
-<a href="/" class="auth-mobile-logo" style="position:fixed;top:0;left:0;width:100%;background:#fff;border-bottom:1px solid #E2E6F0;z-index:100;">
-  <img src="logo.svg" alt="Epargn+" />
-  <span>Epargn<strong style="color:var(--accent);">+</strong></span>
+<!-- Mobile logo (barre fixe) -->
+<a href="/" class="auth-mobile-logo" style="position:fixed;top:0;left:0;width:100%;background:#0B1566;border-bottom:1px solid rgba(255,255,255,.1);z-index:100;padding:14px 20px;">
+  <img src="logo.svg" alt="Epargn+" style="width:28px;height:28px;" />
+  <span style="font-size:18px;font-weight:900;color:#fff;">Epargn<strong style="color:#C8E600;">+</strong></span>
 </a>
+
+<!-- Hero mobile (visible uniquement sur mobile) -->
+<div class="auth-mobile-hero">
+  <h2>L'épargne <span>sans attendre</span><br/>son tour.</h2>
+  <p>Guinée · Bénin · Côte d'Ivoire<br/>Épargne Mobile Money, sans banque.</p>
+  <div class="auth-mobile-trust">
+    <div class="auth-mobile-trust-badge">🔒 Chiffré</div>
+    <div class="auth-mobile-trust-badge">✅ Gratuit</div>
+    <div class="auth-mobile-trust-badge">📱 Mobile Money</div>
+    <div class="auth-mobile-trust-badge">🌍 3 Pays</div>
+  </div>
+</div>
 
 <div class="auth-wrap">
 
@@ -245,6 +341,7 @@
 
   <!-- ── Right panel ── -->
   <div class="auth-right" style="padding-top:60px;">
+    <div class="auth-card-section">
     <div class="auth-card">
       <div class="auth-card-title">Bienvenue sur Epargn+ 👋</div>
       <div class="auth-card-sub">Connectez-vous ou créez votre compte en 2 minutes.</div>
@@ -543,15 +640,17 @@
 
       </form>
     </div>
+    </div><!-- /auth-card-section -->
   </div>
 </div>
 
-<footer style="text-align:center;padding:18px 16px 28px;font-size:12px;color:#8A90A6;line-height:1.8;">
+<footer style="text-align:center;padding:16px 16px 32px;font-size:11px;color:#8A90A6;line-height:1.9;background:#fff;border-top:1px solid #F0F0F8;">
   En continuant, vous acceptez nos
   <a href="/cgu" style="color:#0B1566;font-weight:600;">Conditions d'utilisation</a> et notre
   <a href="/confidentialite" style="color:#0B1566;font-weight:600;">Politique de confidentialité</a>.<br>
-  <a href="/suppression-compte" style="color:#8A90A6;">Suppression de compte</a> ·
-  <span>© 2026 Epargn+ — une branche de Koutouki Express</span>
+  <a href="/suppression-compte" style="color:#9CA3AF;">Suppression de compte</a>
+  <span style="margin:0 6px;color:#D1D5DB;">·</span>
+  <span>© 2026 Epargn+ · <a href="https://koutoukiexpress.com" target="_blank" style="color:#9CA3AF;">Koutouki Express</a></span>
 </footer>
 
 <script>
