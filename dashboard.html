@@ -1178,20 +1178,20 @@
     <div style="font-size:13px;font-weight:700;color:var(--primary);margin-bottom:8px;">Comment ça marche :</div>
     <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
       <div style="display:flex;gap:10px;align-items:flex-start;"><div style="width:22px;height:22px;border-radius:50%;background:var(--primary);color:#C8E600;font-weight:900;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">1</div><div style="font-size:13px;color:#374151;">Vous acceptez et laissez vos instructions.</div></div>
-      <div style="display:flex;gap:10px;align-items:flex-start;"><div style="width:22px;height:22px;border-radius:50%;background:var(--primary);color:#C8E600;font-weight:900;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">2</div><div style="font-size:13px;color:#374151;">Koutouki agit immédiatement — votre bien est sécurisé.</div></div>
+      <div style="display:flex;gap:10px;align-items:flex-start;"><div style="width:22px;height:22px;border-radius:50%;background:var(--primary);color:#C8E600;font-weight:900;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">2</div><div style="font-size:13px;color:#374151;">Koutouki agit immédiatement. Votre bien est sécurisé.</div></div>
       <div style="display:flex;gap:10px;align-items:flex-start;"><div style="width:22px;height:22px;border-radius:50%;background:var(--primary);color:#C8E600;font-weight:900;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">3</div><div style="font-size:13px;color:#374151;">Vous continuez d'épargner. À 100%, votre bien vous est remis.</div></div>
     </div>
     <div class="form-group">
       <label class="form-label">Vos instructions pour Koutouki (optionnel mais recommandé)</label>
       <textarea id="koInstructions" class="form-control" rows="3"
-        placeholder="Ex : Terrain à Ratoma entre 15-20M GNF / Billet Conakry–Paris août 2026 / iPhone 15 Pro sur Amazon…"
+        placeholder="Ex : Terrain à Coyah autour de 80M GNF / Billet Conakry Paris août 2026 classe économique / iPhone 15 Pro Max sur Amazon…"
         style="resize:none;"></textarea>
     </div>
     <div id="koError" style="color:var(--error);font-size:13px;margin-bottom:12px;display:none;"></div>
     <button id="koSubmitBtn" class="btn btn-accent" style="width:100%;padding:14px;font-weight:800;font-size:15px;"
       onclick="submitKoutoukiOffer()">Confirmer ma demande →</button>
     <button onclick="closeModal('koutoukiOffer')" style="width:100%;margin-top:10px;background:none;border:none;color:var(--text-secondary);font-size:13px;cursor:pointer;padding:8px;">
-      Plus tard — continuer d'épargner normalement
+      Plus tard, je continue d'épargner normalement
     </button>
   </div>
 </div>
@@ -10610,7 +10610,7 @@ var KOUTOUKI_SERVICE_INFO = {
     color: '#059669',
     bg: '#F0FDF4',
     pitch: 'Votre bien est déjà sécurisé dès 60%',
-    desc: 'Koutouki Immo identifie et réserve votre terrain ou bien immobilier maintenant. Vous continuez à épargner tranquillement — à 100%, il vous appartient.',
+    desc: 'Koutouki Immo identifie et réserve votre terrain ou bien immobilier maintenant. Vous continuez à épargner tranquillement. À 100%, il vous appartient.',
   },
   travel: {
     name: 'Koutouki Travel',
@@ -10618,7 +10618,7 @@ var KOUTOUKI_SERVICE_INFO = {
     color: '#2563EB',
     bg: '#EFF6FF',
     pitch: 'Votre voyage est déjà réservé dès 60%',
-    desc: 'Koutouki Travel réserve vos billets ou organise votre voyage maintenant. Finissez d\'épargner en sachant que votre départ est sécurisé.',
+    desc: 'Koutouki Travel réserve vos billets ou organise votre voyage maintenant. Vous continuez à épargner. Votre départ est sécurisé.',
   },
   express: {
     name: 'Koutouki Express',
