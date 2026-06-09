@@ -2185,7 +2185,7 @@ async function handleDateRequests(req, res, payload) {
       }
       const result = await supabaseRequest('POST', '/project_date_requests', {
         project_id, user_id: userId,
-        current_date: project.duree || '—',
+        date_actuelle: project.duree || '—',
         requested_date: requested_date.trim(),
         reason: reason.trim(),
         status: 'pending',

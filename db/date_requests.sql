@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS public.project_date_requests (
   id              uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id      uuid        NOT NULL,
   user_id         uuid        NOT NULL,
-  current_date    text        NOT NULL,   -- date actuelle (ISO ou durée ex: "2026-12")
+  date_actuelle   text        NOT NULL,   -- date actuelle (ISO ou durée ex: "2026-12")
   requested_date  text        NOT NULL,   -- nouvelle date demandée
   reason          text        NOT NULL,   -- justificatif obligatoire
   status          text        NOT NULL DEFAULT 'pending'
