@@ -253,6 +253,61 @@ module.exports = async (req, res) => {
     } catch (e) { return res.status(500).json({ error: e.message }); }
   }
 
+  /* ════════════ SEND-PUSH ════════════
+     Envoie une notification Web Push à un user ou à tous les abonnés.
+     Body : { action:'send-push', target:'user'|'all', user_id?, title, body:msg, url?, tag?, icon? }
+     (fusionné depuis api/admin/send-push.js — limite 12 fonctions Hobby) */
+  if (action === 'send-push') {
+    const VAPID_PUBLIC  = process.env.VAPID_PUBLIC_KEY;
+    const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY;
+    if (!VAPID_PUBLIC || !VAPID_PRIVATE) {
+      return res.status(500).json({ error: 'VAPID_PUBLIC_KEY et VAPID_PRIVATE_KEY requis dans les variables Vercel' });
+    }
+    const { target, user_id, title, body: msgBody, url, tag, icon } = body;
+    if (!title || !msgBody) return res.status(400).json({ error: 'title et body requis' });
+
+    let webpush;
+    try { webpush = require('web-push'); }
+    catch { return res.status(500).json({ error: 'Module web-push indisponible' }); }
+    webpush.setVapidDetails('mailto:ceo@epargnplus.com', VAPID_PUBLIC, VAPID_PRIVATE);
+
+    let subs = [];
+    try {
+      const qs = target === 'user' && user_id
+        ? '/push_subscriptions?user_id=eq.' + encodeURIComponent(user_id) + '&select=*'
+        : '/push_subscriptions?select=*&limit=500';
+      subs = await supabaseRequest('GET', qs);
+      if (!Array.isArray(subs)) subs = [];
+    } catch (e) {
+      return res.status(500).json({ error: 'Erreur lecture abonnements : ' + e.message });
+    }
+    if (subs.length === 0) return res.status(200).json({ ok: true, sent: 0, message: 'Aucun abonné' });
+
+    const payloadStr = JSON.stringify({
+      title, body: msgBody,
+      url:  url  || '/espace-client',
+      tag:  tag  || 'epargnplus',
+      icon: icon || '/icon-192.png',
+    });
+
+    let sent = 0, failed = 0; const expired = [];
+    await Promise.allSettled(subs.map(async (sub) => {
+      try {
+        await webpush.sendNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          payloadStr, { TTL: 86400 });
+        sent++;
+      } catch (e) {
+        failed++;
+        if (e.statusCode === 410 || e.statusCode === 404) expired.push(sub.endpoint);
+      }
+    }));
+    for (const ep of expired) {
+      supabaseRequest('DELETE', '/push_subscriptions?endpoint=eq.' + encodeURIComponent(ep)).catch(() => {});
+    }
+    return res.status(200).json({ ok: true, sent, failed, expired: expired.length });
+  }
+
   /* ════════════ APPROVE-GOAL-REQUEST ════════════ */
   if (action === 'approve-goal-request') {
     const { requestId, admin_note } = body;

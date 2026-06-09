@@ -10604,7 +10604,7 @@ function sendSubToServer(sub) {
   var j = sub.toJSON();
   var device = /iPhone|iPad/.test(navigator.userAgent) ? 'iOS'
     : /Android/.test(navigator.userAgent) ? 'Android' : 'Desktop';
-  fetch('/api/user/push-subscribe', {
+  fetch('/api/user/me?resource=push', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
     body: JSON.stringify({
