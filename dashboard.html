@@ -1044,6 +1044,15 @@
                 </div>
                 <label class="toggle"><input type="checkbox" /><span class="slider"></span></label>
               </div>
+
+              <!-- Bouton push notifications -->
+              <div style="padding-top:8px;border-top:1px solid var(--divider);">
+                <div style="font-weight:600;font-size:14px;margin-bottom:6px;">📲 Rappels push sur votre téléphone</div>
+                <div class="text-muted" style="font-size:12px;margin-bottom:10px;">Recevez une notification avant chaque date de versement, même quand l'app est fermée.</div>
+                <button id="pushPermBtn" class="btn btn-outline" style="width:100%;font-weight:700;" onclick="requestPushPermission();setTimeout(updatePushBtn,500);">
+                  🔔 Activer les notifications push
+                </button>
+              </div>
             </div>
           </div>
           <div class="card">
@@ -3608,9 +3617,12 @@ document.addEventListener('DOMContentLoaded', () => {
   _tontineMarkLates();
   renderTontineStats();
   renderUserTontines();
+  setTimeout(startCountdownTimers, 600);
   // Profil étendu & photo
   loadExtendedProfile();
   applyProfilePhoto();
+  // Push notification button state
+  setTimeout(updatePushBtn, 800);
 });
 
 /* ── SIDEBAR ── */
@@ -7677,10 +7689,8 @@ function requestAppPermissions() {
       .then(s => { s.getTracks().forEach(t => t.stop()); })
       .catch(() => {});
   }
-  // Notifications
-  if ('Notification' in window && Notification.permission === 'default') {
-    Notification.requestPermission();
-  }
+  // Notifications push
+  initPushNotifications();
 }
 
 function startCameraPreview(containerId, facingMode) {
@@ -8785,8 +8795,20 @@ function renderUserTontines() {
         ${durationHtml}
       </div>
 
-      <!-- ── Countdown prochain dépôt ── -->
-      <div style="margin-bottom:12px;">${countdownHtml}</div>
+      <!-- ── Countdown prochain dépôt (live timer) ── -->
+      <div style="margin-bottom:12px;">
+        ${countdownHtml}
+        ${(function(){
+          /* Calcul deadline prochaine échéance pour le timer live */
+          try {
+            var now2 = new Date();
+            var day  = t.depositDay || 10;
+            var dl   = new Date(now2.getFullYear(), now2.getMonth(), day, 23, 59, 0);
+            if (dl <= now2) dl.setMonth(dl.getMonth() + 1);
+            return '<div data-deposit-deadline="' + dl.toISOString() + '" style="margin-top:4px;"></div>';
+          } catch(e) { return ''; }
+        })()}
+      </div>
 
       <!-- ── Statuts membres période courante ── -->
       <div style="margin-bottom:4px;">
@@ -10505,6 +10527,156 @@ window.addEventListener('load', function() {
     }
   }, 2000);
 });
+
+/* ════════════════════════════════════════════════
+   PUSH NOTIFICATIONS — Web Push API
+════════════════════════════════════════════════ */
+var VAPID_PUBLIC_KEY = 'BPsM3DcignhHDnzSGsisTOxc0mJsQGEJ3mfUMk7kTugoNszGSXbzWnrDEkJn6dBTaG1hTldZdy4kZGNecops_rs';
+
+function urlBase64ToUint8Array(base64String) {
+  var padding = '='.repeat((4 - base64String.length % 4) % 4);
+  var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  var rawData = window.atob(base64);
+  var arr = new Uint8Array(rawData.length);
+  for (var i = 0; i < rawData.length; i++) arr[i] = rawData.charCodeAt(i);
+  return arr;
+}
+
+function initPushNotifications() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+  /* Enregistrer le service worker */
+  navigator.serviceWorker.register('/sw.js').then(function(reg) {
+    window._swReg = reg;
+    /* Si déjà autorisé, s'abonner silencieusement */
+    if (Notification.permission === 'granted') {
+      subscribePush(reg);
+    }
+    /* Écoute les messages du SW (navigation) */
+    navigator.serviceWorker.addEventListener('message', function(e) {
+      if (e.data && e.data.type === 'navigate' && e.data.url) {
+        var id = e.data.url.replace('/', '').split('#')[0] || 'home';
+        if (typeof showSection === 'function') showSection(id, null);
+      }
+    });
+  }).catch(function() {});
+}
+
+function requestPushPermission() {
+  if (!('Notification' in window)) {
+    showToast('Votre navigateur ne supporte pas les notifications.', 'info');
+    return;
+  }
+  if (Notification.permission === 'granted') {
+    if (window._swReg) subscribePush(window._swReg);
+    showToast('✅ Notifications déjà activées.', 'success');
+    return;
+  }
+  if (Notification.permission === 'denied') {
+    showToast('Notifications bloquées. Modifiez les paramètres de votre navigateur.', 'info');
+    return;
+  }
+  Notification.requestPermission().then(function(permission) {
+    if (permission === 'granted') {
+      if (window._swReg) subscribePush(window._swReg);
+      showToast('🔔 Notifications activées ! Vous recevrez vos rappels de dépôt.', 'success');
+      /* Mettre à jour le bouton */
+      updatePushBtn();
+    }
+  });
+}
+
+function subscribePush(reg) {
+  if (!_authToken) return;
+  reg.pushManager.getSubscription().then(function(existing) {
+    if (existing) { sendSubToServer(existing); return; }
+    reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+    }).then(function(sub) {
+      sendSubToServer(sub);
+    }).catch(function() {});
+  }).catch(function() {});
+}
+
+function sendSubToServer(sub) {
+  if (!_authToken) return;
+  var j = sub.toJSON();
+  var device = /iPhone|iPad/.test(navigator.userAgent) ? 'iOS'
+    : /Android/.test(navigator.userAgent) ? 'Android' : 'Desktop';
+  fetch('/api/user/push-subscribe', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
+    body: JSON.stringify({
+      endpoint:    j.endpoint,
+      p256dh:      j.keys.p256dh,
+      auth:        j.keys.auth,
+      device_hint: device,
+    }),
+  }).catch(function() {});
+}
+
+function updatePushBtn() {
+  var btn = document.getElementById('pushPermBtn');
+  if (!btn) return;
+  if (!('Notification' in window)) { btn.style.display = 'none'; return; }
+  if (Notification.permission === 'granted') {
+    btn.textContent = '🔔 Notifications activées';
+    btn.style.background = '#F0FDF4';
+    btn.style.color = '#059669';
+    btn.style.cursor = 'default';
+  } else if (Notification.permission === 'denied') {
+    btn.textContent = '🔕 Notifications bloquées';
+    btn.style.background = '#FEF2F2';
+    btn.style.color = '#DC2626';
+    btn.style.cursor = 'default';
+  }
+}
+
+/* ══════════════════════════════════════════════
+   COUNTDOWN DÉPÔT — Timer live (tontines)
+════════════════════════════════════════════════ */
+var _countdownTimer = null;
+
+function startCountdownTimers() {
+  if (_countdownTimer) clearInterval(_countdownTimer);
+  updateAllCountdowns();
+  _countdownTimer = setInterval(updateAllCountdowns, 60000); /* toutes les minutes */
+}
+
+function updateAllCountdowns() {
+  document.querySelectorAll('[data-deposit-deadline]').forEach(function(el) {
+    var deadlineStr = el.getAttribute('data-deposit-deadline');
+    if (!deadlineStr) return;
+    var deadline = new Date(deadlineStr);
+    var now      = new Date();
+    var diffMs   = deadline - now;
+
+    if (diffMs <= 0) {
+      el.innerHTML = '<span style="color:#DC2626;font-weight:700;">⚠️ Dépôt en retard !</span>';
+      return;
+    }
+    var diffH = Math.floor(diffMs / 3600000);
+    var diffD = Math.floor(diffH / 24);
+    var remH  = diffH % 24;
+
+    var txt, color;
+    if (diffD === 0 && diffH < 6) {
+      txt = '🔴 Dans ' + diffH + 'h' + (remH > 0 ? remH + 'min' : '');
+      color = '#DC2626';
+    } else if (diffD <= 1) {
+      txt = '🟠 Dans ' + (diffH) + 'h';
+      color = '#D97706';
+    } else if (diffD <= 3) {
+      txt = '🟡 Dans ' + diffD + ' jour' + (diffD > 1 ? 's' : '');
+      color = '#92400E';
+    } else {
+      txt = '⏰ Dans ' + diffD + ' jours';
+      color = '#0B1566';
+    }
+    el.innerHTML = '<span style="font-size:13px;font-weight:700;color:' + color + ';">' + txt + '</span>';
+  });
+}
 
 /* ══════════════════════════════════════════════
    iOS BACK GESTURE — History API

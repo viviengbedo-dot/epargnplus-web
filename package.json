@@ -5,5 +5,7 @@
   "scripts": {
     "build": "echo 'Static site — no build step'"
   },
-  "dependencies": {}
+  "dependencies": {
+    "web-push": "^3.6.7"
+  }
 }
