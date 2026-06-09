@@ -1148,6 +1148,37 @@ a { text-decoration: none; color: inherit; }
 }
 
 /* ════════════════════════════════════════
+   iOS / PWA FIXES
+   ════════════════════════════════════════ */
+
+/* Scroll fluide iOS sur le conteneur principal */
+.dash-main {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  height: 100dvh; /* dynamic viewport height — évite les bugs iPhone barre d'adresse */
+}
+.dash-content {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Évite que le body bloque le geste de retour iOS */
+body {
+  overscroll-behavior-x: none; /* désactive pull-to-refresh horizontal */
+}
+
+/* Safe area insets (notch iPhone) */
+.dash-topbar {
+  padding-top: max(0px, env(safe-area-inset-top));
+}
+.bottom-nav {
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+  height: calc(64px + env(safe-area-inset-bottom));
+}
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .dash-content { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
+}
+
+/* ════════════════════════════════════════
    OPERATOR LOGO COLOURS
    ════════════════════════════════════════ */
 

@@ -187,6 +187,72 @@ module.exports = async (req, res) => {
     }
   }
 
+  /* ════════════ APPROVE-DATE-REQUEST ════════════ */
+  if (action === 'approve-date-request') {
+    const { requestId, admin_note } = body;
+    if (!requestId) return res.status(400).json({ error: 'requestId requis' });
+    try {
+      const reqs = await supabaseRequest('GET',
+        '/project_date_requests?id=eq.' + encodeURIComponent(requestId) + '&select=*&limit=1');
+      const r = Array.isArray(reqs) && reqs[0];
+      if (!r) return res.status(404).json({ error: 'Demande introuvable' });
+      if (r.status !== 'pending') return res.status(409).json({ error: 'Déjà traitée' });
+      await supabaseRequest('PATCH', '/projects?id=eq.' + encodeURIComponent(r.project_id),
+        { duree: r.requested_date });
+      await supabaseRequest('PATCH', '/project_date_requests?id=eq.' + encodeURIComponent(requestId),
+        { status: 'approved', admin_note: admin_note || null, updated_at: now });
+      await createNotification(r.user_id, 'date_approved',
+        '✅ Modification de date approuvée',
+        `La date de fin de votre projet a été mise à jour : ${r.requested_date}.`, {});
+      return res.status(200).json({ ok: true, action: 'approve-date-request' });
+    } catch (e) { return res.status(500).json({ error: e.message }); }
+  }
+
+  /* ════════════ REJECT-DATE-REQUEST ════════════ */
+  if (action === 'reject-date-request') {
+    const { requestId, admin_note } = body;
+    if (!requestId) return res.status(400).json({ error: 'requestId requis' });
+    try {
+      const reqs = await supabaseRequest('GET',
+        '/project_date_requests?id=eq.' + encodeURIComponent(requestId) + '&select=*&limit=1');
+      const r = Array.isArray(reqs) && reqs[0];
+      if (!r) return res.status(404).json({ error: 'Demande introuvable' });
+      await supabaseRequest('PATCH', '/project_date_requests?id=eq.' + encodeURIComponent(requestId),
+        { status: 'rejected', admin_note: admin_note || null, updated_at: now });
+      await createNotification(r.user_id, 'date_rejected',
+        '❌ Modification de date refusée',
+        `Votre demande de modification de date a été refusée.${admin_note ? ' Motif : ' + admin_note : ''}`, {});
+      return res.status(200).json({ ok: true, action: 'reject-date-request' });
+    } catch (e) { return res.status(500).json({ error: e.message }); }
+  }
+
+  /* ════════════ UPDATE-KOUTOUKI-OFFER ════════════ */
+  if (action === 'update-koutouki-offer') {
+    const { offerId, status, admin_note } = body;
+    if (!offerId || !status) return res.status(400).json({ error: 'offerId et status requis' });
+    const allowed = ['reviewing','confirmed','in_progress','completed','cancelled'];
+    if (!allowed.includes(status)) return res.status(400).json({ error: 'status invalide' });
+    try {
+      const rows = await supabaseRequest('GET',
+        '/koutouki_offers?id=eq.' + encodeURIComponent(offerId) + '&select=*&limit=1');
+      const offer = Array.isArray(rows) && rows[0];
+      if (!offer) return res.status(404).json({ error: 'Offre introuvable' });
+      const patch = { status, admin_note: admin_note || null, updated_at: now };
+      if (status === 'completed') patch.completed_at = now;
+      await supabaseRequest('PATCH', '/koutouki_offers?id=eq.' + encodeURIComponent(offerId), patch);
+      const msgMap = {
+        confirmed:   '✅ Votre dossier Koutouki a été confirmé — nous passons à l\'action !',
+        in_progress: '🔨 Votre réalisation est en cours. Continuez à épargner !',
+        completed:   '🎉 Votre objectif a été réalisé par Koutouki ! Félicitations.',
+        cancelled:   'Votre offre Koutouki a été annulée.' + (admin_note ? ' Motif : ' + admin_note : ''),
+      };
+      if (msgMap[status]) {
+        await createNotification(offer.user_id, 'koutouki_' + status, 'Koutouki Express', msgMap[status], { offer_id: offerId });
+      }
+      return res.status(200).json({ ok: true, action: 'update-koutouki-offer', status });
+    } catch (e) { return res.status(500).json({ error: e.message }); }
+  }
+
   /* ════════════ APPROVE-GOAL-REQUEST ════════════ */
   if (action === 'approve-goal-request') {
     const { requestId, admin_note } = body;

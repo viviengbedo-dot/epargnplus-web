@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Epargn+ — Espace Client | epargnplus.com</title>
   <meta name="description" content="Votre espace client Epargn+ — gérez votre épargne, vos projets et votre épargne collective sur epargnplus.com" />
   <meta property="og:url" content="https://epargnplus.com/dashboard.html" />
@@ -1127,6 +1127,73 @@
     </nav>
 
   </main>
+</div>
+
+<!-- ══ MODAL : Modification date de fin ══ -->
+<div class="modal-overlay" id="modal-dateRequest" onclick="handleOverlayClick(event,'modal-dateRequest')">
+  <div class="modal" style="max-width:460px;">
+    <button class="modal-close" onclick="closeModal('modal-dateRequest')">✕</button>
+    <div style="font-size:36px;text-align:center;margin-bottom:6px;">📅</div>
+    <div class="modal-title" style="text-align:center;">Modifier la date de fin</div>
+    <div class="modal-sub" style="text-align:center;margin-bottom:18px;">
+      <strong id="drProjectNom">—</strong><br>
+      Date actuelle : <strong id="drCurrentDate">—</strong>
+    </div>
+    <input type="hidden" id="drProjectId" />
+    <div class="form-group">
+      <label class="form-label">Nouvelle date souhaitée <span style="color:var(--error);">*</span></label>
+      <input type="month" id="drNewDate" class="form-control" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Justificatif obligatoire <span style="color:var(--error);">*</span></label>
+      <textarea id="drReason" class="form-control" rows="3"
+        placeholder="Ex : Mon projet a pris du retard car… / J'ai besoin de délai supplémentaire car…"
+        style="resize:none;"></textarea>
+      <div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">Soumis à validation administrateur.</div>
+    </div>
+    <div id="drError" style="color:var(--error);font-size:13px;margin-bottom:12px;display:none;"></div>
+    <button id="drSubmitBtn" class="btn btn-accent" style="width:100%;padding:14px;font-weight:700;"
+      onclick="submitDateRequest()">Envoyer la demande →</button>
+  </div>
+</div>
+
+<!-- ══ MODAL : Offre Koutouki ══ -->
+<div class="modal-overlay" id="modal-koutoukiOffer" onclick="handleOverlayClick(event,'modal-koutoukiOffer')">
+  <div class="modal" style="max-width:500px;max-height:92vh;overflow-y:auto;">
+    <button class="modal-close" onclick="closeModal('modal-koutoukiOffer')">✕</button>
+    <input type="hidden" id="koProjectId" />
+    <input type="hidden" id="koService" />
+    <div id="koServiceBadge" style="border-radius:14px;padding:20px;text-align:center;margin-bottom:16px;">
+      <div id="koServiceEmoji" style="font-size:44px;margin-bottom:8px;">📦</div>
+      <div id="koServiceName" style="font-size:18px;font-weight:900;margin-bottom:4px;">Koutouki Express</div>
+      <div id="koServicePitch" style="font-size:13px;font-weight:700;opacity:.85;"></div>
+    </div>
+    <div class="modal-title" style="text-align:center;font-size:17px;">
+      🎉 <span id="koProjectNom">Votre projet</span> est à <span id="koPct">60%</span> !
+    </div>
+    <div style="text-align:center;font-size:13px;color:var(--text-secondary);margin:4px 0 14px;">
+      Il reste <strong id="koRestant">—</strong> pour atteindre votre objectif.
+    </div>
+    <div id="koServiceDesc" style="font-size:14px;color:#374151;line-height:1.7;background:#F8F9FF;border-radius:10px;padding:14px;margin-bottom:14px;"></div>
+    <div style="font-size:13px;font-weight:700;color:var(--primary);margin-bottom:8px;">Comment ça marche :</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
+      <div style="display:flex;gap:10px;align-items:flex-start;"><div style="width:22px;height:22px;border-radius:50%;background:var(--primary);color:#C8E600;font-weight:900;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">1</div><div style="font-size:13px;color:#374151;">Vous acceptez et laissez vos instructions.</div></div>
+      <div style="display:flex;gap:10px;align-items:flex-start;"><div style="width:22px;height:22px;border-radius:50%;background:var(--primary);color:#C8E600;font-weight:900;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">2</div><div style="font-size:13px;color:#374151;">Koutouki agit immédiatement — votre bien est sécurisé.</div></div>
+      <div style="display:flex;gap:10px;align-items:flex-start;"><div style="width:22px;height:22px;border-radius:50%;background:var(--primary);color:#C8E600;font-weight:900;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">3</div><div style="font-size:13px;color:#374151;">Vous continuez d'épargner. À 100%, votre bien vous est remis.</div></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Vos instructions pour Koutouki (optionnel mais recommandé)</label>
+      <textarea id="koInstructions" class="form-control" rows="3"
+        placeholder="Ex : Terrain à Ratoma entre 15-20M GNF / Billet Conakry–Paris août 2026 / iPhone 15 Pro sur Amazon…"
+        style="resize:none;"></textarea>
+    </div>
+    <div id="koError" style="color:var(--error);font-size:13px;margin-bottom:12px;display:none;"></div>
+    <button id="koSubmitBtn" class="btn btn-accent" style="width:100%;padding:14px;font-weight:800;font-size:15px;"
+      onclick="submitKoutoukiOffer()">Confirmer ma demande →</button>
+    <button onclick="closeModal('koutoukiOffer')" style="width:100%;margin-top:10px;background:none;border:none;color:var(--text-secondary);font-size:13px;cursor:pointer;padding:8px;">
+      Plus tard — continuer d'épargner normalement
+    </button>
+  </div>
 </div>
 
 <!-- ══════════ BOUTON FLOTTANT WHATSAPP (service client) ══════════ -->
@@ -3243,10 +3310,12 @@ function loadProjects() {
     syncBalanceFromProjects(); /* ← solde global = somme des projets */
     /* Charger les demandes de hausse d'objectif en parallèle */
     loadGoalRequests(function() {
+      loadDateRequests();
       renderProjectCards();
       renderHomeProjects();
       updateHomeOverview();
       if (typeof updateProgressionGauge === 'function') updateProgressionGauge();
+      setTimeout(autoCheckKoutoukiOffers, 1500);
     });
   })
   .catch(function(err) {
@@ -4862,6 +4931,7 @@ function renderProjectCards() {
         ${actionBtn}
         ${!isCollectif ? `<button class="btn btn-outline btn-sm" onclick="openProjectDetail(PROJETS[${idx}])" style="font-size:13px;padding:11px 14px;" title="Voir les détails">📊</button>` : ''}
         ${(!hasPendingGoalReq && p.status !== 'closure_requested' && p.status !== 'pending_close') ? `<button class="btn btn-outline btn-sm" onclick="openGoalRequest('${p.id||''}','${safeNom}',${p.cible||0})" style="font-size:13px;padding:11px 14px;" title="Modifier l'objectif">✏️</button>` : ''}
+        ${(p.status !== 'closure_requested' && p.status !== 'pending_close' && !_DATE_REQUESTS.some(function(r){return r.project_id===p.id&&r.status==='pending';})) ? `<button class="btn btn-outline btn-sm" onclick="openDateRequest('${p.id||''}','${safeNom}','${p.duree||''}')" style="font-size:13px;padding:11px 14px;" title="Modifier la date de fin">📅</button>` : ''}
         ${(p.status !== 'closure_requested' && p.status !== 'pending_close' && !projectHasJoinedMembers(p) && (p.actuel || 0) === 0) ? `<button class="btn btn-outline btn-sm" onclick="deleteProject(${idx})" style="color:#DC2626;border-color:#FECACA;font-size:13px;padding:11px 14px;" title="Supprimer">🗑</button>` : ''}
       </div>
     </div>`;
@@ -10428,6 +10498,212 @@ window.addEventListener('load', function() {
     }
   }, 2000);
 });
+
+/* ══════════════════════════════════════════════
+   iOS BACK GESTURE — History API
+   Permet au swipe gauche→droite iPhone de
+   revenir à la section précédente dans la PWA.
+══════════════════════════════════════════════ */
+(function(){
+  var _navHistory = ['home'];
+  var _navigating = false;
+
+  window.addEventListener('popstate', function(e) {
+    if (_navigating) return;
+    _navigating = true;
+    var prev = _navHistory.length > 1 ? _navHistory[_navHistory.length - 2] : 'home';
+    if (_navHistory.length > 1) _navHistory.pop();
+    if (typeof showSection === 'function') showSection(prev, null);
+    setTimeout(function(){ _navigating = false; }, 100);
+  });
+
+  var _origShow = window.showSection;
+  window.showSection = function(id, btn) {
+    if (_origShow) _origShow(id, btn);
+    if (!_navigating) {
+      if (_navHistory[_navHistory.length - 1] !== id) {
+        _navHistory.push(id);
+        try { history.pushState({ section: id }, '', window.location.pathname + '#' + id); } catch(e) {}
+      }
+    }
+  };
+  /* Sync l'état initial */
+  try { history.replaceState({ section: 'home' }, '', window.location.pathname + '#home'); } catch(e) {}
+})();
+
+/* ══════════════════════════════════════════════
+   DATE MODIFICATION — modal + API
+══════════════════════════════════════════════ */
+var _DATE_REQUESTS = [];
+
+function loadDateRequests() {
+  if (!_authToken) return;
+  fetch('/api/user/me?resource=date_requests', {
+    headers: { 'Authorization': 'Bearer ' + _authToken }
+  }).then(function(r){ return r.json(); }).then(function(d){
+    _DATE_REQUESTS = Array.isArray(d) ? d : [];
+  }).catch(function(){});
+}
+
+function openDateRequest(projectId, projectNom, currentDuree) {
+  var modal = document.getElementById('modal-dateRequest');
+  if (!modal) return;
+  document.getElementById('drProjectId').value  = projectId;
+  document.getElementById('drProjectNom').textContent = projectNom;
+  document.getElementById('drCurrentDate').textContent = currentDuree || '—';
+  document.getElementById('drNewDate').value   = '';
+  document.getElementById('drReason').value    = '';
+  var err = document.getElementById('drError');
+  if (err) err.style.display = 'none';
+  openModal('dateRequest');
+}
+
+function submitDateRequest() {
+  var pid    = document.getElementById('drProjectId').value;
+  var date   = (document.getElementById('drNewDate').value || '').trim();
+  var reason = (document.getElementById('drReason').value || '').trim();
+  var err    = document.getElementById('drError');
+  var btn    = document.getElementById('drSubmitBtn');
+  if (err) err.style.display = 'none';
+
+  if (!date) { if (err) { err.textContent = 'Veuillez indiquer la nouvelle date souhaitée.'; err.style.display = ''; } return; }
+  if (reason.length < 10) { if (err) { err.textContent = 'Le justificatif doit faire au moins 10 caractères.'; err.style.display = ''; } return; }
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Envoi…'; }
+  fetch('/api/user/me?resource=date_requests', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
+    body: JSON.stringify({ project_id: pid, requested_date: date, reason }),
+  }).then(function(r){ return r.json().then(function(d){ return { ok: r.ok, data: d }; }); })
+  .then(function(res) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Envoyer la demande →'; }
+    if (!res.ok) { if (err) { err.textContent = res.data.error || 'Erreur.'; err.style.display = ''; } return; }
+    closeModal('dateRequest');
+    showToast('📅 Demande de modification de date envoyée — réponse sous 24h.', 'success');
+    loadDateRequests();
+  }).catch(function(){
+    if (btn) { btn.disabled = false; btn.textContent = 'Envoyer la demande →'; }
+    if (err) { err.textContent = 'Erreur réseau.'; err.style.display = ''; }
+  });
+}
+
+/* ══════════════════════════════════════════════
+   OFFRES KOUTOUKI — Réalisation anticipée à 60%
+══════════════════════════════════════════════ */
+var _KOUTOUKI_OFFERS = [];
+var _KOUTOUKI_SHOWN_IDS = new Set();
+
+/* Détection intelligente du type de projet */
+function detectKoutoukiService(nom) {
+  var n = (nom || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  if (/terrain|parcelle|immo|maison|villa|batir|construction|appartement|logement|foncier/.test(n))
+    return 'immo';
+  if (/billet|vol|voyage|visa|avion|ticket|travel|tour|hotel|sejour|deplacement/.test(n))
+    return 'travel';
+  return 'express';
+}
+
+var KOUTOUKI_SERVICE_INFO = {
+  immo: {
+    name: 'Koutouki Immo',
+    emoji: '🏠',
+    color: '#059669',
+    bg: '#F0FDF4',
+    pitch: 'Votre bien est déjà sécurisé dès 60%',
+    desc: 'Koutouki Immo identifie et réserve votre terrain ou bien immobilier maintenant. Vous continuez à épargner tranquillement — à 100%, il vous appartient.',
+  },
+  travel: {
+    name: 'Koutouki Travel',
+    emoji: '✈️',
+    color: '#2563EB',
+    bg: '#EFF6FF',
+    pitch: 'Votre voyage est déjà réservé dès 60%',
+    desc: 'Koutouki Travel réserve vos billets ou organise votre voyage maintenant. Finissez d\'épargner en sachant que votre départ est sécurisé.',
+  },
+  express: {
+    name: 'Koutouki Express',
+    emoji: '📦',
+    color: '#7C3AED',
+    bg: '#F5F3FF',
+    pitch: 'Votre achat est déjà commandé dès 60%',
+    desc: 'Koutouki Express commande ou procure votre article maintenant. Vous payez le solde une fois votre épargne complète.',
+  },
+};
+
+function checkKoutoukiOffer(p) {
+  if (!p || !p.id) return false;
+  if (p.koutouki_offer_triggered) return false;
+  if (_KOUTOUKI_SHOWN_IDS.has(p.id)) return false;
+  var pct = p.cible > 0 ? (p.actuel / p.cible) * 100 : 0;
+  return pct >= 60 && pct < 100;
+}
+
+function showKoutoukiOffer(p) {
+  var service = detectKoutoukiService(p.nom);
+  var info    = KOUTOUKI_SERVICE_INFO[service];
+  var cur     = (_currentUser && COUNTRY_LABELS[_currentUser.country]) ? COUNTRY_LABELS[_currentUser.country].currency : 'GNF';
+  var pct     = Math.round(p.actuel / p.cible * 100);
+  var restant = fmt(p.cible - p.actuel);
+
+  var modal = document.getElementById('modal-koutoukiOffer');
+  if (!modal) return;
+  _KOUTOUKI_SHOWN_IDS.add(p.id);
+
+  document.getElementById('koProjectId').value    = p.id;
+  document.getElementById('koService').value      = service;
+  document.getElementById('koProjectNom').textContent = p.nom;
+  document.getElementById('koServiceEmoji').textContent  = info.emoji;
+  document.getElementById('koServiceName').textContent   = info.name;
+  document.getElementById('koServicePitch').textContent  = info.pitch;
+  document.getElementById('koServiceDesc').textContent   = info.desc;
+  document.getElementById('koServiceBadge').style.background = info.bg;
+  document.getElementById('koServiceBadge').style.color      = info.color;
+  document.getElementById('koPct').textContent    = pct + '%';
+  document.getElementById('koRestant').textContent = restant + ' ' + cur + ' restants';
+  document.getElementById('koInstructions').value = '';
+  var errEl = document.getElementById('koError');
+  if (errEl) errEl.style.display = 'none';
+  openModal('koutoukiOffer');
+}
+
+function submitKoutoukiOffer() {
+  var pid      = document.getElementById('koProjectId').value;
+  var service  = document.getElementById('koService').value;
+  var instruc  = (document.getElementById('koInstructions').value || '').trim();
+  var err      = document.getElementById('koError');
+  var btn      = document.getElementById('koSubmitBtn');
+  if (err) err.style.display = 'none';
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Envoi…'; }
+  fetch('/api/user/me?resource=koutouki_offers', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
+    body: JSON.stringify({ project_id: pid, service_type: service, instructions: instruc }),
+  }).then(function(r){ return r.json().then(function(d){ return { ok: r.ok, data: d }; }); })
+  .then(function(res) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Confirmer ma demande →'; }
+    if (!res.ok) {
+      if (err) { err.textContent = res.data.error || 'Erreur.'; err.style.display = ''; }
+      return;
+    }
+    closeModal('koutoukiOffer');
+    showToast('🎉 Demande Koutouki envoyée ! Notre équipe vous contacte sous 24h.', 'success');
+    refreshDashboardData();
+  }).catch(function(){
+    if (btn) { btn.disabled = false; btn.textContent = 'Confirmer ma demande →'; }
+    if (err) { err.textContent = 'Erreur réseau.'; err.style.display = ''; }
+  });
+}
+
+/* Auto-déclenchement après chargement des projets */
+function autoCheckKoutoukiOffers() {
+  if (!PROJETS || !PROJETS.length) return;
+  PROJETS.forEach(function(p) {
+    if (checkKoutoukiOffer(p)) {
+      setTimeout(function() { showKoutoukiOffer(p); }, 1200);
+    }
+  });
+}
 </script>
 </body>
 </html>

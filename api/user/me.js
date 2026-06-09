@@ -98,6 +98,8 @@ module.exports = async (req, res) => {
   if (resource === 'activity')         return handleActivity(req, res, payload);
   if (resource === 'goal_requests')    return handleGoalRequests(req, res, payload);
   if (resource === 'ambassador')       return handleAmbassador(req, res, payload);
+  if (resource === 'date_requests')    return handleDateRequests(req, res, payload);
+  if (resource === 'koutouki_offers')  return handleKoutoukiOffers(req, res, payload);
 
   /* ══════════ ROUTE PROFIL ══════════ */
   if (!['GET', 'PATCH'].includes(req.method)) {
@@ -2138,5 +2140,126 @@ async function handleAmbassador(req, res, payload) {
     }
   }
 
+  return res.status(405).json({ error: 'Méthode non autorisée' });
+}
+
+/* ══════════════════════════════════════════════════════════
+   MODIFICATION DATE DE FIN
+   GET  ?resource=date_requests  → demandes du user
+   POST ?resource=date_requests  → soumettre une demande
+   ══════════════════════════════════════════════════════════ */
+async function handleDateRequests(req, res, payload) {
+  const userId = payload.userId;
+
+  if (req.method === 'GET') {
+    try {
+      const rows = await supabaseRequest('GET',
+        '/project_date_requests?user_id=eq.' + encodeURIComponent(userId) +
+        '&order=created_at.desc&limit=50&select=*');
+      return res.status(200).json(Array.isArray(rows) ? rows : []);
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
+  if (req.method === 'POST') {
+    const body = await parseBody(req);
+    const { project_id, requested_date, reason } = body;
+    if (!project_id || !requested_date || !reason || reason.trim().length < 10) {
+      return res.status(400).json({ error: 'project_id, requested_date et un justificatif (min. 10 car.) sont requis' });
+    }
+    try {
+      const projects = await supabaseRequest('GET',
+        '/projects?id=eq.' + encodeURIComponent(project_id) +
+        '&user_id=eq.' + encodeURIComponent(userId) + '&select=id,duree,status&limit=1');
+      const project = Array.isArray(projects) && projects[0];
+      if (!project) return res.status(404).json({ error: 'Projet introuvable' });
+      if (['closure_requested','pending_close','closed'].includes(project.status)) {
+        return res.status(400).json({ error: 'Impossible de modifier un projet en cours de fermeture' });
+      }
+      const existing = await supabaseRequest('GET',
+        '/project_date_requests?project_id=eq.' + encodeURIComponent(project_id) +
+        '&status=eq.pending&select=id&limit=1');
+      if (Array.isArray(existing) && existing.length > 0) {
+        return res.status(409).json({ error: 'Une demande de modification de date est déjà en attente' });
+      }
+      const result = await supabaseRequest('POST', '/project_date_requests', {
+        project_id, user_id: userId,
+        current_date: project.duree || '—',
+        requested_date: requested_date.trim(),
+        reason: reason.trim(),
+        status: 'pending',
+      });
+      return res.status(201).json({ ok: true, request: Array.isArray(result) ? result[0] : result });
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+  return res.status(405).json({ error: 'Méthode non autorisée' });
+}
+
+/* ══════════════════════════════════════════════════════════
+   OFFRES KOUTOUKI (réalisation anticipée à 60%)
+   GET  ?resource=koutouki_offers&project_id=X  → offre active
+   POST ?resource=koutouki_offers               → accepter une offre
+   ══════════════════════════════════════════════════════════ */
+async function handleKoutoukiOffers(req, res, payload) {
+  const userId = payload.userId;
+
+  if (req.method === 'GET') {
+    try {
+      const url = new URL(req.url, 'http://localhost');
+      const pid = url.searchParams.get('project_id');
+      const qs = pid
+        ? '/koutouki_offers?project_id=eq.' + encodeURIComponent(pid) + '&user_id=eq.' + encodeURIComponent(userId) + '&order=created_at.desc&limit=5&select=*'
+        : '/koutouki_offers?user_id=eq.' + encodeURIComponent(userId) + '&order=created_at.desc&limit=20&select=*';
+      const rows = await supabaseRequest('GET', qs);
+      return res.status(200).json(Array.isArray(rows) ? rows : []);
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
+  if (req.method === 'POST') {
+    const body = await parseBody(req);
+    const { project_id, service_type, instructions } = body;
+    if (!project_id || !service_type) {
+      return res.status(400).json({ error: 'project_id et service_type requis' });
+    }
+    if (!['immo','travel','express'].includes(service_type)) {
+      return res.status(400).json({ error: 'service_type invalide' });
+    }
+    try {
+      const projects = await supabaseRequest('GET',
+        '/projects?id=eq.' + encodeURIComponent(project_id) +
+        '&user_id=eq.' + encodeURIComponent(userId) + '&select=id,goal,actuel,status,name&limit=1');
+      const project = Array.isArray(projects) && projects[0];
+      if (!project) return res.status(404).json({ error: 'Projet introuvable' });
+      const pct = project.goal > 0 ? (project.actuel / project.goal) * 100 : 0;
+      if (pct < 50) return res.status(400).json({ error: 'L\'offre Koutouki n\'est disponible qu\'à partir de 50% de l\'objectif' });
+
+      const existing = await supabaseRequest('GET',
+        '/koutouki_offers?project_id=eq.' + encodeURIComponent(project_id) +
+        '&status=in.(pending,reviewing,confirmed,in_progress)&select=id&limit=1');
+      if (Array.isArray(existing) && existing.length > 0) {
+        return res.status(409).json({ error: 'Une offre Koutouki est déjà active pour ce projet' });
+      }
+
+      const result = await supabaseRequest('POST', '/koutouki_offers', {
+        project_id, user_id: userId,
+        service_type,
+        instructions: (instructions || '').trim() || null,
+        budget_at_offer: project.actuel || 0,
+        goal: project.goal || 0,
+        status: 'pending',
+      });
+      await supabaseRequest('PATCH',
+        '/projects?id=eq.' + encodeURIComponent(project_id),
+        { koutouki_offer_triggered: true });
+      return res.status(201).json({ ok: true, offer: Array.isArray(result) ? result[0] : result });
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
   return res.status(405).json({ error: 'Méthode non autorisée' });
 }

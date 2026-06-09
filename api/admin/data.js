@@ -134,6 +134,22 @@ module.exports = async (req, res) => {
       console.warn('[admin/data] ambassadors:', e.message);
     }
 
+    /* ── 2c-quater. Demandes de modification de date ── */
+    let dateRequests = [];
+    try {
+      dateRequests = await supabaseRequest('GET',
+        '/project_date_requests?order=created_at.desc&limit=200&select=*');
+      if (!Array.isArray(dateRequests)) dateRequests = [];
+    } catch (e) { console.warn('[admin/data] dateRequests:', e.message); }
+
+    /* ── 2c-quinquies. Offres Koutouki ── */
+    let koutoukiOffers = [];
+    try {
+      koutoukiOffers = await supabaseRequest('GET',
+        '/koutouki_offers?order=created_at.desc&limit=200&select=*');
+      if (!Array.isArray(koutoukiOffers)) koutoukiOffers = [];
+    } catch (e) { console.warn('[admin/data] koutoukiOffers:', e.message); }
+
     /* ── 2c-bis. Demandes de modification d'objectif ── */
     let goalRequests = [];
     try {
@@ -392,6 +408,8 @@ module.exports = async (req, res) => {
       emailLogs,
       emailCampaigns,
       goalRequests,
+      dateRequests,
+      koutoukiOffers,
       ambassadors,
       stats: {
         total, epargneTotal, kycPending, kycVerified, pendingCount, byCountry,
