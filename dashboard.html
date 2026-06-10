@@ -6950,14 +6950,20 @@ function confirmDeposit() {
       var errMsg = r.error || 'Erreur serveur';
       if (r.code === 'DEPOSIT_EXCEEDS_REMAINING') {
         var maxAllowed = r.remaining || 0;
-        showToast('Montant maximum : ' + fmt(maxAllowed) + ' ' + _depCur, 'error');
+        var extra = (r.pending && r.pending > 0) ? ' (demandes en attente déjà comptées)' : '';
+        showToast('Montant maximum : ' + fmt(maxAllowed) + ' ' + _depCur + extra, 'error');
         var el = document.getElementById('depositAmount');
         if (el) { el.focus(); el.style.borderColor = '#DC2626'; }
         updateDepositCap(String(amt));
         return;
       }
       if (r.code === 'PROJECT_COMPLETED') {
-        showToast('🎉 Cet objectif est déjà atteint !', 'info');
+        showToast(
+          (r.pending && r.pending > 0)
+            ? '⏳ Objectif déjà couvert par vos demandes en attente de validation.'
+            : '🎉 Cet objectif est déjà atteint !',
+          'info'
+        );
         closeModal('modal-deposit');
         return;
       }

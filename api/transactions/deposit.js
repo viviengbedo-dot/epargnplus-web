@@ -71,24 +71,45 @@ module.exports = async (req, res) => {
         /* Marge Epargn+ : 1% intégrés. Le plafond réel = objectif × 1,01
            (le client doit cumuler capital + 1% pour atteindre 100%). */
         const effectiveTarget = Math.round((proj.goal || 0) * 1.01);
-        const remaining = Math.max(0, effectiveTarget - (proj.actuel || 0));
+
+        /* Somme des dépôts DÉJÀ en attente de validation sur ce projet.
+           On la soustrait du restant : plusieurs demandes peuvent coexister,
+           mais leur cumul ne doit pas dépasser l'objectif. */
+        let pendingSum = 0;
+        try {
+          const pendRows = await supabaseRequest('GET',
+            '/transactions?project_id=eq.' + encodeURIComponent(projectId) +
+            '&type=eq.deposit&statut=eq.pending&select=amount');
+          if (Array.isArray(pendRows)) {
+            pendingSum = pendRows.reduce(function (s, r) { return s + (Number(r.amount) || 0); }, 0);
+          }
+        } catch (e) {
+          console.warn('[deposit] pending sum:', e.message); /* non bloquant */
+        }
+
+        const remaining = Math.max(0, effectiveTarget - (proj.actuel || 0) - pendingSum);
         if (remaining === 0) {
           return res.status(400).json({
-            error: 'Cet objectif est déjà atteint.',
+            error: pendingSum > 0
+              ? 'Cet objectif est déjà entièrement couvert par vos dépôts en attente de validation.'
+              : 'Cet objectif est déjà atteint.',
             code: 'PROJECT_COMPLETED',
             remaining: 0,
             goal: proj.goal,
             actuel: proj.actuel,
+            pending: pendingSum,
           });
         }
         if (amount > remaining) {
           return res.status(400).json({
-            error: 'Le montant dépasse le montant restant autorisé pour cet objectif. Maximum : ' +
-              remaining.toLocaleString('fr-FR') + ' GNF.',
+            error: 'Le montant dépasse le montant restant autorisé pour cet objectif' +
+              (pendingSum > 0 ? ' (vos demandes en attente sont déjà comptées)' : '') +
+              '. Maximum : ' + remaining.toLocaleString('fr-FR') + ' GNF.',
             code: 'DEPOSIT_EXCEEDS_REMAINING',
             remaining,
             goal: proj.goal,
             actuel: proj.actuel,
+            pending: pendingSum,
             requested: amount,
           });
         }
