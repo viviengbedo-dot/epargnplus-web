@@ -1506,11 +1506,15 @@
           Statut : <strong style="color:#D97706;">⏳ En attente de validation</strong>
         </div>
       </div>
-      <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin-bottom:20px;">
+      <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin-bottom:8px;">
         Un administrateur va vérifier votre virement et valider votre dépôt <strong>sous 24h</strong>.<br/>
         Votre solde sera mis à jour après confirmation.
       </div>
-      <button class="btn btn-primary" style="width:100%;padding:14px;" onclick="closeModal('modal-deposit');document.getElementById('depStep1').style.display='';document.getElementById('depStep2').style.display='none';">Fermer</button>
+      <div id="depPendingCount" style="display:none;font-size:12.5px;color:#1D4ED8;background:#EFF6FF;border-radius:10px;padding:9px 12px;margin-bottom:16px;line-height:1.5;"></div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <button class="btn btn-accent" style="width:100%;padding:14px;font-weight:700;" onclick="newDepositRequest()">➕ Faire une autre demande</button>
+        <button class="btn btn-outline" style="width:100%;padding:13px;" onclick="closeDepositConfirm()">Fermer</button>
+      </div>
     </div>
   </div>
 </div>
@@ -6907,6 +6911,20 @@ function confirmDeposit() {
     });
     renderHomeActivities();
     renderMouvements(TRANSACTIONS);
+    /* Compter les demandes de dépôt en attente (plusieurs autorisées) */
+    var nbPending = (TRANSACTIONS || []).filter(function(t) {
+      return t && t.status === 'pending' && (t.type === 'depot' || t.type === 'deposit');
+    }).length;
+    var pc = document.getElementById('depPendingCount');
+    if (pc) {
+      if (nbPending > 1) {
+        pc.style.display = '';
+        pc.innerHTML = '📥 Vous avez <strong>' + nbPending + ' demandes</strong> de dépôt en attente. ' +
+          'Chacune sera validée séparément par l\'administrateur.';
+      } else {
+        pc.style.display = 'none';
+      }
+    }
     /* Basculer vers écran de confirmation */
     document.getElementById('depStep1').style.display = 'none';
     document.getElementById('depStep2').style.display = '';
@@ -6958,6 +6976,23 @@ function confirmDeposit() {
   })
   .catch(function() { showPending(); });
 }
+
+/* ── Fermer l'écran de confirmation et réinitialiser ── */
+function closeDepositConfirm() {
+  closeModal('modal-deposit');
+  var s1 = document.getElementById('depStep1'); if (s1) s1.style.display = '';
+  var s2 = document.getElementById('depStep2'); if (s2) s2.style.display = 'none';
+}
+
+/* ── Enchaîner une nouvelle demande de dépôt (plusieurs autorisées) ── */
+function newDepositRequest() {
+  var s1 = document.getElementById('depStep1'); if (s1) s1.style.display = '';
+  var s2 = document.getElementById('depStep2'); if (s2) s2.style.display = 'none';
+  closeModal('modal-deposit');
+  /* Relancer le flux : choix du projet à alimenter (ou lien direct si un seul) */
+  setTimeout(openDepositPicker, 220);
+}
+
 function confirmRetrait() {
   /* Ancienne fonction — retrait désormais géré via openRetraitForProject() sur projet à 100% */
   showToast('Le retrait se fait uniquement depuis un projet complété à 100%.', 'info');
