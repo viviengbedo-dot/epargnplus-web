@@ -2857,6 +2857,33 @@
   font-size: 18px; cursor: pointer; line-height: 1; display: flex;
   align-items: center; justify-content: center;
 }
+
+/* ── Guide Accompagnement Koutouki (encart projet éligible) ── */
+.koguide { border-radius: 12px; margin-bottom: 14px; overflow: hidden; border: 1px solid; }
+.koguide-head {
+  width: 100%; display: flex; align-items: center; gap: 9px;
+  padding: 10px 12px; border: none; background: transparent;
+  cursor: pointer; font-family: inherit; text-align: left;
+}
+.koguide-head .kg-emoji { font-size: 18px; flex-shrink: 0; }
+.koguide-head .kg-titles { flex: 1; min-width: 0; }
+.koguide-head .kg-title { font-size: 12.5px; font-weight: 800; line-height: 1.2; }
+.koguide-head .kg-sub   { font-size: 11px; font-weight: 600; margin-top: 1px; }
+.koguide-head .kg-chev  { flex-shrink: 0; font-size: 11px; transition: transform .2s; opacity: .7; }
+.koguide-tabs {
+  display: flex; gap: 5px; padding: 0 10px 8px; flex-wrap: wrap;
+}
+.ko-tab {
+  border: 1px solid; background: #fff; border-radius: 16px;
+  padding: 5px 11px; font-size: 11px; font-weight: 600; color: #6B7280;
+  cursor: pointer; font-family: inherit; transition: all .15s; white-space: nowrap;
+}
+.koguide-panels { padding: 0 12px 10px; }
+.ko-cta {
+  display: inline-flex; align-items: center; gap: 6px; margin: 4px 12px 12px;
+  border: none; border-radius: 10px; padding: 9px 16px; color: #fff;
+  font-size: 12.5px; font-weight: 700; cursor: pointer; font-family: inherit;
+}
 </style>
 
 <script>
@@ -4880,6 +4907,9 @@ function renderProjectCards() {
     }
 
     return `<div class="card" style="padding:18px 18px 14px;border:1px solid var(--divider);border-radius:16px;overflow:hidden;">
+
+      <!-- ── Encart Guide Accompagnement Koutouki (projet éligible) ── -->
+      ${(!isCollectif && pct < 100 && p.status !== 'closure_requested' && p.status !== 'pending_close') ? koutoukiGuideHtml(p, pct) : ''}
 
       <!-- ── Ligne 1 : icône + nom + badge + jauge ── -->
       <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px;">
@@ -10855,6 +10885,110 @@ var KOUTOUKI_SERVICE_INFO = {
     teamNote: 'Notre équipe vérifie le prix réel (article + frais de port + douane) et vous confirme le total avant de commander.',
   },
 };
+
+/* ════════════════════════════════════════════════
+   GUIDE ACCOMPAGNEMENT KOUTOUKI — encart + onglets
+   Introduit le client au service dès le projet en cours,
+   pour qu'il s'y habitue avant le seuil de 60%.
+════════════════════════════════════════════════ */
+window._KO_GUIDE_OPEN = window._KO_GUIDE_OPEN || new Set();
+window._KO_GUIDE_TAB  = window._KO_GUIDE_TAB  || {};
+
+function koGuideSteps(service, info) {
+  var realisation = {
+    immo:    'À 100%, le bien (terrain, parcelle, logement) est sécurisé et vous appartient. Démarches et titre accompagnés.',
+    travel:  'À 100%, votre billet ou séjour est réservé et confirmé. Vous voyagez l\'esprit tranquille.',
+    express: 'À 100%, votre article est commandé et livré, prix, transport et douane vérifiés au préalable.',
+  }[service] || 'À 100%, votre projet est réalisé par notre équipe.';
+  return [
+    { t: '1. Épargnez',    icon: '🌱',       txt: 'Continuez à alimenter votre projet normalement. Chaque dépôt vous rapproche du seuil de 60%.' },
+    { t: '2. Dès 60%',     icon: '🔓',       txt: 'Votre projet devient éligible. Vous pouvez demander à ' + info.name + ' de le réaliser sans attendre 100%.' },
+    { t: '3. Notre équipe', icon: '🤝',      txt: 'Sous 24h, notre équipe vous contacte, vérifie les prix réels du marché et vous soumet les meilleures options. Rien n\'est engagé sans votre accord.' },
+    { t: '4. Réalisation', icon: info.emoji, txt: realisation },
+  ];
+}
+
+function koutoukiGuideHtml(p, pct) {
+  var service = detectKoutoukiService(p.nom);
+  var info    = KOUTOUKI_SERVICE_INFO[service] || KOUTOUKI_SERVICE_INFO.express;
+  var steps   = koGuideSteps(service, info);
+  var pid      = String(p.id || '');
+  var open     = window._KO_GUIDE_OPEN.has(pid);
+  var active   = window._KO_GUIDE_TAB[pid] || 0;
+  if (active >= steps.length) active = 0;
+  var eligible = pct >= 60;
+
+  var subLine = eligible
+    ? '✅ Disponible maintenant'
+    : 'Débloqué à 60% · vous êtes à ' + pct + '%';
+
+  var tabsHtml = steps.map(function (s, i) {
+    var act = (i === active);
+    return '<button id="kotab-' + pid + '-' + i + '" class="ko-tab" data-col="' + info.color + '" ' +
+      'onclick="koGuideTab(\'' + pid + '\',' + i + ')" ' +
+      'style="border-color:' + info.color + ';' +
+      (act ? 'background:' + info.color + ';color:#fff;font-weight:700;' : '') + '">' + s.t + '</button>';
+  }).join('');
+
+  var pansHtml = steps.map(function (s, i) {
+    return '<div id="kopan-' + pid + '-' + i + '" style="display:' + (i === active ? '' : 'none') +
+      ';font-size:12.5px;color:#374151;line-height:1.55;">' +
+      '<span style="font-size:15px;margin-right:6px;">' + s.icon + '</span>' + s.txt + '</div>';
+  }).join('');
+
+  var ctaHtml = eligible
+    ? '<button class="ko-cta" style="background:' + info.color + ';" onclick="showKoutoukiOfferById(\'' + pid + '\')">' +
+        info.emoji + ' Demander ' + info.name + ' →</button>'
+    : '';
+
+  return '<div class="koguide" style="border-color:' + info.color + '33;background:' + info.bg + ';">' +
+    '<button class="koguide-head" onclick="koGuideToggle(\'' + pid + '\')">' +
+      '<span class="kg-emoji">' + info.emoji + '</span>' +
+      '<span class="kg-titles">' +
+        '<span class="kg-title" style="color:' + info.color + ';">Réalisez ce projet avec ' + info.name + '</span>' +
+        '<span class="kg-sub" style="color:' + info.color + 'cc;">' + subLine + '</span>' +
+      '</span>' +
+      '<span class="kg-chev" id="koguide-chev-' + pid + '" style="' + (open ? 'transform:rotate(180deg);' : '') + 'color:' + info.color + ';">▼</span>' +
+    '</button>' +
+    '<div id="koguide-body-' + pid + '" style="display:' + (open ? '' : 'none') + ';">' +
+      '<div class="koguide-tabs">' + tabsHtml + '</div>' +
+      '<div class="koguide-panels">' + pansHtml + '</div>' +
+      ctaHtml +
+    '</div>' +
+  '</div>';
+}
+
+function koGuideToggle(pid) {
+  var body = document.getElementById('koguide-body-' + pid);
+  var chev = document.getElementById('koguide-chev-' + pid);
+  if (!body) return;
+  var willOpen = (body.style.display === 'none');
+  body.style.display = willOpen ? '' : 'none';
+  if (chev) chev.style.transform = willOpen ? 'rotate(180deg)' : '';
+  if (willOpen) window._KO_GUIDE_OPEN.add(pid);
+  else window._KO_GUIDE_OPEN.delete(pid);
+}
+
+function koGuideTab(pid, idx) {
+  window._KO_GUIDE_TAB[pid] = idx;
+  for (var i = 0; i < 4; i++) {
+    var tab = document.getElementById('kotab-' + pid + '-' + i);
+    var pan = document.getElementById('kopan-' + pid + '-' + i);
+    if (tab) {
+      var act = (i === idx);
+      var col = tab.getAttribute('data-col') || '#0B1566';
+      tab.style.background = act ? col : '#fff';
+      tab.style.color      = act ? '#fff' : '#6B7280';
+      tab.style.fontWeight = act ? '700' : '600';
+    }
+    if (pan) pan.style.display = (i === idx) ? '' : 'none';
+  }
+}
+
+function showKoutoukiOfferById(pid) {
+  var p = (PROJETS || []).find(function (x) { return String(x.id) === String(pid); });
+  if (p) showKoutoukiOffer(p);
+}
 
 function checkKoutoukiOffer(p) {
   if (!p || !p.id) return false;
