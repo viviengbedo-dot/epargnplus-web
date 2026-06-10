@@ -1204,7 +1204,8 @@
     <button id="koSubmitBtn" class="btn btn-accent" style="width:100%;padding:14px;font-weight:800;font-size:15px;"
       onclick="submitKoutoukiOffer()">Envoyer ma demande à Koutouki →</button>
     <div style="margin-top:10px;text-align:center;font-size:11px;color:var(--text-secondary);">
-      📞 Notre équipe vous contactera au <strong>+224 623 76 96 34</strong> pour confirmer
+      📞 Notre équipe vous contactera au <strong>+224 623 76 96 34</strong> pour confirmer.<br>
+      Rien n'est engagé sans votre accord — <a href="/cgu" target="_blank" rel="noopener" style="color:var(--primary);">conditions de l'accompagnement</a>.
     </div>
     <button onclick="closeModal('koutoukiOffer')" style="width:100%;margin-top:8px;background:none;border:none;color:var(--text-secondary);font-size:13px;cursor:pointer;padding:8px;">
       Plus tard, je continue d'épargner normalement
@@ -10954,6 +10955,7 @@ function koutoukiGuideHtml(p, pct) {
       '<div class="koguide-tabs">' + tabsHtml + '</div>' +
       '<div class="koguide-panels">' + pansHtml + '</div>' +
       ctaHtml +
+      '<a href="/cgu" target="_blank" rel="noopener" style="display:block;padding:0 12px 12px;font-size:11px;color:' + info.color + ';text-decoration:underline;">📄 Conditions de l\'accompagnement (CGU §6)</a>' +
     '</div>' +
   '</div>';
 }
