@@ -160,6 +160,9 @@
           </div>
         </div>
 
+        <!-- ── Bannière de rappel dynamique (nudge) ── -->
+        <div id="nudgeBannerSlot"></div>
+
         <!-- ── Aperçu de mes objectifs ── -->
         <div class="card mb-6" id="homeOverviewCard" style="padding:20px 22px;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
@@ -2887,6 +2890,7 @@
 }
 </style>
 
+<script src="nudge-banner.js"></script>
 <script>
 /* ════════════════════════════════════════════
    AUTH CHECK — JWT via /api/user/me
@@ -3363,6 +3367,7 @@ function loadProjects() {
       renderHomeProjects();
       updateHomeOverview();
       if (typeof updateProgressionGauge === 'function') updateProgressionGauge();
+      if (typeof renderNudgeBanner === 'function') renderNudgeBanner(); /* ← bannière nudge */
       setTimeout(autoCheckKoutoukiOffers, 1500);
     });
   })
@@ -3624,6 +3629,7 @@ function loadTransactions() {
     renderHomeActivities();
     buildNotificationsFromData(); /* ← met à jour la cloche */
     showSmartNotifications();     /* ← toasts proactifs post-chargement */
+    if (typeof renderNudgeBanner === 'function') renderNudgeBanner(); /* ← bannière nudge (inactivité) */
   })
   .catch(function(err) {
     console.warn('[transactions] Chargement DB impossible :', err.message);
