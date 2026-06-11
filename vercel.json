@@ -18,6 +18,7 @@
     { "source": "/join/:code/(.*)",    "destination": "/join.html" },
     { "source": "/presentation",        "destination": "/presentation.html" },
     { "source": "/ambassadeur-flyer",   "destination": "/public/ambassadeur-flyer.pdf" },
+    { "source": "/realisation-flyer",   "destination": "/public/realisation-flyer.pdf" },
     { "source": "/cgu",                "destination": "/cgu.html" },
     { "source": "/confidentialite",    "destination": "/confidentialite.html" },
     { "source": "/suppression-compte", "destination": "/suppression-compte.html" }
