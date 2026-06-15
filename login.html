@@ -689,6 +689,39 @@
           </div>
         </div>
 
+        <!-- ── Étape 4 : Bienvenue + communauté WhatsApp ── -->
+        <div id="regStep4" style="display:none;flex-direction:column;gap:16px;text-align:center;">
+          <div style="padding:8px 0 0;">
+            <div style="font-size:46px;margin-bottom:6px;">🎉</div>
+            <div style="font-size:18px;font-weight:900;color:var(--ios-blue);">Bienvenue sur Epargn+ !</div>
+            <div style="font-size:13px;color:var(--ios-gray);margin-top:6px;line-height:1.5;">
+              Votre compte est créé. Dernière étape : rejoignez la communauté pour profiter des conseils, de l'entraide et des nouveautés.
+            </div>
+          </div>
+
+          <div style="background:#E8F8EE;border:1px solid #A7F3D0;border-radius:14px;padding:16px;text-align:left;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+              <span style="font-size:24px;">💬</span>
+              <div>
+                <div style="font-size:14px;font-weight:800;color:#065F46;">Communauté Epargn+</div>
+                <div style="font-size:11.5px;color:#15803D;">Astuces d'épargne, entraide, annonces officielles</div>
+              </div>
+            </div>
+            <a href="https://chat.whatsapp.com/EwPBRQuqxFJ3g0DTSHkQs2?s=cl&p=i&ilr=0"
+               target="_blank" rel="noopener"
+               onclick="markCommunityJoined()"
+               style="display:flex;align-items:center;justify-content:center;gap:9px;background:#25D366;color:#fff;border-radius:12px;padding:14px;font-size:15px;font-weight:800;text-decoration:none;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.553 4.116 1.522 5.847L0 24l6.335-1.652A11.95 11.95 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.82 9.82 0 01-5.004-1.37l-.359-.213-3.732.978.996-3.648-.234-.374A9.78 9.78 0 012.182 12C2.182 6.582 6.582 2.182 12 2.182S21.818 6.582 21.818 12 17.418 21.818 12 21.818z"/></svg>
+              Rejoindre la communauté
+            </a>
+          </div>
+
+          <button class="auth-submit" type="button" id="btnGoDashboard" onclick="goToDashboard()" style="background:var(--ios-blue);">
+            Continuer vers mon espace →
+          </button>
+          <div style="font-size:11px;color:var(--ios-gray);">Vous pourrez rejoindre la communauté plus tard depuis votre espace.</div>
+        </div>
+
       </form>
     </div>
     </div><!-- /auth-card-section -->
@@ -1218,13 +1251,24 @@ async function submitRegister(e) {
     saveSession(data.token, data.user);
     /* Nouveau membre → PIN 4 chiffres depuis le départ, bannière migration inutile */
     localStorage.setItem('epargn_pin4_done', '1');
-    showMsg('✅ Compte créé ! Bienvenue sur Epargn+ 🎉', 'success');
-    setTimeout(function() { window.location.replace('/espace-client'); }, 900);
+    /* Écran de bienvenue + invitation communauté WhatsApp (au lieu de rediriger direct) */
+    clearMsg();
+    document.getElementById('regStep3').style.display = 'none';
+    document.getElementById('regStep4').style.display = 'flex';
 
   } catch (err) {
     showMsg('Erreur réseau. Vérifiez votre connexion.', 'error');
     btn.disabled = false; btn.textContent = 'Créer mon compte →';
   }
+}
+
+/* ── Étape 4 : continuer vers le dashboard ── */
+function goToDashboard() {
+  window.location.replace('/espace-client');
+}
+/* Marque que l'utilisateur a cliqué pour rejoindre la communauté (analytics local) */
+function markCommunityJoined() {
+  try { localStorage.setItem('epargn_community_joined', '1'); } catch (e) {}
 }
 
 /* ── Renvoyer OTP ── */

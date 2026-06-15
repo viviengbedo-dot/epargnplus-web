@@ -1494,7 +1494,29 @@
           Le numéro Mobile Money depuis lequel vous avez envoyé le virement. L'admin s'en sert pour confirmer votre dépôt.
         </div>
       </div>
-      <button class="btn btn-accent" style="width:100%;padding:14px;font-weight:700;" onclick="confirmDeposit()">J'ai effectué le virement →</button>
+
+      <!-- Récap dynamique : ce que le client DOIT avoir envoyé -->
+      <div id="depActionRecap" style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:12px;padding:13px 15px;margin-bottom:12px;">
+        <div style="font-size:12px;font-weight:800;color:#92400E;margin-bottom:6px;">⚠️ Avant de confirmer : envoyez réellement l'argent</div>
+        <div style="font-size:13px;color:#78350F;line-height:1.6;">
+          Envoyez <strong id="depRecapAmount">le montant</strong> au numéro
+          <strong id="depRecapNumber">Epargn+</strong> via <strong id="depRecapOp">votre opérateur</strong>,
+          <u>depuis votre application Mobile Money</u>. Revenez ici <u>seulement après</u> l'avoir fait.
+        </div>
+        <div style="font-size:11.5px;color:#B45309;margin-top:8px;line-height:1.5;">
+          🚫 Ne cliquez pas si vous n'avez pas encore envoyé l'argent. Un dépôt déclaré mais non reçu est <strong>rejeté</strong>, et les fausses déclarations répétées peuvent <strong>suspendre votre compte</strong>.
+        </div>
+      </div>
+
+      <!-- Case de confirmation obligatoire -->
+      <label for="depConfirmCheck" style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:12px;padding:12px 14px;margin-bottom:14px;">
+        <input type="checkbox" id="depConfirmCheck" onchange="updateDepConfirmBtn()" style="width:20px;height:20px;flex-shrink:0;margin-top:1px;accent-color:#059669;cursor:pointer;" />
+        <span style="font-size:13px;color:#065F46;font-weight:600;line-height:1.5;">
+          Je confirme avoir <strong>réellement envoyé</strong> ce montant au numéro Epargn+ indiqué ci-dessus.
+        </span>
+      </label>
+
+      <button class="btn btn-accent" id="depConfirmBtn" style="width:100%;padding:14px;font-weight:700;opacity:.5;cursor:not-allowed;" disabled onclick="confirmDeposit()">Oui, j'ai bien envoyé l'argent →</button>
     </div>
 
     <!-- Étape 2 : confirmation en attente (cachée au départ) -->
@@ -6306,6 +6328,33 @@ function updateDepInstructions(op, country) {
   if (phone) { phone.textContent = num; phone.style.color = cfg.color; }
   if (steps) { steps.innerHTML = getDepSteps(op, country); steps.style.color = cfg.textColor; }
   if (copyBtn) copyBtn.style.background = cfg.color;
+  if (typeof updateDepRecap === 'function') updateDepRecap();
+}
+
+/* Active le bouton de confirmation uniquement si la case est cochée */
+function updateDepConfirmBtn() {
+  var chk = document.getElementById('depConfirmCheck');
+  var btn = document.getElementById('depConfirmBtn');
+  if (!btn) return;
+  var ok = !!(chk && chk.checked);
+  btn.disabled = !ok;
+  btn.style.opacity = ok ? '1' : '.5';
+  btn.style.cursor  = ok ? 'pointer' : 'not-allowed';
+}
+
+/* Récap dynamique : montant + numéro marchand + opérateur à envoyer */
+function updateDepRecap() {
+  var amt = parseInt((document.getElementById('depositAmount') || {}).value, 10) || 0;
+  var country = _userCountry || 'gn';
+  var cur = (_currentUser && (COUNTRY_LABELS[_currentUser.country] || COUNTRY_LABELS.gn).currency) || 'GNF';
+  var num = (typeof MERCHANT !== 'undefined' && MERCHANT[_selectedDepOp] && MERCHANT[_selectedDepOp][country]) || '—';
+  var opLabel = (typeof OP_CFG !== 'undefined' && OP_CFG[_selectedDepOp]) ? OP_CFG[_selectedDepOp].name : 'votre opérateur';
+  var a = document.getElementById('depRecapAmount');
+  var n = document.getElementById('depRecapNumber');
+  var o = document.getElementById('depRecapOp');
+  if (a) a.textContent = amt > 0 ? (fmt(amt) + ' ' + cur) : 'le montant';
+  if (n) n.textContent = num;
+  if (o) o.textContent = opLabel;
 }
 
 function copyDepNumber() {
@@ -6868,6 +6917,10 @@ function openModal(id) {
     /* Réinitialiser step */
     var s1 = document.getElementById('depStep1'); if (s1) s1.style.display = '';
     var s2 = document.getElementById('depStep2'); if (s2) s2.style.display = 'none';
+    /* Réinitialiser la case de confirmation + le bouton + le récap */
+    var chk = document.getElementById('depConfirmCheck'); if (chk) chk.checked = false;
+    if (typeof updateDepConfirmBtn === 'function') updateDepConfirmBtn();
+    if (typeof updateDepRecap === 'function') updateDepRecap();
     /* Afficher le cap si projet pré-sélectionné */
     updateDepositCap('');
   }
@@ -6919,6 +6972,13 @@ function confirmDeposit() {
     showToast('Veuillez saisir le numéro Mobile Money ayant servi au dépôt.', 'error');
     document.getElementById('depSenderPhone').focus();
     document.getElementById('depSenderPhone').style.borderColor = '#DC2626';
+    return;
+  }
+
+  /* Garde anti-fraude : la case « j'ai réellement envoyé » doit être cochée */
+  var confirmChk = document.getElementById('depConfirmCheck');
+  if (!confirmChk || !confirmChk.checked) {
+    showToast('Cochez la case pour confirmer que vous avez bien envoyé l\'argent.', 'error');
     return;
   }
 
@@ -10354,6 +10414,7 @@ function applyPromoCode() {
 
 /* Mise à jour temps réel du plafond projet dans le modal dépôt */
 function updateDepositCap(amtStr) {
+  if (typeof updateDepRecap === 'function') updateDepRecap();
   var capDiv     = document.getElementById('depProjectCap');
   var warningEl  = document.getElementById('depCapWarning');
   if (!capDiv) return;
