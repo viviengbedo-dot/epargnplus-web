@@ -1708,14 +1708,34 @@
         <div style="font-size:18px;font-weight:900;color:var(--primary);" id="np-monthly-text">—</div>
         <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;" id="np-monthly-sub">en épargnant régulièrement</div>
       </div>
-      <!-- Rappel règle de retrait -->
-      <div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:12px;padding:11px 14px;margin-bottom:16px;display:flex;gap:9px;align-items:flex-start;">
-        <span style="font-size:16px;">🔒</span>
-        <div style="font-size:12px;color:#92400E;line-height:1.5;">
-          Le retrait sera débloqué <strong>uniquement</strong> lorsque votre objectif atteint <strong>100%</strong> ET que la <strong>date de fin</strong> est arrivée.
+      <!-- ── Contrat d'engagement (retrait) ── -->
+      <div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:14px;padding:14px 16px;margin-bottom:14px;">
+        <div style="font-size:13px;font-weight:800;color:#92400E;margin-bottom:8px;display:flex;align-items:center;gap:7px;">📜 Engagement d'épargne</div>
+        <div style="font-size:12px;color:#7c4a12;line-height:1.6;">
+          En lançant ce projet, je comprends et j'accepte que :
+          <ul style="margin:8px 0 0;padding-left:18px;">
+            <li>Le retrait est débloqué <strong>uniquement</strong> quand l'objectif atteint <strong>100 %</strong> ET que la <strong>date de fin</strong> est arrivée.</li>
+            <li>Un retrait <strong>anticipé</strong> n'est possible <strong>qu'avec un motif et un justificatif valable</strong>, vérifiés par l'équipe.</li>
+            <li>L'épargne est un <strong>engagement</strong> : venir avant le terme sans motif valable ne permet pas de débloquer les fonds.</li>
+          </ul>
         </div>
       </div>
-      <button class="btn btn-accent" style="width:100%;padding:16px;font-size:15px;font-weight:800;border-radius:16px;" onclick="createProject()">
+
+      <!-- Signature -->
+      <div class="form-group">
+        <label class="form-label">✍️ Votre signature (nom et prénom)</label>
+        <input class="form-input" id="proj-signature" type="text" placeholder="Tapez votre nom complet" oninput="updateCreateBtnState()" />
+      </div>
+
+      <!-- Case d'acceptation obligatoire -->
+      <label for="proj-contract-check" style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:12px;padding:12px 14px;margin-bottom:14px;">
+        <input type="checkbox" id="proj-contract-check" onchange="updateCreateBtnState()" style="width:20px;height:20px;flex-shrink:0;margin-top:1px;accent-color:#059669;cursor:pointer;" />
+        <span style="font-size:13px;color:#065F46;font-weight:600;line-height:1.5;">
+          J'ai lu et j'accepte les conditions de retrait de ce projet.
+        </span>
+      </label>
+
+      <button id="np-create-btn" class="btn btn-accent" style="width:100%;padding:16px;font-size:15px;font-weight:800;border-radius:16px;opacity:.5;cursor:not-allowed;" disabled onclick="createProject()">
         🚀 Lancer mon projet →
       </button>
     </div>
@@ -7227,6 +7247,10 @@ function npGoStep(step, fromCustom) {
   if (step === 1) {
     _npSelectedCategory = null;
     _npSelectedProject  = null;
+    /* Réinitialiser le contrat d'engagement pour le nouveau projet */
+    var sigEl = document.getElementById('proj-signature'); if (sigEl) sigEl.value = '';
+    var chkEl = document.getElementById('proj-contract-check'); if (chkEl) chkEl.checked = false;
+    if (typeof updateCreateBtnState === 'function') updateCreateBtnState();
     npRenderCategories();
   } else if (step === 3) {
     _npCategoryBack = !fromCustom;
@@ -7436,6 +7460,18 @@ function projWithdrawable(proj) {
   return projReached(proj.actuel, proj.cible) && projDeadlineReached(proj);
 }
 
+/* Active "Lancer mon projet" seulement si signature + case cochée */
+function updateCreateBtnState() {
+  var sig = ((document.getElementById('proj-signature') || {}).value || '').trim();
+  var chk = !!((document.getElementById('proj-contract-check') || {}).checked);
+  var btn = document.getElementById('np-create-btn');
+  if (!btn) return;
+  var ok = sig.length > 0 && chk;
+  btn.disabled = !ok;
+  btn.style.opacity = ok ? '1' : '.5';
+  btn.style.cursor  = ok ? 'pointer' : 'not-allowed';
+}
+
 function createProject() {
   const nom      = ((document.getElementById('proj-nom')   || {}).value || '').trim();
   const cible    = parseInt((document.getElementById('proj-cible') || {}).value) || 0;
@@ -7449,6 +7485,15 @@ function createProject() {
   /* Vérifier que la date est dans le futur */
   var _now = new Date(); _now.setHours(0,0,0,0);
   if (new Date(deadline) <= _now) { showToast('La date de fin doit être dans le futur.', 'error'); return; }
+
+  /* Contrat d'engagement : signature + acceptation obligatoires */
+  var signature = ((document.getElementById('proj-signature') || {}).value || '').trim();
+  var accepted  = !!((document.getElementById('proj-contract-check') || {}).checked);
+  if (!signature) { showToast('Signez avec votre nom pour valider l\'engagement.', 'error'); return; }
+  if (!accepted)  { showToast('Cochez la case pour accepter les conditions de retrait.', 'error'); return; }
+  try {
+    localStorage.setItem('epargn_last_contract', JSON.stringify({ signature: signature, at: new Date().toISOString() }));
+  } catch (e) {}
 
   /* On stocke la date de fin dans le champ "duree" (ISO) — supporté par le rendu existant */
   const duree = deadline;
