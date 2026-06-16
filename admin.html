@@ -460,9 +460,9 @@
           <div class="stat-card">
             <div class="stat-card-icon" style="background:#FFF1F2;">📤</div>
             <div class="stat-card-info">
-              <div class="stat-card-value">0</div>
-              <div class="stat-card-label">Retraits ce mois (FCFA)</div>
-              <div class="kpi-trend neutral">Données à venir</div>
+              <div class="stat-card-value" id="kpi-retraits-mois">0</div>
+              <div class="stat-card-label">Retraits / remboursements ce mois</div>
+              <div class="kpi-trend neutral" id="kpi-retraits-mois-trend">—</div>
             </div>
           </div>
           <div class="stat-card">
@@ -2328,7 +2328,8 @@ function populateAdminData(data) {
     var statutLabel = t.statut === 'completed' || t.status === 'success' ? 'Complété'
                     : t.statut === 'failed'    || t.status === 'failed'  ? 'Échoué'
                     : 'En attente';
-    var typeLabel = t.type === 'deposit' || t.type === 'depot' ? 'Dépôt'
+    var typeLabel = t.type === 'deposit' || t.type === 'depot' || t.type === 'depot_alipay' ? 'Dépôt'
+                  : t.type === 'retrait_projet_collectif' ? 'Remboursement'
                   : t.type === 'withdrawal' || t.type === 'retrait' ? 'Retrait'
                   : t.type || 'Transaction';
     ALL_TXNS.push({
@@ -2342,10 +2343,28 @@ function populateAdminData(data) {
       op:      t.operator || '—',
       date:    t.created_at ? new Date(t.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—',
       statut:      statutLabel,
-      credit:      t.type === 'deposit' || t.type === 'depot',
+      credit:      t.type === 'deposit' || t.type === 'depot' || t.type === 'depot_alipay',
       raw_created: t.created_at ? new Date(t.created_at).getTime() : 0,
     });
   });
+
+  /* ── Stats réelles : graphique mensuel dépôts/retraits + KPI retraits ── */
+  try {
+    var bars = buildMonthlyBars(rawAllTxns);
+    var barMax = 1;
+    bars.forEach(function(b) { barMax = Math.max(barMax, b.depot, b.retrait); });
+    renderBarChart('barChart', bars, barMax);
+
+    var retMois = sumRetraitsThisMonth(rawAllTxns);
+    var kpiRet = document.getElementById('kpi-retraits-mois');
+    if (kpiRet) kpiRet.textContent = fmt(retMois);
+    var kpiRetTrend = document.getElementById('kpi-retraits-mois-trend');
+    if (kpiRetTrend) {
+      var nbRet = rawAllTxns.filter(function(t){ return _txnDone(t) && _isRetrait(t); }).length;
+      kpiRetTrend.textContent = retMois > 0 ? ('📤 ' + nbRet + ' opération' + (nbRet > 1 ? 's' : '')) : 'Aucun ce mois';
+      kpiRetTrend.className = 'kpi-trend ' + (retMois > 0 ? 'down' : 'neutral');
+    }
+  } catch (e) { console.warn('[admin] stats retraits:', e && e.message); }
 
   // KPI
   var kpiTotal = document.getElementById('kpi-total-users');
@@ -2793,16 +2812,56 @@ function renderBarChart(elId, data, maxVal, singleColor = false) {
     const retH = singleColor ? 0 : Math.round((d.retrait / maxVal) * 100);
     const label = d.month || d.label;
     const val   = singleColor ? d.val : d.depot;
+    const fmtBar = (n) => n >= 1e6 ? (n/1e6).toFixed(n >= 1e7 ? 0 : 1) + 'M'
+                        : n >= 1e3 ? Math.round(n/1e3) + 'K' : String(n||0);
 
     return `<div class="chart-bar-col">
-      <div class="chart-val">${singleColor ? val.toLocaleString('fr') : (val/1000 + 'M')}</div>
+      <div class="chart-val">${singleColor ? val.toLocaleString('fr') : fmtBar(val)}</div>
       <div style="display:flex;gap:2px;align-items:flex-end;width:100%;height:80px;">
-        <div class="chart-bar" style="background:var(--primary);height:${depH}%;flex:1;" title="${val}"></div>
-        ${!singleColor ? `<div class="chart-bar" style="background:var(--accent);height:${retH}%;flex:1;" title="${d.retrait}M"></div>` : ''}
+        <div class="chart-bar" style="background:var(--primary);height:${depH}%;flex:1;" title="Dépôts : ${(val||0).toLocaleString('fr')}"></div>
+        ${!singleColor ? `<div class="chart-bar" style="background:var(--accent);height:${retH}%;flex:1;" title="Retraits : ${(d.retrait||0).toLocaleString('fr')}"></div>` : ''}
       </div>
       <div class="chart-label">${label}</div>
     </div>`;
   }).join('');
+}
+
+/* ── Agrégation dépôts/retraits réels (6 derniers mois) ── */
+function _txnDone(t) { return t.statut === 'completed' || t.status === 'success'; }
+function _isDepot(t)  { return t.type === 'deposit' || t.type === 'depot' || t.type === 'depot_alipay'; }
+function _isRetrait(t){ return t.type === 'withdrawal' || t.type === 'retrait' || t.type === 'retrait_projet_collectif'; }
+
+function buildMonthlyBars(rawTxns) {
+  var now = new Date();
+  var months = [];
+  for (var i = 5; i >= 0; i--) {
+    var d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({
+      y: d.getFullYear(), m: d.getMonth(),
+      month: d.toLocaleDateString('fr-FR', { month: 'short' }),
+      depot: 0, retrait: 0,
+    });
+  }
+  (rawTxns || []).forEach(function(t) {
+    if (!t.created_at || !_txnDone(t)) return;
+    var dt = new Date(t.created_at);
+    var b = months.find(function(x) { return x.y === dt.getFullYear() && x.m === dt.getMonth(); });
+    if (!b) return;
+    var amt = Number(t.amount) || 0;
+    if (_isDepot(t)) b.depot += amt;
+    else if (_isRetrait(t)) b.retrait += amt;
+  });
+  return months;
+}
+
+function sumRetraitsThisMonth(rawTxns) {
+  var now = new Date();
+  return (rawTxns || []).reduce(function(s, t) {
+    if (!t.created_at || !_txnDone(t) || !_isRetrait(t)) return s;
+    var dt = new Date(t.created_at);
+    if (dt.getFullYear() !== now.getFullYear() || dt.getMonth() !== now.getMonth()) return s;
+    return s + (Number(t.amount) || 0);
+  }, 0);
 }
 
 /* ── OVERVIEW ── */
