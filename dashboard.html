@@ -5061,6 +5061,15 @@ function renderProjectCards() {
         <span style="font-size:12px;font-weight:700;color:${ins.color};">${ins.icon} ${ins.text}</span>
       </div>
 
+      <!-- ── Badge "Projet inactif" (aucun dépôt) ── -->
+      ${((p.actuel || 0) === 0 && !isCollectif && p.status !== 'closure_requested' && p.status !== 'pending_close') ? `
+      <div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:12px;padding:12px 14px;margin-bottom:14px;">
+        <div style="font-size:13px;font-weight:800;color:#92400E;display:flex;align-items:center;gap:6px;margin-bottom:4px;">⚠️ Projet inactif</div>
+        <div style="font-size:12.5px;color:#78350F;line-height:1.55;">
+          Votre objectif n'a reçu aucun dépôt. 🎯 Faites un premier dépôt aujourd'hui et débloquez votre progression vers les <strong>1 %</strong>. Chaque grand projet commence par une première contribution. 💙
+        </div>
+      </div>` : ''}
+
       <!-- ── Badge hausse en attente ── -->
       ${hasPendingGoalReq ? `<div style="margin-top:8px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:7px 12px;font-size:12px;color:#92400E;display:flex;align-items:center;gap:6px;">
         ⏳ <strong>Hausse d'objectif en attente</strong> — l'admin validera sous 24h
