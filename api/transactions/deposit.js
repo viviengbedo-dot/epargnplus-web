@@ -167,8 +167,9 @@ module.exports = async (req, res) => {
   const label   = ref + ' · ' + (isAlipay ? 'Dépôt Alipay' : 'Dépôt ' + operator) + senderInfo;
 
   let txnId = null;
+  let txnError = null;
 
-  /* ── 1. Écriture transaction ── */
+  /* ── 1. Écriture transaction (chaque demande = 1 transaction distincte) ── */
   try {
     const txnBody = {
       user_id:    jwtPayload.userId,
@@ -190,7 +191,26 @@ module.exports = async (req, res) => {
     if (created) txnId = created.id;
     console.log('[deposit] txn=' + txnId + ' type=' + txnType + ' user=' + jwtPayload.userId + ' amount=' + amount);
   } catch (txnErr) {
-    console.warn('[deposit] transactions table:', txnErr.message);
+    txnError = txnErr.message;
+    console.error('[deposit] insert complet échoué → fallback minimal :', txnErr.message);
+    /* Repli : insert minimal (au cas où une colonne optionnelle manque en prod) */
+    try {
+      const minimal = {
+        user_id:   jwtPayload.userId,
+        type:      txnType,
+        amount,
+        is_credit: true,
+        statut:    'pending',
+        status:    'pending',
+      };
+      const r2 = await supabaseRequest('POST', '/transactions', minimal);
+      const c2 = Array.isArray(r2) ? r2[0] : r2;
+      if (c2) { txnId = c2.id; txnError = null; }
+      console.log('[deposit] txn (minimal)=' + txnId + ' user=' + jwtPayload.userId);
+    } catch (e2) {
+      txnError = e2.message;
+      console.error('[deposit] insert minimal échoué aussi :', e2.message);
+    }
   }
 
   /* ── 2. pending_deposit (rétrocompat) ── */
@@ -203,10 +223,19 @@ module.exports = async (req, res) => {
       '/users?id=eq.' + encodeURIComponent(jwtPayload.userId),
       { pending_deposit: pendingData, updated_at: now });
   } catch (pdErr) {
-    if (!txnId) {
-      return res.status(500).json({ error: 'Erreur enregistrement. Réessayez.' });
-    }
     console.warn('[deposit] pending_deposit:', pdErr.message);
+  }
+
+  /* ── Garde anti-confirmation fantôme ──
+     Si AUCUNE transaction n'a pu être enregistrée, ne pas renvoyer un faux
+     « succès » : le client doit savoir que la demande n'est pas passée, et
+     l'admin ne doit pas se retrouver avec une demande invisible. */
+  if (!txnId) {
+    console.error('[deposit] ÉCHEC : aucune transaction créée pour user=' + jwtPayload.userId + ' — ' + (txnError || 'cause inconnue'));
+    return res.status(500).json({
+      error: "Votre demande n'a pas pu être enregistrée. Réessayez dans un instant.",
+      code: 'DEPOSIT_NOT_SAVED',
+    });
   }
 
   /* ── Email confirmation dépôt ── */
