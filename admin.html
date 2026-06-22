@@ -146,6 +146,56 @@
     .kpi-trend.up   { color: var(--success); }
     .kpi-trend.down { color: var(--error);   }
     .kpi-trend.neutral { color: var(--text-hint); }
+
+    /* ════════════════════════════════════════
+       ÉPURATION iOS — overrides scopés à l'admin
+       (style.css reste partagé et inchangé)
+       ════════════════════════════════════════ */
+    body { background: #F5F5F7; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; letter-spacing: -0.01em; }
+
+    /* Cartes : surfaces douces, ombres légères, coins généreux */
+    .card {
+      border-radius: 18px;
+      border: 1px solid rgba(0,0,0,.05);
+      box-shadow: 0 1px 2px rgba(0,0,0,.03), 0 8px 26px rgba(11,21,102,.05);
+    }
+    .card-title { font-weight: 800; letter-spacing: -0.01em; }
+
+    /* KPI cards plus respirantes */
+    .stat-cards { gap: 14px; }
+    .stat-card {
+      border-radius: 18px;
+      border: 1px solid rgba(0,0,0,.05);
+      box-shadow: 0 1px 2px rgba(0,0,0,.03), 0 6px 18px rgba(11,21,102,.05);
+      padding: 18px 20px;
+    }
+    .stat-card-icon { border-radius: 12px; }
+    .stat-card-value { font-weight: 800; letter-spacing: -0.02em; }
+    .stat-card-label { letter-spacing: 0; text-transform: none; color: #8A8A8E; }
+
+    /* Tableaux aérés, en-têtes doux */
+    .table-wrap { border-radius: 16px; border-color: rgba(0,0,0,.06); }
+    .table-wrap th {
+      background: #FAFAFC; color: #8A8A8E; letter-spacing: 0;
+      text-transform: none; padding: 13px 16px; border-bottom: 1px solid rgba(0,0,0,.05);
+    }
+    .table-wrap td { padding: 14px 16px; border-bottom: 1px solid rgba(0,0,0,.04); }
+    .table-wrap tr:hover td { background: #F7F7FA; }
+
+    /* Sidebar : marine profond + état actif net */
+    .sidebar { background: #0A1250; }
+    .nav-item { border-radius: 11px; font-weight: 500; padding: 10px 13px; }
+    .nav-item:hover  { background: rgba(255,255,255,.07); }
+    .nav-item.active { background: rgba(200,224,0,.18); color: #fff; font-weight: 700; }
+    .nav-section-title {
+      color: rgba(255,255,255,.42); letter-spacing: .02em; font-weight: 600;
+      text-transform: none; font-size: 11px; padding: 18px 13px 6px;
+    }
+
+    /* Contrôles : arrondis cohérents iOS */
+    .btn-icon { border-radius: 9px; border-color: rgba(0,0,0,.08); }
+    .search-input { border-radius: 12px; border-color: rgba(0,0,0,.08); }
+    .topbar-title { font-weight: 800; letter-spacing: -0.01em; }
   </style>
 </head>
 <body>
