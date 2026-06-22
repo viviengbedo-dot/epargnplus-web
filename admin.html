@@ -189,7 +189,7 @@
     </div>
 
     <nav class="sidebar-nav">
-      <div class="nav-section-title">VUE GÉNÉRALE</div>
+      <div class="nav-section-title">📊 Pilotage</div>
       <button class="nav-item active" onclick="showAdminSection('overview', this)">
         <span class="nav-icon">📊</span> Tableau de bord
       </button>
@@ -197,31 +197,31 @@
         <span class="nav-icon">📈</span> Analytiques
       </button>
 
-      <div class="nav-section-title">GESTION</div>
+      <div class="nav-section-title">👥 Clients</div>
       <button class="nav-item" onclick="showAdminSection('users', this)">
         <span class="nav-icon">👥</span> Utilisateurs
         <span class="nav-badge" id="navUsersBadge" style="display:none;">0</span>
+      </button>
+      <button class="nav-item" onclick="showAdminSection('kyc', this)">
+        <span class="nav-icon">🆔</span> KYC en attente
+        <span class="nav-badge" id="navKycAdminBadge" style="display:none;">0</span>
+      </button>
+      <button class="nav-item" onclick="showAdminSection('support', this)">
+        <span class="nav-icon">🎧</span> Support
+        <span class="nav-badge" id="navSupportBadge" style="display:none;">0</span>
       </button>
       <button class="nav-item" onclick="showAdminSection('whatsapp', this)">
         <span class="nav-icon">📱</span> Messages WhatsApp
         <span class="nav-badge" id="navWaBadge" style="display:none;">0</span>
       </button>
+      <button class="nav-item" onclick="showAdminSection('emails', this)">
+        <span class="nav-icon">✉️</span> Emails
+        <span class="nav-badge" id="navEmailsBadge" style="display:none;">0</span>
+      </button>
+
+      <div class="nav-section-title">💰 Finances</div>
       <button class="nav-item" onclick="showAdminSection('transactions', this)">
         <span class="nav-icon">💳</span> Transactions
-      </button>
-      <button class="nav-item" onclick="showAdminSection('projets', this)">
-        <span class="nav-icon">🎯</span> Projets
-      </button>
-      <button class="nav-item" onclick="showAdminSection('goal-requests', this)">
-        <span class="nav-icon">✏️</span> Modif. Objectifs
-        <span class="nav-badge" id="navGoalReqsBadge" style="display:none;">0</span>
-      </button>
-      <button class="nav-item" onclick="showAdminSection('ambassadors', this)">
-        <span class="nav-icon">👑</span> Ambassadeurs
-        <span class="nav-badge" id="navAmbassadorsBadge" style="display:none;">0</span>
-      </button>
-      <button class="nav-item" onclick="showAdminSection('tontines', this)">
-        <span class="nav-icon">🤝</span> Épargne Coll.
       </button>
       <button class="nav-item" onclick="showAdminSection('withdrawals', this)">
         <span class="nav-icon">💸</span> Retraits
@@ -234,27 +234,28 @@
       <button class="nav-item" onclick="showAdminSection('chine', this)">
         <span class="nav-icon">🇨🇳</span> Chine
       </button>
-
-      <div class="nav-section-title">VÉRIFICATION</div>
-      <button class="nav-item" onclick="showAdminSection('kyc', this)">
-        <span class="nav-icon">🆔</span> KYC en attente
-        <span class="nav-badge" id="navKycAdminBadge" style="display:none;">0</span>
-      </button>
-      <button class="nav-item" onclick="showAdminSection('support', this)">
-        <span class="nav-icon">🎧</span> Support
-        <span class="nav-badge" id="navSupportBadge" style="display:none;">0</span>
-      </button>
-
-      <div class="nav-section-title">COMMUNICATION</div>
-      <button class="nav-item" onclick="showAdminSection('emails', this)">
-        <span class="nav-icon">✉️</span> Emails
-        <span class="nav-badge" id="navEmailsBadge" style="display:none;">0</span>
-      </button>
       <button class="nav-item" onclick="showAdminSection('coherence', this)">
         <span class="nav-icon">⚖️</span> Cohérence soldes
         <span class="nav-badge" id="navCoherenceBadge" style="display:none;background:#DC2626;">0</span>
       </button>
-      <div class="nav-section-title">SYSTÈME</div>
+
+      <div class="nav-section-title">🎯 Produits</div>
+      <button class="nav-item" onclick="showAdminSection('projets', this)">
+        <span class="nav-icon">🎯</span> Projets
+      </button>
+      <button class="nav-item" onclick="showAdminSection('tontines', this)">
+        <span class="nav-icon">🤝</span> Épargne Coll.
+      </button>
+      <button class="nav-item" onclick="showAdminSection('goal-requests', this)">
+        <span class="nav-icon">✏️</span> Modif. Objectifs
+        <span class="nav-badge" id="navGoalReqsBadge" style="display:none;">0</span>
+      </button>
+      <button class="nav-item" onclick="showAdminSection('ambassadors', this)">
+        <span class="nav-icon">👑</span> Ambassadeurs
+        <span class="nav-badge" id="navAmbassadorsBadge" style="display:none;">0</span>
+      </button>
+
+      <div class="nav-section-title">⚙️ Système</div>
       <button class="nav-item" onclick="showAdminSection('parametres', this)">
         <span class="nav-icon">⚙️</span> Paramètres
       </button>
