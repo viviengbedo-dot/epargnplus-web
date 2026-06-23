@@ -1661,6 +1661,76 @@ module.exports = async (req, res) => {
         ok: true, action: 'approved', epargne: newEpargne, depositAmount, projectId: projectId || null,
       });
 
+    /* ════════════ REVOKE-DEPOSIT (annuler une validation déjà faite) ════════════
+       Cas : le client annule son transfert Mobile Money après que l'admin a validé.
+       On fait l'inverse exact de la validation : débit du solde + du projet,
+       transaction marquée annulée, notification au client. */
+    } else if (action === 'revoke-deposit') {
+      let amount    = parseInt(body.amount, 10) || 0;
+      let projectId = body.projectId || null;
+      let txn = null;
+
+      if (txnId) {
+        try {
+          const txRows = await supabaseRequest('GET',
+            '/transactions?id=eq.' + encodeURIComponent(txnId) +
+            '&select=amount,project_id,statut,status,type');
+          if (Array.isArray(txRows) && txRows[0]) {
+            txn = txRows[0];
+            if (!amount)    amount    = Number(txn.amount) || 0;
+            if (!projectId) projectId = txn.project_id || null;
+          }
+        } catch (e) {}
+      }
+
+      if (!amount || amount < 1) return res.status(400).json({ error: 'Montant invalide' });
+
+      /* Idempotence : ne pas annuler deux fois */
+      if (txn && (txn.statut === 'cancelled' || txn.status === 'cancelled')) {
+        return res.status(409).json({ error: 'Ce dépôt est déjà annulé.' });
+      }
+
+      /* 1. Débiter le solde (jamais en dessous de 0) */
+      const curEp      = Number(user.epargne) || 0;
+      const newEpargne = Math.max(0, curEp - amount);
+      await supabaseRequest('PATCH',
+        '/users?id=eq.' + encodeURIComponent(userId),
+        { epargne: newEpargne });
+
+      /* 2. Décrémenter le projet (et le rouvrir s'il était complété) */
+      if (projectId) {
+        try {
+          const projRows = await supabaseRequest('GET',
+            '/projects?id=eq.' + encodeURIComponent(projectId) + '&select=id,actuel,status');
+          if (Array.isArray(projRows) && projRows[0]) {
+            const proj = projRows[0];
+            const newActuel = Math.max(0, (Number(proj.actuel) || 0) - amount);
+            await supabaseRequest('PATCH',
+              '/projects?id=eq.' + encodeURIComponent(projectId),
+              { actuel: newActuel, updated_at: now,
+                ...(proj.status === 'completed' ? { status: 'active' } : {}) });
+          }
+        } catch (e) { console.warn('[revoke-deposit] projet:', e.message); }
+      }
+
+      /* 3. Marquer la transaction annulée */
+      if (txnId) {
+        try {
+          await supabaseRequest('PATCH',
+            '/transactions?id=eq.' + encodeURIComponent(txnId),
+            { statut: 'cancelled', status: 'cancelled', validated_by: 'admin-revoked', validated_at: now });
+        } catch (e) {}
+      }
+
+      /* 4. Notifier le client + journaliser */
+      await createNotification(userId, 'deposit_revoked', 'Dépôt annulé',
+        'Votre dépôt de ' + amount.toLocaleString('fr') + ' a été annulé car le transfert n\'a pas été confirmé ou reçu. Votre solde a été ajusté en conséquence. Pour toute question, contactez-nous.',
+        { txn_id: txnId || null, amount });
+      try { await logAudit(userId, 'deposit_revoked', { txn_id: txnId || null, amount, by: 'admin' }, req); } catch (e) {}
+
+      console.log('[revoke-deposit] user=' + userId + ' amount=' + amount + ' newEpargne=' + newEpargne);
+      return res.status(200).json({ ok: true, action: 'revoke-deposit', amount, epargne: newEpargne });
+
     /* ════════════ REJECT ════════════ */
     } else if (action === 'reject') {
       if (txnId) {

@@ -2416,6 +2416,7 @@ function populateAdminData(data) {
   rawAllTxns.forEach(function(t) {
     var u = userMap[t.user_id] || {};
     var statutLabel = t.statut === 'completed' || t.status === 'success' ? 'Complété'
+                    : t.statut === 'cancelled' || t.status === 'cancelled' ? 'Annulé'
                     : t.statut === 'failed'    || t.status === 'failed'  ? 'Échoué'
                     : 'En attente';
     var typeLabel = t.type === 'deposit' || t.type === 'depot' || t.type === 'depot_alipay' ? 'Dépôt'
@@ -2681,6 +2682,42 @@ function adminApproveDeposit(userId, amount, txnId, projectId) {
     }
   })
   .catch(function() { showAdminToast('Erreur réseau.', 'error'); });
+}
+
+/* ── Revenir sur une validation de dépôt (client a annulé son transfert) ── */
+function adminRevokeDeposit(userId, amount, txnId) {
+  var u = USERS.find(function(x){ return x.id === userId; }) || {};
+  var cur = COUNTRY_CURRENCY[u.country] || 'GNF';
+  var nom = u.name || 'ce client';
+
+  /* 1er avertissement détaillé */
+  if (!confirm(
+    '⚠️ ANNULER CETTE VALIDATION DE DÉPÔT ?\n\n' +
+    'Client : ' + nom + '\n' +
+    'Montant à retirer du solde : ' + fmt(amount) + ' ' + cur + '\n\n' +
+    'Le solde du client ET le projet concerné seront diminués de ce montant, et le client recevra une notification.\n\n' +
+    '⛔ À faire UNIQUEMENT si le transfert Mobile Money n\'a PAS été reçu, ou a été annulé par le client après sa confirmation.\n\n' +
+    'Continuer ?'
+  )) return;
+
+  /* 2e confirmation (action sensible sur le solde) */
+  if (!confirm('Dernière confirmation : retirer définitivement ' + fmt(amount) + ' ' + cur + ' du solde de ' + nom + ' ?')) return;
+
+  fetch('/api/admin/update-balance', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
+    body: JSON.stringify({ userId: userId, amount: amount, action: 'revoke-deposit', txnId: txnId || null })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    if (data.ok) {
+      showAdminToast('↩︎ Validation annulée. ' + fmt(amount) + ' ' + cur + ' retirés. Nouveau solde : ' + fmt(data.epargne) + ' ' + cur, 'info');
+      reloadAdminData();
+    } else {
+      showAdminToast('Erreur : ' + (data.error || 'inconnue'), 'error');
+    }
+  })
+  .catch(function(){ showAdminToast('Erreur réseau.', 'error'); });
 }
 
 function adminRejectDeposit(userId, txnId) {
@@ -3331,7 +3368,7 @@ function renderAllTxn() {
     return;
   }
 
-  var statutBadge = function(s, fullId, userId, montant) {
+  var statutBadge = function(s, fullId, userId, montant, type) {
     if (s === 'En attente') {
       var sid = String(fullId || '').replace(/'/g,'');
       var uid = String(userId || '').replace(/'/g,'');
@@ -3341,8 +3378,18 @@ function renderAllTxn() {
         '<button class="btn-icon" onclick="adminRejectDeposit(\'' + uid + '\',\'' + sid + '\')" style="background:#FEE2E2;color:#DC2626;font-size:11px;padding:2px 6px;">❌</button>' +
         '</div>';
     }
-    if (s === 'Complété') return '<span class="badge badge-success">✅ Complété</span>';
+    if (s === 'Complété') {
+      var html = '<span class="badge badge-success">✅ Complété</span>';
+      /* Revenir sur une validation de dépôt (client a annulé son transfert) */
+      if (type === 'Dépôt') {
+        var sid2 = String(fullId || '').replace(/'/g,'');
+        var uid2 = String(userId || '').replace(/'/g,'');
+        html += ' <button class="btn-icon" title="Annuler cette validation" onclick="adminRevokeDeposit(\'' + uid2 + '\',' + montant + ',\'' + sid2 + '\')" style="background:#FEF3C7;color:#92400E;font-size:11px;padding:2px 6px;">↩︎ Annuler</button>';
+      }
+      return html;
+    }
     if (s === 'Échoué')   return '<span class="badge badge-error">❌ Échoué</span>';
+    if (s === 'Annulé')   return '<span class="badge badge-neutral">↩︎ Annulé</span>';
     return '<span class="badge badge-neutral">' + s + '</span>';
   };
 
@@ -3357,7 +3404,7 @@ function renderAllTxn() {
       '<td class="' + (t.credit ? 'txn-credit' : 'txn-debit') + '" style="font-weight:700;">' + (t.credit ? '+ ' : '− ') + fmt(t.montant) + ' ' + cur + '</td>' +
       '<td>' + t.op + '</td>' +
       '<td class="text-muted">' + t.date + '</td>' +
-      '<td>' + statutBadge(t.statut, t.fullId, t.userId, t.montant) + '</td>' +
+      '<td>' + statutBadge(t.statut, t.fullId, t.userId, t.montant, t.type) + '</td>' +
     '</tr>';
   }).join('');
 
