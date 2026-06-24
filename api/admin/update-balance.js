@@ -1685,19 +1685,50 @@ module.exports = async (req, res) => {
 
       if (!amount || amount < 1) return res.status(400).json({ error: 'Montant invalide' });
 
-      /* Idempotence : ne pas annuler deux fois */
-      if (txn && (txn.statut === 'cancelled' || txn.status === 'cancelled')) {
-        return res.status(409).json({ error: 'Ce dépôt est déjà annulé.' });
+      /* Sécurité anti double-débit : ne révoquer qu'un dépôt RÉELLEMENT validé.
+         (Si déjà annulé/échoué/en attente → refus, donc un 2e clic ne re-débite pas.) */
+      if (txn) {
+        const st = txn.statut || txn.status || '';
+        if (st !== 'completed' && st !== 'success') {
+          return res.status(409).json({ error: 'Ce dépôt n\'est pas révocable (déjà annulé, échoué ou en attente).' });
+        }
       }
 
-      /* 1. Débiter le solde (jamais en dessous de 0) */
+      /* 1. MARQUER D'ABORD la transaction comme annulée.
+         Si l'enregistrement du statut échoue, on N'EFFECTUE PAS le débit
+         (sinon le solde baisserait sans que la transaction change → re-débit possible). */
+      if (txnId) {
+        let marked = false;
+        try {
+          await supabaseRequest('PATCH',
+            '/transactions?id=eq.' + encodeURIComponent(txnId),
+            { statut: 'cancelled', status: 'cancelled' });
+          marked = true;
+        } catch (e1) {
+          console.warn('[revoke-deposit] statut "cancelled" refusé → repli "failed" :', e1.message);
+          /* La colonne status n'accepte peut-être pas 'cancelled' (contrainte) → 'failed' est accepté (cf. reject) */
+          try {
+            await supabaseRequest('PATCH',
+              '/transactions?id=eq.' + encodeURIComponent(txnId),
+              { statut: 'failed', status: 'failed' });
+            marked = true;
+          } catch (e2) {
+            console.error('[revoke-deposit] impossible de marquer la transaction :', e2.message);
+          }
+        }
+        if (!marked) {
+          return res.status(500).json({ error: "Impossible d'annuler la transaction. Aucun débit n'a été effectué. Réessayez." });
+        }
+      }
+
+      /* 2. Débiter le solde (jamais en dessous de 0) */
       const curEp      = Number(user.epargne) || 0;
       const newEpargne = Math.max(0, curEp - amount);
       await supabaseRequest('PATCH',
         '/users?id=eq.' + encodeURIComponent(userId),
         { epargne: newEpargne });
 
-      /* 2. Décrémenter le projet (et le rouvrir s'il était complété) */
+      /* 3. Décrémenter le projet (et le rouvrir s'il était complété) */
       if (projectId) {
         try {
           const projRows = await supabaseRequest('GET',
@@ -1711,15 +1742,6 @@ module.exports = async (req, res) => {
                 ...(proj.status === 'completed' ? { status: 'active' } : {}) });
           }
         } catch (e) { console.warn('[revoke-deposit] projet:', e.message); }
-      }
-
-      /* 3. Marquer la transaction annulée */
-      if (txnId) {
-        try {
-          await supabaseRequest('PATCH',
-            '/transactions?id=eq.' + encodeURIComponent(txnId),
-            { statut: 'cancelled', status: 'cancelled', validated_by: 'admin-revoked', validated_at: now });
-        } catch (e) {}
       }
 
       /* 4. Notifier le client + journaliser */
