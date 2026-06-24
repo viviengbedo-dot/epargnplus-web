@@ -12,6 +12,7 @@ const crypto = require('crypto');
 const { supabaseRequest } = require('../_lib/supabase');
 const { sendEmail, otpEmailHtml } = require('../_lib/email');
 const { checkThrottle, recordFail, resetThrottle } = require('../_lib/security');
+const { sendSms, smsConfigured } = require('../_lib/sms');
 
 const OTP_SECRET    = process.env.OTP_SECRET || 'epargn-otp-dev-secret-change-me';
 const OTP_TTL_MS    = 10 * 60 * 1000; // 10 minutes
@@ -155,6 +156,15 @@ module.exports = async (req, res) => {
     console.log(`[DEMO OTP] phone=${phone} email=${targetEmail} code=${otp} purpose=${purpose}`);
   }
 
+  /* ── Canal SMS (Orange) en complément, pour les numéros guinéens (+224) ──
+     Best-effort : un échec SMS ne bloque jamais (l'email reste le canal sûr). */
+  let smsSent = false;
+  if (smsConfigured() && /^\+224/.test(phone)) {
+    const r = await sendSms(phone, 'Epargn+ : votre code de verification est ' + otp + '. Valable 10 min. Ne le communiquez a personne.');
+    smsSent = r.ok;
+    if (!r.ok) console.warn('[otp] SMS non envoye:', r.error);
+  }
+
   return res.status(200).json({
     token,
     expires:      ts + OTP_TTL_MS,
@@ -162,6 +172,7 @@ module.exports = async (req, res) => {
     resends_left: MAX_RESEND - history.length - 1,
     demo,
     emailSent: !!(targetEmail && hasResend),
-    channel:   'email',
+    smsSent,
+    channel:   smsSent ? 'email+sms' : 'email',
   });
 };
