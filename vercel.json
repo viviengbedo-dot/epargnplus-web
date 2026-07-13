@@ -21,6 +21,7 @@
     { "source": "/realisation-flyer",   "destination": "/public/realisation-flyer.pdf" },
     { "source": "/cgu",                "destination": "/cgu.html" },
     { "source": "/confidentialite",    "destination": "/confidentialite.html" },
+    { "source": "/aide",               "destination": "/aide.html" },
     { "source": "/suppression-compte", "destination": "/suppression-compte.html" }
   ],
   "crons": [
