@@ -9789,10 +9789,24 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 
-function submitCloseAccount() {
+async function submitCloseAccount() {
   var confirmText = (document.getElementById('closeAccConfirmText') || {}).value;
   if (confirmText !== 'SUPPRIMER') { showToast('Confirmez en tapant SUPPRIMER.', 'error'); return; }
-  // Vider toutes les données locales
+  var btn = document.getElementById('closeAccSubmitBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Suppression…'; }
+  // Suppression RÉELLE côté serveur (compte + données) — requis Apple 5.1.1(v).
+  try {
+    var r = await fetch('/api/user/me', {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + _authToken }
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Supprimer définitivement'; }
+    showToast('Échec de la suppression. Réessayez ou contactez le support.', 'error');
+    return; // on n'efface RIEN si le serveur n'a pas confirmé
+  }
+  // Serveur a confirmé → nettoyer les données locales
   localStorage.removeItem('epargn_token');
   localStorage.removeItem('epargn_user');
   localStorage.removeItem('epargn_avatar');
@@ -9800,9 +9814,8 @@ function submitCloseAccount() {
   localStorage.removeItem('epargn_projets');
   localStorage.removeItem('epargn_tontines');
   localStorage.removeItem('epargn_kyc_submitted');
-  // TODO: appel API backend pour supprimer le compte côté serveur
   showToast('Compte supprimé. À bientôt.', 'info');
-  setTimeout(function() { window.location.replace('/'); }, 2000);
+  setTimeout(function() { window.location.replace('/'); }, 1500);
 }
 
 /* ════════════════════════════════════════

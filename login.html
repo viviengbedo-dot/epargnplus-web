@@ -888,19 +888,9 @@ let _otpTimer       = null;   /* setInterval du countdown */
       if (code) applyCountry(code);
     })
     .catch(function() {
-      /* Fallback : GPS navigateur si disponible */
-      if (!navigator.geolocation) return;
-      navigator.geolocation.getCurrentPosition(
-        function(pos) {
-          fetch('https://ipapi.co/' + pos.coords.latitude + ',' + pos.coords.longitude + '/country/', { cache: 'no-store' })
-            .then(function(r) { return r.text(); })
-            .then(function(cc) {
-              const code = IP_TO_CODE[(cc || '').trim()];
-              if (code) applyCountry(code);
-            }).catch(function() {});
-        },
-        function() {} /* permission refusée → Guinée par défaut */
-      );
+      /* Échec détection IP → Guinée par défaut (déjà sélectionnée).
+         Pas de fallback GPS : évite la demande de permission de localisation
+         (sans objet ici) et l'envoi de coordonnées précises à un tiers. */
     });
 })();
 
