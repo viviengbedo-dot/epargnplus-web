@@ -3,7 +3,7 @@
    Gère : cache offline + push notifications
 ═══════════════════════════════════════════════════════════ */
 
-const CACHE_NAME = 'epargnplus-v2';
+const CACHE_NAME = 'epargnplus-v3';
 const OFFLINE_URLS = ['/', '/connexion', '/style.css', '/logo.svg', '/favicon.png'];
 
 /* ── Installation ── */
@@ -24,22 +24,50 @@ self.addEventListener('activate', (e) => {
   self.clients.claim();
 });
 
-/* ── Fetch (cache-first pour assets statiques) ── */
+/* ── Fetch ──────────────────────────────────────────────────────────────
+   HTML (pages) : NETWORK-FIRST → l'utilisateur reçoit toujours le dernier
+   code déployé (correctifs, nouvelles fonctions). Fallback cache hors-ligne.
+   (Ancien bug : cache-first sur tout → dashboard.html figé sur une vieille
+   version, les correctifs ne s'appliquaient jamais côté client.)
+   Assets statiques : STALE-WHILE-REVALIDATE → rapide + rafraîchi en fond. */
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   /* Ne pas intercepter les requêtes API */
   if (url.pathname.startsWith('/api/')) return;
   if (e.request.method !== 'GET') return;
 
+  const accept = e.request.headers.get('accept') || '';
+  const isHTML = e.request.mode === 'navigate'
+    || e.request.destination === 'document'
+    || accept.includes('text/html');
+
+  if (isHTML) {
+    /* NETWORK-FIRST pour les pages HTML */
+    e.respondWith(
+      fetch(e.request).then(response => {
+        if (response && response.status === 200 && response.type !== 'opaque') {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
+        }
+        return response;
+      }).catch(() =>
+        caches.match(e.request).then(c => c || caches.match('/'))
+      )
+    );
+    return;
+  }
+
+  /* STALE-WHILE-REVALIDATE pour les assets statiques */
   e.respondWith(
     caches.match(e.request).then(cached => {
-      if (cached) return cached;
-      return fetch(e.request).then(response => {
-        if (!response || response.status !== 200 || response.type === 'opaque') return response;
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
+      const network = fetch(e.request).then(response => {
+        if (response && response.status === 200 && response.type !== 'opaque') {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
+        }
         return response;
-      }).catch(() => caches.match('/'));
+      }).catch(() => cached || caches.match('/'));
+      return cached || network;
     })
   );
 });
