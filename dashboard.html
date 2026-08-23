@@ -9326,6 +9326,16 @@ function createTontine() {
         /* Mettre à jour en localStorage */
         var idx = TONTINES_USER.findIndex(function(t){ return t.id === tontine.id; });
         if (idx >= 0) { TONTINES_USER[idx] = Object.assign({}, TONTINES_USER[idx], { projectId: proj.id, inviteCode: proj.invite_code, inviteUrl: proj.invite_url }); localStorage.setItem('epargn_tontines', JSON.stringify(TONTINES_USER)); }
+        /* Inviter chaque numéro saisi (serveur : invitation + notif in-app + email/SMS).
+           Remplace l'ancien stockage localStorage-only qui ne prévenait personne. */
+        (phones || []).forEach(function(ph){
+          if(!ph) return;
+          fetch('/api/user/me?resource=invitations_send', {
+            method:'POST',
+            headers:{'Content-Type':'application/json','Authorization':'Bearer '+_authToken},
+            body: JSON.stringify({ projectId: proj.id, phone: ph })
+          }).catch(function(){});
+        });
         /* Rafraîchir projets (fire-and-forget, re-render après 1s) */
         loadProjects();
         setTimeout(function(){ renderProjectCards(); renderHomeProjects(); renderUserTontines(); }, 1200);
@@ -9701,16 +9711,14 @@ function addTontineMember() {
   /* Envoyer SMS + Email + notification in-app via API en background.
      projectId OBLIGATOIRE — sans lui le backend renvoie 400 et rien n'est envoyé. */
   if (_authToken && t.projectId) {
-    fetch('/api/invite/send', {
+    /* invitations_send : enregistre l'invitation (project_invitations) + NOTIF IN-APP à
+       l'invité si son numéro correspond à un compte Epargn+ + email/SMS (appel interne). */
+    fetch('/api/user/me?resource=invitations_send', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
       body:    JSON.stringify({
-        projectId:   t.projectId,
-        phone:       phone,
-        tontineName: t.nom,
-        mise:        t.mise,
-        freq:        t.freq || 'mensuelle',
-        creatorName: creatorName,
+        projectId: t.projectId,
+        phone:     phone,
       }),
     })
     .then(function(r) { return r.json(); })

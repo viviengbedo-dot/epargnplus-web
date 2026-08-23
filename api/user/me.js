@@ -1243,6 +1243,43 @@ async function handleInvitationsSend(req, res, payload) {
       const invitationId = inv.id;
       const inviteUrl = 'https://www.epargnplus.com/join/' + (proj.invite_code || token);
 
+      /* ── Résoudre le NUMÉRO → utilisateur Epargn+ existant : lier l'invitation +
+         NOTIFICATION IN-APP (l'invité voit l'invitation dans son app et peut l'accepter). */
+      if (phone) {
+        try {
+          const clean = String(phone).replace(/[\s\-().+]/g, '');
+          const last8 = clean.slice(-8);
+          const uRows = await supabaseRequest('GET',
+            '/users?select=id,prenom,nom&or=(phone.eq.' + encodeURIComponent(phone) +
+            ',phone.eq.' + encodeURIComponent(clean) +
+            ',phone.like.*' + encodeURIComponent(last8) + ')&limit=1');
+          if (Array.isArray(uRows) && uRows[0] && uRows[0].id) {
+            const inviteeUserId = uRows[0].id;
+            /* Lier l'invitation à l'utilisateur (pour qu'elle apparaisse dans ses invitations) */
+            try {
+              await supabaseRequest('PATCH',
+                '/project_invitations?id=eq.' + encodeURIComponent(invitationId),
+                { invitee_user_id: inviteeUserId });
+            } catch (e) {}
+            /* Notification in-app à l'invité */
+            try {
+              const cRows = await supabaseRequest('GET',
+                '/users?id=eq.' + encodeURIComponent(payload.userId) + '&select=prenom,nom');
+              const inviterName = (Array.isArray(cRows) && cRows[0])
+                ? ((cRows[0].prenom || '') + ' ' + (cRows[0].nom || '')).trim() : 'Un ami';
+              await supabaseRequest('POST', '/notifications', {
+                user_id: inviteeUserId,
+                type:    'invitation',
+                title:   '🤝 Invitation à une épargne collective',
+                body:    (inviterName || 'Un ami') + ' vous invite à rejoindre « ' +
+                         String(proj.name || '').replace(/^🤝\s*/, '') + ' ». Ouvrez « Communautés » pour accepter.',
+                data:    { project_id: projectId, invitation_id: invitationId, kind: 'collective_invite' },
+              });
+            } catch (e) { console.warn('[invitations_send] notif in-app:', e.message); }
+          }
+        } catch (e) { console.warn('[invitations_send] resolve phone:', e.message); }
+      }
+
       /* Envoyer l'email/SMS via api/invite/send */
       try {
         await fetch(process.env.API_URL + '/invite/send', {
