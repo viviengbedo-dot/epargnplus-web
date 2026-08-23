@@ -3737,6 +3737,9 @@ document.addEventListener('DOMContentLoaded', () => {
   _tontineMarkLates();
   renderTontineStats();
   renderUserTontines();
+  /* Récupère les tontines « fantômes » (créées sans projet Supabase avant le fix
+     server-first) → les crée côté serveur pour qu'elles remontent à l'admin. */
+  setTimeout(_syncOrphanTontines, 2500);
   setTimeout(startCountdownTimers, 600);
   // Profil étendu & photo
   loadExtendedProfile();
@@ -9261,6 +9264,50 @@ function toggleMinCapInput() {
   tontineAutoCalc();
 }
 
+/* ── Récupération des tontines « fantômes » ──────────────────────────────
+   Tontines créées AVANT le fix server-first (en localStorage sans projet
+   Supabase) → invisibles de l'admin. On les crée côté serveur au chargement
+   (une fois), ce qui les fait remonter à l'admin + permet les invitations. */
+function _syncOrphanTontines() {
+  if (!_authToken || !Array.isArray(TONTINES_USER) || !TONTINES_USER.length) return;
+  TONTINES_USER.forEach(function(t, idx) {
+    if (!t || t.projectId || t._syncing || t.status === 'closed') return;
+    var goal = Number(t.goal) || 0;
+    if (goal < 1000) return;
+    t._syncing = true;
+    fetch('/api/user/me?resource=projects', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
+      body: JSON.stringify({
+        nom: '🤝 ' + (t.nom || 'Épargne Collective'), cible: goal,
+        duree: String(t.duree || 'm12'), color: '#0B1566',
+        contribution_type: t.contribution_type || 'free',
+        min_contribution_amount: t.min_contribution_amount || 0,
+      }),
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(proj) {
+      delete t._syncing;
+      if (!proj || !proj.id) return;
+      t.projectId  = proj.id;
+      t.inviteCode = proj.invite_code || t.inviteCode || null;
+      t.inviteUrl  = proj.invite_url  || t.inviteUrl  || null;
+      TONTINES_USER[idx] = t;
+      localStorage.setItem('epargn_tontines', JSON.stringify(TONTINES_USER));
+      (t.phones || []).forEach(function(ph){
+        if(!ph) return;
+        fetch('/api/user/me?resource=invitations_send', {
+          method:'POST',
+          headers:{'Content-Type':'application/json','Authorization':'Bearer '+_authToken},
+          body: JSON.stringify({ projectId: proj.id, phone: ph })
+        }).catch(function(){});
+      });
+      console.log('[tontine] orphan sync → projet créé ' + proj.id);
+    })
+    .catch(function(){ delete t._syncing; });
+  });
+}
+
 /* ── Créer une nouvelle tontine ── */
 function createTontine() {
   var nom        = ((document.getElementById('tont-nom')        || {}).value || '').trim();
@@ -9308,63 +9355,57 @@ function createTontine() {
     min_contribution_amount: (contributionType === 'minimal_cap' ? minAmount : 0),
   };
 
-  /* ── Créer le projet Supabase correspondant ── */
-  if (_authToken) {
-    fetch('/api/user/me?resource=projects', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
-      body: JSON.stringify({
-        nom: '🤝 ' + nom,
-        cible: goalVal,
-        duree: dureeRaw,
-        color: '#0B1566',
-        contribution_type: contributionType,
-        min_contribution_amount: (contributionType === 'minimal_cap' ? minAmount : 0),
-      }),
-    })
-    .then(function(r){ return r.json(); })
-    .then(function(proj) {
-      if (proj && proj.id) {
-        tontine.projectId  = proj.id;
-        tontine.inviteCode = proj.invite_code || null;
-        tontine.inviteUrl  = proj.invite_url  || null;
-        /* Mettre à jour en localStorage */
-        var idx = TONTINES_USER.findIndex(function(t){ return t.id === tontine.id; });
-        if (idx >= 0) { TONTINES_USER[idx] = Object.assign({}, TONTINES_USER[idx], { projectId: proj.id, inviteCode: proj.invite_code, inviteUrl: proj.invite_url }); localStorage.setItem('epargn_tontines', JSON.stringify(TONTINES_USER)); }
-        /* Inviter chaque numéro saisi (serveur : invitation + notif in-app + email/SMS).
-           Remplace l'ancien stockage localStorage-only qui ne prévenait personne. */
-        (phones || []).forEach(function(ph){
-          if(!ph) return;
-          fetch('/api/user/me?resource=invitations_send', {
-            method:'POST',
-            headers:{'Content-Type':'application/json','Authorization':'Bearer '+_authToken},
-            body: JSON.stringify({ projectId: proj.id, phone: ph })
-          }).catch(function(){});
-        });
-        /* Rafraîchir projets (fire-and-forget, re-render après 1s) */
-        loadProjects();
-        setTimeout(function(){ renderProjectCards(); renderHomeProjects(); renderUserTontines(); }, 1200);
-        /* Afficher le modal de partage si un lien a été généré */
-        if (proj.invite_code) {
-          showTontineInviteAfterCreate(proj.id, nom, proj.invite_code);
-        }
-      }
-    })
-    .catch(function(e){ console.warn('[tontine] Projet Supabase non créé :', e.message); });
+  /* ── Création SERVER-FIRST ──────────────────────────────────────────────
+     La tontine n'est enregistrée (localStorage + toast succès) QUE si le projet
+     Supabase est réellement créé. Sinon → erreur, aucune tontine « fantôme »
+     invisible de l'admin. (Ancien bug : push + toast succès inconditionnels
+     alors que le POST serveur pouvait échouer → admin ne voyait rien.) */
+  if (!_authToken) {
+    showToast('Reconnectez-vous pour créer une épargne collective.', 'error');
+    return;
   }
-
-  TONTINES_USER.push(tontine);
-  localStorage.setItem('epargn_tontines', JSON.stringify(TONTINES_USER));
-  closeModal('modal-newTontine');
-  renderTontineStats();
-  renderUserTontines();
-  showToast('🤝 Épargne collective « ' + nom + ' » créée ! Mise : ' + fmt(mise) + ' ' + cur + ' ' + freqLbl + ' — Durée : ' + dureeLbl, 'success');
-
-  /* Reset form */
-  ['tont-nom','tont-goal','tont-membres'].forEach(function(id) {
-    var el = document.getElementById(id); if (el) el.value = '';
+  fetch('/api/user/me?resource=projects', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
+    body: JSON.stringify({
+      nom: '🤝 ' + nom, cible: goalVal, duree: dureeRaw, color: '#0B1566',
+      contribution_type: contributionType,
+      min_contribution_amount: (contributionType === 'minimal_cap' ? minAmount : 0),
+    }),
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(proj) {
+    if (!proj || !proj.id) {
+      showToast('Création échouée : ' + ((proj && proj.error) || 'réessayez'), 'error');
+      return;   /* rien enregistré → pas de tontine invisible de l'admin */
+    }
+    tontine.projectId  = proj.id;
+    tontine.inviteCode = proj.invite_code || null;
+    tontine.inviteUrl  = proj.invite_url  || null;
+    TONTINES_USER.push(tontine);
+    localStorage.setItem('epargn_tontines', JSON.stringify(TONTINES_USER));
+    /* Inviter chaque numéro saisi (invitation serveur + notif in-app + email/SMS) */
+    (phones || []).forEach(function(ph){
+      if(!ph) return;
+      fetch('/api/user/me?resource=invitations_send', {
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+_authToken},
+        body: JSON.stringify({ projectId: proj.id, phone: ph })
+      }).catch(function(){});
+    });
+    loadProjects();
+    setTimeout(function(){ renderProjectCards(); renderHomeProjects(); renderUserTontines(); }, 1200);
+    closeModal('modal-newTontine');
+    renderTontineStats();
+    renderUserTontines();
+    showToast('🤝 Épargne collective « ' + nom + ' » créée ! Mise : ' + fmt(mise) + ' ' + cur + ' ' + freqLbl + ' — Durée : ' + dureeLbl, 'success');
+    ['tont-nom','tont-goal','tont-membres'].forEach(function(id){ var el=document.getElementById(id); if(el) el.value=''; });
+    var calc = document.getElementById('tont-calcBox'); if (calc) calc.style.display = 'none';
+    if (proj.invite_code) showTontineInviteAfterCreate(proj.id, nom, proj.invite_code);
+  })
+  .catch(function(e){
+    showToast('Création échouée (réseau). Réessayez.', 'error');
   });
-  var calc = document.getElementById('tont-calcBox'); if (calc) calc.style.display = 'none';
 }
 
 /* ── Ouvrir le modal de paiement d'un membre ── */
