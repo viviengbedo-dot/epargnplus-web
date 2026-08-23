@@ -296,6 +296,9 @@
       <button class="nav-item" onclick="showAdminSection('tontines', this)">
         <span class="nav-icon">🤝</span> Épargne Coll.
       </button>
+      <button class="nav-item" onclick="showAdminSection('communautes', this)">
+        <span class="nav-icon">💬</span> Communautés
+      </button>
       <button class="nav-item" onclick="showAdminSection('goal-requests', this)">
         <span class="nav-icon">✏️</span> Modif. Objectifs
         <span class="nav-badge" id="navGoalReqsBadge" style="display:none;">0</span>
@@ -903,6 +906,38 @@
                 <tbody id="tontinesTbody"></tbody>
               </table>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════ COMMUNAUTÉS (cercles sociaux) ════════ -->
+      <section id="sec-communautes" style="display:none;">
+        <div class="flex-between mb-6">
+          <div>
+            <h2 style="font-size:22px;font-weight:800;color:var(--primary);">Communautés</h2>
+            <p class="text-muted">Cercles d'épargne sociaux créés par les utilisateurs (classement + fil d'activité). Pas d'argent réel.</p>
+          </div>
+        </div>
+        <div class="stat-cards" style="grid-template-columns:repeat(3,1fr);margin-bottom:24px;">
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#EEF2FF;">💬</div>
+            <div class="stat-card-info"><div class="stat-card-value" id="commStatTotal">0</div><div class="stat-card-label">Communautés</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#F0FDF4;">👥</div>
+            <div class="stat-card-info"><div class="stat-card-value" id="commStatMembers">0</div><div class="stat-card-label">Adhésions</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background:#FEF9C3;">🎯</div>
+            <div class="stat-card-info"><div class="stat-card-value" id="commStatGoal">0</div><div class="stat-card-label">Objectifs cumulés (GNF)</div></div>
+          </div>
+        </div>
+        <div class="card" style="padding:0;">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Communauté</th><th>Type</th><th>Membres</th><th>Objectif</th><th>Créée par</th><th>Actions</th></tr></thead>
+              <tbody id="communautesTbody"></tbody>
+            </table>
           </div>
         </div>
       </section>
@@ -2247,6 +2282,35 @@ function populateAdminData(data) {
     };
   });
 
+  /* ── Communautés (cercles sociaux) ── */
+  (function(){
+    var comms = data.communities || [];
+    var cmembers = data.communityMembers || [];
+    var totalGoal = comms.reduce(function(s,c){ return s + (Number(c.goal)||0); }, 0);
+    var elT=document.getElementById('commStatTotal'); if(elT) elT.textContent = comms.length;
+    var elM=document.getElementById('commStatMembers'); if(elM) elM.textContent = cmembers.length;
+    var elG=document.getElementById('commStatGoal'); if(elG) elG.textContent = fmt(totalGoal);
+    var tb=document.getElementById('communautesTbody');
+    if(tb){
+      if(!comms.length){ tb.innerHTML='<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted);">Aucune communauté</td></tr>'; }
+      else {
+        tb.innerHTML = comms.map(function(c){
+          var creator = userMap[c.created_by] || {};
+          var nbMembers = cmembers.filter(function(m){ return m.community_id === c.id; }).length || c.members_count || 0;
+          var safeNom = (c.name||'').replace(/'/g,"\\'");
+          return '<tr>' +
+            '<td style="font-weight:700;">' + (c.name||'—') + '</td>' +
+            '<td class="text-muted">' + (c.type||'—') + '</td>' +
+            '<td>' + nbMembers + '</td>' +
+            '<td>' + fmt(c.goal||0) + ' GNF</td>' +
+            '<td class="text-muted">' + (creator.name || creator.phone || c.created_by || '—') + '</td>' +
+            '<td><button class="btn btn-sm" style="background:#DC2626;color:#fff;border:none;padding:6px 12px;border-radius:8px;font-weight:700;cursor:pointer;" onclick="deleteCommunity(\'' + c.id + '\',\'' + safeNom + '\')">🗑️ Supprimer</button></td>' +
+          '</tr>';
+        }).join('');
+      }
+    }
+  })();
+
   /* ── Tontines (projets collectifs) — source de vérité unique ── */
   var TONTINES_ALL = rawProjects.filter(function(p){
     return isProjectCollective(p);
@@ -2866,10 +2930,10 @@ const ADMIN_TITLES = {
   overview: 'Tableau de bord', analytics: 'Analytiques', users: 'Utilisateurs',
   transactions: 'Transactions', projets: 'Projets', tontines: 'Épargne Collective',
   kyc: 'KYC en attente', support: 'Support', emails: 'Centre Email', coherence: 'Cohérence soldes', parametres: 'Paramètres', logs: 'Logs système',
-  whatsapp: 'Messages WhatsApp mensuels'
+  whatsapp: 'Messages WhatsApp mensuels', communautes: 'Communautés'
 };
 /* Sections qui déclenchent un rechargement des données à l'ouverture */
-const RELOAD_ON_OPEN = ['users', 'transactions', 'kyc', 'overview', 'projets', 'tontines'];
+const RELOAD_ON_OPEN = ['users', 'transactions', 'kyc', 'overview', 'projets', 'tontines', 'communautes'];
 
 /* ════════════════════════════════════════════════
    MESSAGES WHATSAPP MENSUELS (envoi manuel 1 clic)
@@ -5258,6 +5322,25 @@ function togglePromo(promoId, active) {
     }
   })
   .catch(function(){ showAdminToast('Erreur réseau', 'error'); renderPromos(); });
+}
+
+function deleteCommunity(id, nom) {
+  if (!confirm('Supprimer la communauté "' + nom + '" et tous ses membres ? Cette action est irréversible.')) return;
+  fetch('/api/admin/update-balance', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
+    body: JSON.stringify({ action: 'delete_community', communityId: id }),
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data) {
+    if (data.ok) {
+      showAdminToast('🗑 Communauté "' + nom + '" supprimée', 'success');
+      reloadAdminData();
+    } else {
+      showAdminToast(data.error || 'Erreur suppression', 'error');
+    }
+  })
+  .catch(function(){ showAdminToast('Erreur réseau', 'error'); });
 }
 
 function deletePromo(promoId, code) {

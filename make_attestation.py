@@ -34,7 +34,7 @@ c.setFont("Helvetica", 9.5)
 c.setFillColor(GREY)
 c.drawString(M, y, "Personal Shopping & Transit International")
 y -= 12
-c.drawString(M, y, "Conakry, République de Guinée")
+c.drawString(M, y, "Lambanyi Carrefour Cimetiere, Lambanyi — Conakry, République de Guinée")
 y -= 12
 c.drawString(M, y, "koutoukiexpress.com  ·  ceo@epargnplus.com  ·  +224 623 76 96 34")
 y -= 14

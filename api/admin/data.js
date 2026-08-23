@@ -209,6 +209,25 @@ module.exports = async (req, res) => {
       console.warn('[admin/data] project_members:', e.message);
     }
 
+    /* ── 4b. Communautés (cercles sociaux) + leurs membres ── */
+    let communities = [];
+    try {
+      communities = await supabaseRequest('GET',
+        '/communities?select=id,name,type,goal,members_count,created_by,created_at' +
+        '&order=created_at.desc&limit=500');
+      if (!Array.isArray(communities)) communities = [];
+    } catch (e) {
+      console.warn('[admin/data] communities:', e.message);
+    }
+    let communityMembers = [];
+    try {
+      communityMembers = await supabaseRequest('GET',
+        '/community_members?select=id,community_id,user_id,points,joined_at&order=joined_at.desc&limit=1000');
+      if (!Array.isArray(communityMembers)) communityMembers = [];
+    } catch (e) {
+      console.warn('[admin/data] community_members:', e.message);
+    }
+
     /* ── 5. Settings (merchant config) ── */
     let merchantConfig = null;
     try {
@@ -398,6 +417,8 @@ module.exports = async (req, res) => {
       allTransactions,
       allProjects,
       projectMembers,
+      communities,
+      communityMembers,
       allInvitations,
       merchantConfig,
       surplusUsers,

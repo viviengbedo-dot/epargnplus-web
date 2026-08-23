@@ -1359,6 +1359,19 @@ module.exports = async (req, res) => {
     }
   }
 
+  /* ════════════ DELETE_COMMUNITY ════════════ */
+  if (action === 'delete_community') {
+    const { communityId } = body;
+    if (!communityId) return res.status(400).json({ error: 'communityId requis' });
+    try {
+      try { await supabaseRequest('DELETE', '/community_members?community_id=eq.' + encodeURIComponent(communityId)); } catch {}
+      await supabaseRequest('DELETE', '/communities?id=eq.' + encodeURIComponent(communityId));
+      return res.status(200).json({ ok: true, action: 'delete_community', communityId });
+    } catch (err) {
+      return res.status(500).json({ error: 'Erreur suppression communauté : ' + err.message });
+    }
+  }
+
   /* ════════════ SEND_BROADCAST ════════════ */
   if (action === 'send_broadcast') {
     const { title: bTitle, message: bMsg, target: bTarget } = body;
