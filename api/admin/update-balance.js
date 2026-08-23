@@ -896,7 +896,7 @@ module.exports = async (req, res) => {
             ? txns.reduce((s, t) => s + (Number(t.amount) || 0), 0)
             : 0;
           /* Plafond = objectif × 1,01 (marge Epargn+ intégrée) */
-          const maxActuel = proj.goal ? Math.round(proj.goal * 1.01) : Infinity;
+          const maxActuel = proj.goal ? Math.round(proj.goal) : Infinity;
           const cappedActuel = Math.min(totalDeposited, maxActuel);
           if (Math.abs(cappedActuel - (proj.actuel || 0)) > 1) {
             await supabaseRequest('PATCH',
@@ -921,7 +921,7 @@ module.exports = async (req, res) => {
             let allocated = 0, capacite = 0, dansProjets = 0;
             (Array.isArray(userProjs) ? userProjs : []).forEach((p) => {
               const actuel = Number(p.actuel) || 0;
-              const target = Math.round((Number(p.goal) || 0) * 1.01);
+              const target = Math.round((Number(p.goal) || 0));
               allocated   += Math.min(actuel, target);
               capacite    += Math.max(target - actuel, 0);
               dansProjets += actuel;
@@ -984,7 +984,7 @@ module.exports = async (req, res) => {
       if (proj.status !== 'active') return res.status(400).json({ error: 'Projet non actif' });
 
       /* Plafond = objectif × 1,01 (marge Epargn+) − déjà déposé */
-      const effTarget = Math.round((Number(proj.goal) || 0) * 1.01);
+      const effTarget = Math.round((Number(proj.goal) || 0));
       const remaining = Math.max(0, effTarget - (Number(proj.actuel) || 0));
       const injection = Math.min(Number(u.epargne) || 0, remaining);
 
@@ -1056,7 +1056,7 @@ module.exports = async (req, res) => {
       const targets = list.map((p) => {
         const goal      = Number(p.goal) || 0;
         const actuel    = Number(p.actuel) || 0;
-        const effTarget = Math.round(goal * 1.01);
+        const effTarget = Math.round(goal);
         return { id: p.id, name: p.name, actuel, room: Math.max(0, effTarget - actuel) };
       }).filter((t) => t.room > 0).sort((a, b) => a.room - b.room);
 
@@ -1130,7 +1130,7 @@ module.exports = async (req, res) => {
         const targets = projs.map((p) => {
           const goal      = Number(p.goal) || 0;
           const actuel    = Number(p.actuel) || 0;
-          const effTarget = Math.round(goal * 1.01);
+          const effTarget = Math.round(goal);
           return { id: p.id, actuel, room: Math.max(0, effTarget - actuel) };
         }).filter((t) => t.room > 0).sort((a, b) => a.room - b.room);
 
@@ -1476,13 +1476,26 @@ module.exports = async (req, res) => {
         } catch (e) {}
       }
 
-      /* Crédit intégral du dépôt — aucun frais (la marge Epargn+ de 1% est
-         intégrée silencieusement au seuil des 100%, pas prélevée sur le dépôt). */
-      const netForServer = depositAmount;
+      /* ── Frais d'ouverture de compte : 10 000 déduits UNE SEULE FOIS, au tout
+         premier dépôt validé du client. Le net (dépôt − 10 000) est épargné.
+         Détection : ce dépôt vient d'être marqué 'completed' → s'il est le seul
+         dépôt complété du client, c'est le premier. */
+      let openingFee = 0;
+      try {
+        const depRows = await supabaseRequest('GET',
+          '/transactions?user_id=eq.' + encodeURIComponent(userId) +
+          '&type=eq.deposit&statut=eq.completed&select=id&limit=2');
+        const nbCompleted = Array.isArray(depRows) ? depRows.length : 0;
+        if (nbCompleted <= 1) openingFee = Math.min(10000, depositAmount);   /* 1er dépôt */
+      } catch (e) { console.warn('[approve] opening fee check:', e.message); }
+
+      /* Le dépôt est crédité NET des frais d'ouverture (1% éventuel = au retrait). */
+      const netForServer = Math.max(0, depositAmount - openingFee);
       const newEpargne   = (Number(user.epargne) || 0) + netForServer;
       await supabaseRequest('PATCH',
         '/users?id=eq.' + encodeURIComponent(userId),
         { epargne: newEpargne, pending_deposit: null });
+      if (openingFee > 0) console.log('[approve] frais ouverture ' + openingFee + ' déduits (1er dépôt) user=' + userId);
 
       /* ── Prime de parrainage en POINTS (réservée aux ambassadeurs actifs) ──
          Barème proportionnel au CUMUL des dépôts validés du filleul :
@@ -1532,8 +1545,8 @@ module.exports = async (req, res) => {
             '/projects?id=eq.' + encodeURIComponent(projectId) + '&select=id,actuel,goal,status');
           if (Array.isArray(projRows) && projRows[0]) {
             const proj = projRows[0];
-            /* Plafond = objectif × 1,01 (marge Epargn+) − déjà déposé */
-            const effTarget  = Math.round((Number(proj.goal) || 0) * 1.01);
+            /* Plafond = objectif EXACT (plus de ×1,01 ; frais 1% au retrait) − déjà déposé */
+            const effTarget  = Math.round(Number(proj.goal) || 0);
             const maxAllowed = Math.max(0, effTarget - (Number(proj.actuel) || 0));
 
             /* Vérification admin : bloquer si dépasse le plafond */
@@ -1629,7 +1642,7 @@ module.exports = async (req, res) => {
                 projGoalVal = Number(pr[0].goal) || 0;
                 progression = projGoalVal > 0 ? Math.round((pr[0].actuel || 0) / projGoalVal * 100) : 0;
                 /* Objectif atteint : actuel ≥ objectif × 1,01 (seuil réel avec marge) */
-                const effTargetMail = Math.round(projGoalVal * 1.01);
+                const effTargetMail = Math.round(projGoalVal);
                 projGoalReached = effTargetMail > 0 && (Number(pr[0].actuel) || 0) >= effTargetMail;
               }
             } catch {}

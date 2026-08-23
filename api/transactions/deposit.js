@@ -68,9 +68,9 @@ module.exports = async (req, res) => {
         if (proj.status !== 'active') {
           return res.status(400).json({ error: 'Ce projet n\'est plus actif.' });
         }
-        /* Marge Epargn+ : 1% intégrés. Le plafond réel = objectif × 1,01
-           (le client doit cumuler capital + 1% pour atteindre 100%). */
-        const effectiveTarget = Math.round((proj.goal || 0) * 1.01);
+        /* Plafond = objectif EXACT (plus de ×1,01). Le frais Epargn+ = 1% prélevé
+           au RETRAIT, pas via un objectif gonflé. */
+        const effectiveTarget = Math.round(proj.goal || 0);
 
         /* Somme des dépôts DÉJÀ en attente de validation sur ce projet.
            On la soustrait du restant : plusieurs demandes peuvent coexister,

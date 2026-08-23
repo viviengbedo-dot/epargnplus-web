@@ -1713,7 +1713,7 @@
       <div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:14px;padding:14px 16px;margin-bottom:14px;max-height:230px;overflow-y:auto;-webkit-overflow-scrolling:touch;font-size:12px;color:#7c4a12;line-height:1.6;">
         <p style="margin-bottom:8px;"><strong>Article 1 — Objet.</strong> Je crée librement un projet d'épargne avec un objectif (montant) et une date de fin que je fixe moi-même. Je m'engage à l'alimenter régulièrement jusqu'à son terme.</p>
         <p style="margin-bottom:8px;"><strong>Article 2 — Mes fonds.</strong> Les sommes épargnées <strong>restent ma propriété</strong>. Epargn+ les conserve uniquement pour me permettre de les retirer ; elles ne sont ni prêtées, ni investies, ni placées.</p>
-        <p style="margin-bottom:8px;"><strong>Article 3 — Retrait normal.</strong> Le retrait est débloqué lorsque mon objectif atteint <strong>100 %</strong> ET que la <strong>date de fin</strong> est arrivée. Une marge de service de <strong>1 %</strong> (déjà intégrée à l'objectif) rémunère la plateforme.</p>
+        <p style="margin-bottom:8px;"><strong>Article 3 — Frais.</strong> L'ouverture du compte coûte <strong>10 000 GNF</strong>, déduits automatiquement de mon tout premier dépôt. Au retrait, des <strong>frais de service de 1 %</strong> sont prélevés sur le montant retiré. Aucun autre frais. Le retrait est débloqué lorsque mon objectif atteint <strong>100 %</strong> ET que la <strong>date de fin</strong> est arrivée.</p>
         <p style="margin-bottom:6px;"><strong>Article 4 — Retrait anticipé.</strong> Avant ce terme, le retrait n'est possible qu'avec un <strong>motif accompagné d'un justificatif valable</strong>, vérifié par l'équipe sous 24 à 48h. Je récupère alors le capital épargné, <strong>diminué de 1 %</strong>. Cas recevables (avec justificatif) :</p>
         <ul style="margin:0 0 8px;padding-left:18px;">
           <li>Urgence médicale (ordonnance, facture ou devis)</li>
@@ -3259,9 +3259,10 @@ function projectHasJoinedMembers(p) {
    statut "Atteint" se calculent sur la cible effective (cible × 1,01).
    Source de vérité unique — utilisée partout.
    ══════════════════════════════════════════ */
-var EPARGN_FEE_RATE = 0.01;
+var EPARGN_FEE_RATE = 0.01;   /* 1% — désormais prélevé au RETRAIT, plus dans l'objectif */
 function projTarget(cible) {
-  return Math.round((Number(cible) || 0) * (1 + EPARGN_FEE_RATE));
+  /* Objectif = capital EXACT (plus de ×1,01). Le client atteint 100% à son objectif. */
+  return Math.round(Number(cible) || 0);
 }
 function projPct(actuel, cible) {
   var t = projTarget(cible);
@@ -8181,13 +8182,17 @@ function showReceptionMsg(amount) {
     if (typeof updateProgressionGauge === 'function') updateProgressionGauge();
     loadTransactions();
     _retraitProjectId = null; _retraitProjectNom = ''; _retraitVal = '';
-    _renderRetraitReceipt(amount, projetNom, ref, phone);
+    /* Le serveur renvoie payout (reçu par le client) + margin (frais 1%). */
+    var _payout = (data.payout != null) ? Number(data.payout) : amount;
+    var _fee    = (data.margin != null) ? Number(data.margin) : 0;
+    _renderRetraitReceipt(_payout, projetNom, ref, phone, _fee);
   })
   .catch(() => showToast('Erreur réseau. Réessayez.', 'error'));
 }
 
-function _renderRetraitReceipt(amount, projetNom, ref, phone) {
-  const fee = 0;
+function _renderRetraitReceipt(payout, projetNom, ref, phone, fee) {
+  fee = Number(fee) || 0;
+  var gross = payout + fee;   /* total épargné dans le projet (avant frais) */
   const existing = document.getElementById('modal-receipt');
   if (existing) existing.remove();
 
@@ -8208,16 +8213,16 @@ function _renderRetraitReceipt(amount, projetNom, ref, phone) {
           <span style="font-size:13px;font-weight:700;color:var(--primary);">${projetNom}</span>
         </div>
         <div class="receipt-row" style="padding:11px 16px;border-bottom:1px solid var(--divider);display:flex;justify-content:space-between;">
-          <span style="font-size:13px;color:var(--text-secondary);">Montant demandé</span>
-          <span style="font-size:13px;font-weight:700;color:var(--primary);">${fmt(amount)} ${cur}</span>
+          <span style="font-size:13px;color:var(--text-secondary);">Épargne du projet</span>
+          <span style="font-size:13px;font-weight:700;color:var(--primary);">${fmt(gross)} ${cur}</span>
         </div>
         <div class="receipt-row" style="padding:11px 16px;border-bottom:1px solid var(--divider);display:flex;justify-content:space-between;">
-          <span style="font-size:13px;color:var(--text-secondary);">Frais</span>
-          <span style="font-size:13px;font-weight:700;color:#059669;">Sans frais</span>
+          <span style="font-size:13px;color:var(--text-secondary);">Frais de retrait (1%)</span>
+          <span style="font-size:13px;font-weight:700;color:#D97706;">− ${fmt(fee)} ${cur}</span>
         </div>
         <div class="receipt-row" style="padding:11px 16px;border-bottom:1px solid var(--divider);display:flex;justify-content:space-between;">
           <span style="font-size:13px;font-weight:700;color:var(--primary);">Vous recevrez</span>
-          <span style="font-size:14px;font-weight:900;color:#D97706;">${fmt(amount - fee)} ${cur}</span>
+          <span style="font-size:14px;font-weight:900;color:#D97706;">${fmt(payout)} ${cur}</span>
         </div>
         <div class="receipt-row" style="padding:11px 16px;border-bottom:1px solid var(--divider);display:flex;justify-content:space-between;">
           <span style="font-size:13px;color:var(--text-secondary);">Numéro Mobile Money</span>

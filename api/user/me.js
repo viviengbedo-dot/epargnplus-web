@@ -389,7 +389,7 @@ async function handleProjects(req, res, payload, resourceId) {
           '&user_id=eq.' + encodeURIComponent(payload.userId) +
           '&select=goal&limit=1');
         if (Array.isArray(gRows) && gRows[0]) {
-          const maxActuel = Math.round((Number(gRows[0].goal) || 0) * 1.01);
+          const maxActuel = Number(gRows[0].goal) || 0;   /* plafond = objectif exact (plus de ×1.01) */
           if (maxActuel > 0 && patch.actuel > maxActuel) patch.actuel = maxActuel;
         }
       } catch (e) {}
@@ -683,10 +683,11 @@ async function handleTransactions(req, res, payload) {
           return res.status(400).json({ error: 'Retrait indisponible : la date de fin du projet n\'est pas encore atteinte.' });
         }
 
-        /* Capital rendu = objectif ; la marge de 1 % (actuel − objectif) reste à la plateforme */
-        payout = Math.min(projActuel, projGoal);
-        deduct = projActuel;
-        margin = Math.max(0, projActuel - payout);
+        /* Modèle A : 1 % de frais de retrait sur le TOTAL épargné. Le client
+           reçoit 99 %, Epargn+ garde 1 %. (Plus de marge cachée via objectif gonflé.) */
+        deduct = projActuel;                        /* tout le projet quitte l'épargne */
+        margin = Math.floor(projActuel * 0.01);     /* frais 1 % → plateforme */
+        payout = projActuel - margin;               /* montant reçu par le client */
       }
 
       if (isWithdrawal) {
