@@ -8217,7 +8217,7 @@ function _renderRetraitReceipt(payout, projetNom, ref, phone, fee) {
           <span style="font-size:13px;font-weight:700;color:var(--primary);">${fmt(gross)} ${cur}</span>
         </div>
         <div class="receipt-row" style="padding:11px 16px;border-bottom:1px solid var(--divider);display:flex;justify-content:space-between;">
-          <span style="font-size:13px;color:var(--text-secondary);">Frais de retrait (1%)</span>
+          <span style="font-size:13px;color:var(--text-secondary);">Frais de retrait${gross > 0 ? ' (' + (Math.round(fee / gross * 1000) / 10) + '%)' : ''}</span>
           <span style="font-size:13px;font-weight:700;color:#D97706;">− ${fmt(fee)} ${cur}</span>
         </div>
         <div class="receipt-row" style="padding:11px 16px;border-bottom:1px solid var(--divider);display:flex;justify-content:space-between;">

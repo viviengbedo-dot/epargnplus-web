@@ -683,11 +683,21 @@ async function handleTransactions(req, res, payload) {
           return res.status(400).json({ error: 'Retrait indisponible : la date de fin du projet n\'est pas encore atteinte.' });
         }
 
-        /* Modèle A : 1 % de frais de retrait sur le TOTAL épargné. Le client
-           reçoit 99 %, Epargn+ garde 1 %. (Plus de marge cachée via objectif gonflé.) */
-        deduct = projActuel;                        /* tout le projet quitte l'épargne */
-        margin = Math.floor(projActuel * 0.01);     /* frais 1 % → plateforme */
-        payout = projActuel - margin;               /* montant reçu par le client */
+        /* Modèle A : frais de retrait sur le TOTAL épargné. Standard = 1 %.
+           Perk ambassadeur actif : Gold 0,8 % · Platine 0,5 %. */
+        let feeRate = 0.01;
+        try {
+          const aRows = await supabaseRequest('GET',
+            '/ambassadors?user_id=eq.' + encodeURIComponent(payload.userId) +
+            '&status=eq.active&select=tier&limit=1');
+          if (Array.isArray(aRows) && aRows[0]) {
+            if (aRows[0].tier === 'platinum')  feeRate = 0.005;
+            else if (aRows[0].tier === 'gold') feeRate = 0.008;
+          }
+        } catch (e) {}
+        deduct = projActuel;                          /* tout le projet quitte l'épargne */
+        margin = Math.floor(projActuel * feeRate);    /* frais (1% / 0,8% / 0,5%) → plateforme */
+        payout = projActuel - margin;                 /* montant reçu par le client */
       }
 
       if (isWithdrawal) {
