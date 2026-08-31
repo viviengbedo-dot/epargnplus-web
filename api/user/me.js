@@ -230,6 +230,13 @@ async function handleProjects(req, res, payload, resourceId) {
       if (Array.isArray(existing)) colorIdx = existing.length;
     } catch {}
 
+    /* Coffre Recettes (💼) : cycle mensuel, bloqué jusqu'à la date de clôture. */
+    const isCoffre = nom.startsWith('💼');
+    const coffreFields = isCoffre ? {
+      cycle_day:    Math.min(28, Math.max(1, parseInt(body.cycle_day, 10) || 28)),
+      locked_until: nextCycleClose(body.cycle_day),
+    } : {};
+
     const isCollective = nom.startsWith('🤝');
     const inviteToken  = isCollective ? generateInviteToken() : null;
     const inviteCode   = isCollective ? generateInviteCode()  : null;
@@ -259,6 +266,7 @@ async function handleProjects(req, res, payload, resourceId) {
         invite_active:     true,
         members_count:     1,
       } : {}),
+      ...coffreFields,
     };
 
     try {
@@ -573,6 +581,18 @@ function parseProjectDeadline(duree) {
   return isNaN(d.getTime()) ? null : d;
 }
 
+/* Coffre Recettes : prochaine date de clôture (le jour `day` du mois, 23:59).
+   Si le jour est déjà passé ce mois-ci → mois suivant. Renvoie une ISO string. */
+function nextCycleClose(day) {
+  const d = Math.min(28, Math.max(1, parseInt(day, 10) || 28));
+  const now = new Date();
+  let close = new Date(now.getFullYear(), now.getMonth(), d, 23, 59, 59);
+  if (close.getTime() <= now.getTime()) {
+    close = new Date(now.getFullYear(), now.getMonth() + 1, d, 23, 59, 59);
+  }
+  return close.toISOString();
+}
+
 /* ── Historique des transactions ── */
 async function handleTransactions(req, res, payload) {
   if (req.method === 'GET') {
@@ -612,6 +632,9 @@ async function handleTransactions(req, res, payload) {
       let payout = amount;   /* montant réellement reçu par le client */
       let deduct = amount;   /* montant qui quitte le solde (epargne) */
       let margin = 0;
+      let isCoffreWithdrawal = false;  /* retrait depuis un Coffre Recettes 💼 */
+      let coffreEmergency    = false;  /* retrait d'urgence (avant clôture, 3 %) */
+      let coffreNextLock     = null;   /* prochaine date de clôture (nouveau cycle) */
 
       if (isWithdrawal) {
         /* ── PIN de transaction : ré-authentification obligatoire ── */
@@ -663,7 +686,7 @@ async function handleTransactions(req, res, payload) {
           const pRows = await supabaseRequest('GET',
             '/projects?id=eq.' + encodeURIComponent(projectId) +
             '&user_id=eq.' + encodeURIComponent(payload.userId) +
-            '&select=actuel,goal,duree&limit=1');
+            '&select=actuel,goal,duree,name,locked_until,cycle_day&limit=1');
           pRow = (Array.isArray(pRows) && pRows[0]) ? pRows[0] : null;
         } catch (e) {
           return res.status(500).json({ error: 'Erreur de vérification du projet : ' + e.message });
@@ -672,16 +695,7 @@ async function handleTransactions(req, res, payload) {
 
         const projActuel = Number(pRow.actuel) || 0;
         const projGoal   = Number(pRow.goal)   || 0;
-
-        /* Condition 1 : objectif atteint à 100 % */
-        if (projGoal <= 0 || projActuel < projGoal) {
-          return res.status(400).json({ error: 'Retrait indisponible : l\'objectif du projet n\'est pas atteint à 100 %.' });
-        }
-        /* Condition 2 : date de fin du projet atteinte */
-        const deadline = parseProjectDeadline(pRow.duree);
-        if (deadline && Date.now() < deadline.getTime()) {
-          return res.status(400).json({ error: 'Retrait indisponible : la date de fin du projet n\'est pas encore atteinte.' });
-        }
+        const isCoffre   = String(pRow.name || '').startsWith('💼');
 
         /* Modèle A : frais de retrait sur le TOTAL épargné. Standard = 1 %.
            Perk ambassadeur actif : Gold 0,8 % · Platine 0,5 %. */
@@ -695,8 +709,35 @@ async function handleTransactions(req, res, payload) {
             else if (aRows[0].tier === 'gold') feeRate = 0.008;
           }
         } catch (e) {}
+
+        if (isCoffre) {
+          /* ── Coffre Recettes : bloqué jusqu'à la date de clôture du cycle.
+             Après clôture → retrait normal (1 % / palier). Avant clôture →
+             retrait d'URGENCE possible avec pénalité 3 % + validation admin. ── */
+          const lockedUntilMs = pRow.locked_until ? new Date(pRow.locked_until).getTime() : 0;
+          const stillLocked   = lockedUntilMs && Date.now() < lockedUntilMs;
+          if (stillLocked && !body.emergency) {
+            return res.status(400).json({
+              error: 'Coffre bloqué jusqu\'au ' + new Date(lockedUntilMs).toLocaleDateString('fr-FR') +
+                '. Retrait d\'urgence possible avec une pénalité de 3 % (validation admin).',
+              code: 'COFFRE_LOCKED', locked_until: pRow.locked_until, emergency_fee_rate: 0.03,
+            });
+          }
+          if (stillLocked) { feeRate = 0.03; coffreEmergency = true; }  /* pénalité urgence */
+          isCoffreWithdrawal = true;
+          coffreNextLock = nextCycleClose(pRow.cycle_day);  /* le coffre repart pour un nouveau cycle */
+        } else {
+          /* Projet classique : objectif 100 % + date de fin atteinte. */
+          if (projGoal <= 0 || projActuel < projGoal) {
+            return res.status(400).json({ error: 'Retrait indisponible : l\'objectif du projet n\'est pas atteint à 100 %.' });
+          }
+          const deadline = parseProjectDeadline(pRow.duree);
+          if (deadline && Date.now() < deadline.getTime()) {
+            return res.status(400).json({ error: 'Retrait indisponible : la date de fin du projet n\'est pas encore atteinte.' });
+          }
+        }
         deduct = projActuel;                          /* tout le projet quitte l'épargne */
-        margin = Math.floor(projActuel * feeRate);    /* frais (1% / 0,8% / 0,5%) → plateforme */
+        margin = Math.floor(projActuel * feeRate);    /* frais (1% / 3% urgence / palier) → plateforme */
         payout = projActuel - margin;                 /* montant reçu par le client */
       }
 
@@ -735,24 +776,28 @@ async function handleTransactions(req, res, payload) {
           await supabaseRequest('PATCH',
             '/projects?id=eq.' + encodeURIComponent(projectId) +
             '&user_id=eq.' + encodeURIComponent(payload.userId),
-            { actuel: 0, updated_at: now });
+            /* Coffre : vidé puis relancé pour le cycle suivant (nouvelle date de clôture). */
+            { actuel: 0, updated_at: now, ...(coffreNextLock ? { locked_until: coffreNextLock } : {}) });
         }
       }
 
       /* Transaction : retrait = pending (confirmation admin), sinon completed.
          Montant enregistré = montant reçu par le client (payout). */
+      const txLabel = isCoffreWithdrawal
+        ? label + (coffreEmergency ? ' · Coffre Recettes (URGENCE 3 %)' : ' · Coffre Recettes')
+        : label;
       await supabaseRequest('POST', '/transactions', {
         user_id: payload.userId, type, amount: payout, operator, is_credit: isCredit,
-        label, project_id: projectId,
+        label: txLabel, project_id: projectId,
         statut: isWithdrawal ? 'pending' : 'completed',
         status: isWithdrawal ? 'pending' : 'success',
       });
 
       if (isWithdrawal) {
         await logAudit(payload.userId, 'withdrawal_request',
-          { ref, amount: payout, project_id: projectId, operator }, req);
+          { ref, amount: payout, project_id: projectId, operator, coffre: isCoffreWithdrawal, emergency: coffreEmergency }, req);
       }
-      return res.status(201).json({ ok: true, ref, payout, margin });
+      return res.status(201).json({ ok: true, ref, payout, margin, coffre: isCoffreWithdrawal, emergency: coffreEmergency });
     } catch (e) {
       return res.status(500).json({ error: 'Erreur enregistrement : ' + e.message });
     }

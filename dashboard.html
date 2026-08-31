@@ -254,6 +254,16 @@
           l'admin valide sous 24h → la jauge du projet se met à jour automatiquement.
         </div>
 
+        <!-- ══ Coffres Recettes (💼) — épargne pro entrepreneurs ══ -->
+        <div id="coffresBlock" style="margin-bottom:26px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;">
+            <h3 style="font-size:16px;font-weight:800;color:var(--primary);margin:0;">💼 Coffres Recettes</h3>
+            <button class="btn btn-accent btn-sm" onclick="openCoffreModal()">+ Coffre</button>
+          </div>
+          <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;line-height:1.5;">Mettez vos recettes de côté au fil du mois. Bloqué jusqu'à la clôture — retrait d'urgence possible (pénalité 3 %).</div>
+          <div id="coffresContainer" style="display:flex;flex-direction:column;gap:14px;"></div>
+        </div>
+
         <!-- Projets dynamiques — injectés par renderProjectCards() -->
         <div id="projectCardsGrid" style="display:flex;flex-direction:column;gap:16px;margin-bottom:28px;"></div>
 
@@ -3416,6 +3426,9 @@ function loadProjects() {
         members_count: p.members_count || 1,
         invite_code:   p.invite_code  || null,
         invite_token:  p.invite_token || null,
+        locked_until:  p.locked_until || null,
+        cycle_day:     p.cycle_day    || null,
+        isCoffre:      String(p.name || '').startsWith('💼'),
       };
     });
     /* Migration : si DB vide mais localStorage a des projets, migrer vers DB */
@@ -4760,8 +4773,9 @@ function renderHomeProjects() {
   if (!el) return;
   const cur = (_currentUser && COUNTRY_LABELS[_currentUser.country]) ? COUNTRY_LABELS[_currentUser.country].currency : 'GNF';
   const COLORS = ['#0B1566','#22CC66','#3B82F6','#F59E0B','#8B5CF6','#EC4899'];
-  if (!PROJETS || PROJETS.length === 0) { el.innerHTML = ''; return; }
-  el.innerHTML = PROJETS.map((p, i) => {
+  const _HP = (PROJETS || []).filter(function(p){ return !p.isCoffre; });
+  if (!_HP.length) { el.innerHTML = ''; return; }
+  el.innerHTML = _HP.map((p, i) => {
     const pct   = projPct(p.actuel, p.cible);
     const ic    = projectIcon(p.nom);
     const color = p.color || ic.color || COLORS[i % COLORS.length];
@@ -4901,17 +4915,144 @@ function projectInsight(pct, actuel) {
   return           { icon:'🚀',  text:'Démarrez vos dépôts',                color:'#6366F1' };
 }
 
+/* ════════ COFFRES RECETTES (💼) — épargne pro entrepreneurs ════════ */
+function _coffreFmt(n){ return (Number(n)||0).toLocaleString('fr-FR'); }
+function _coffreCur(){ return (_currentUser && COUNTRY_LABELS[_currentUser.country]) ? COUNTRY_LABELS[_currentUser.country].currency : 'GNF'; }
+
+function renderCoffres(){
+  var el = document.getElementById('coffresContainer'); if(!el) return;
+  var cur = _coffreCur();
+  var coffres = (PROJETS||[]).filter(function(p){ return p.isCoffre; });
+  if(!coffres.length){
+    el.innerHTML = '<div style="text-align:center;padding:18px;background:var(--bg-light);border-radius:14px;border:1px dashed var(--divider);font-size:13px;color:var(--text-secondary);">Aucun coffre. Créez-en un pour mettre vos recettes de côté 💼</div>';
+    return;
+  }
+  el.innerHTML = coffres.map(function(p){
+    var nom = String(p.nom||'').replace(/^💼\s*/,'');
+    var actuel = Number(p.actuel)||0, goal = Number(p.cible)||0;
+    var pct = goal>0 ? Math.min(100, Math.round(actuel/goal*100)) : 0;
+    var lu = p.locked_until ? new Date(p.locked_until) : null;
+    var now = Date.now();
+    var locked = !!(lu && now < lu.getTime());
+    var jours = lu ? Math.max(0, Math.ceil((lu.getTime()-now)/86400000)) : 0;
+    var closeStr = lu ? lu.toLocaleDateString('fr-FR') : '—';
+    return '<div style="background:#fff;border:1.5px solid #E8ECF5;border-radius:16px;padding:16px;box-shadow:0 2px 10px rgba(11,21,102,.05);">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;">'
+        + '<div style="font-weight:800;color:var(--primary);font-size:15px;">💼 '+nom+'</div>'
+        + (locked ? '<span style="background:#FEF3C7;color:#92400E;font-size:11px;font-weight:800;padding:3px 9px;border-radius:20px;">🔒 Bloqué</span>'
+                  : '<span style="background:#DCFCE7;color:#166534;font-size:11px;font-weight:800;padding:3px 9px;border-radius:20px;">🔓 Disponible</span>')
+      + '</div>'
+      + '<div style="font-size:22px;font-weight:900;color:var(--primary);">'+_coffreFmt(actuel)+' <span style="font-size:13px;font-weight:700;color:var(--text-secondary);">'+cur+'</span></div>'
+      + (goal>0
+          ? '<div style="font-size:12px;color:var(--text-secondary);margin:2px 0 8px;">Objectif du mois : '+_coffreFmt(goal)+' '+cur+' · '+pct+'%</div>'
+            + '<div style="height:7px;background:#EEF2FF;border-radius:6px;overflow:hidden;margin-bottom:10px;"><div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,#22CC66,#0B1566);"></div></div>'
+          : '<div style="font-size:12px;color:var(--text-secondary);margin:2px 0 10px;">Cumul libre (sans objectif fixe)</div>')
+      + '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;">🗓 Clôture le <b>'+closeStr+'</b>'+(locked?(' · dans '+jours+' j'):' · cycle terminé, retrait libre')+'</div>'
+      + '<div style="display:flex;gap:8px;">'
+        + '<button class="btn btn-accent btn-sm" style="flex:1;" onclick="coffreDeposit(\''+p.id+'\')">💰 Déposer</button>'
+        + (locked
+            ? '<button class="btn btn-outline btn-sm" style="flex:1;color:#DC2626;border-color:#FCA5A5;" onclick="coffreWithdraw(\''+p.id+'\',true)">⚡ Urgence</button>'
+            : '<button class="btn btn-outline btn-sm" style="flex:1;" onclick="coffreWithdraw(\''+p.id+'\',false)">↑ Retirer</button>')
+      + '</div>'
+    + '</div>';
+  }).join('');
+}
+
+function openCoffreModal(){
+  if(!_authToken){ showToast('Reconnectez-vous pour créer un coffre.', 'error'); return; }
+  var cur = _coffreCur();
+  var ov = document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(11,21,102,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px;';
+  ov.innerHTML = '<div style="background:#fff;border-radius:18px;padding:22px;max-width:400px;width:100%;box-sizing:border-box;">'
+    + '<div style="font-weight:800;color:var(--primary);font-size:17px;margin-bottom:4px;">💼 Nouveau Coffre Recettes</div>'
+    + '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:14px;line-height:1.5;">Épargnez vos recettes au fil du mois. Bloqué jusqu\'à la clôture (retrait d\'urgence 3 %).</div>'
+    + '<label style="font-size:12px;font-weight:700;color:#334155;">Nom du coffre</label>'
+    + '<input id="cfNom" placeholder="Ex : Recettes boutique" style="width:100%;box-sizing:border-box;padding:11px;border:1.5px solid #CBD5E1;border-radius:11px;margin:4px 0 12px;font-size:14px;"/>'
+    + '<label style="font-size:12px;font-weight:700;color:#334155;">Objectif mensuel ('+cur+') — optionnel</label>'
+    + '<input id="cfGoal" type="tel" placeholder="0 = pas d\'objectif" style="width:100%;box-sizing:border-box;padding:11px;border:1.5px solid #CBD5E1;border-radius:11px;margin:4px 0 12px;font-size:14px;"/>'
+    + '<label style="font-size:12px;font-weight:700;color:#334155;">Jour de clôture (1–28)</label>'
+    + '<input id="cfDay" type="number" min="1" max="28" value="28" style="width:100%;box-sizing:border-box;padding:11px;border:1.5px solid #CBD5E1;border-radius:11px;margin:4px 0 6px;font-size:14px;"/>'
+    + '<div style="font-size:11px;color:var(--text-secondary);margin-bottom:16px;line-height:1.5;">Chaque mois ce jour-là, le coffre se débloque et repart pour un nouveau cycle.</div>'
+    + '<div style="display:flex;gap:8px;justify-content:flex-end;">'
+      + '<button id="cfCancel" class="btn btn-outline btn-sm">Annuler</button>'
+      + '<button id="cfOk" class="btn btn-accent btn-sm">Créer le coffre →</button>'
+    + '</div></div>';
+  document.body.appendChild(ov);
+  ov.querySelector('#cfCancel').onclick=function(){ ov.remove(); };
+  ov.addEventListener('mousedown', function(e){ if(e.target===ov) ov.remove(); });
+  ov.querySelector('#cfOk').onclick=function(){
+    var nom=(ov.querySelector('#cfNom').value||'').trim();
+    var goal=parseInt((ov.querySelector('#cfGoal').value||'0').replace(/\D/g,''),10)||0;
+    var day=Math.min(28,Math.max(1,parseInt(ov.querySelector('#cfDay').value,10)||28));
+    if(nom.length<2){ showToast('Donnez un nom au coffre.', 'error'); return; }
+    var btn=ov.querySelector('#cfOk'); btn.disabled=true; btn.textContent='…';
+    fetch('/api/user/me?resource=projects',{ method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+_authToken},
+      body: JSON.stringify({ nom:'💼 '+nom, cible: goal, duree:'coffre', color:'#0B1566', cycle_day: day }) })
+    .then(function(r){return r.json();})
+    .then(function(proj){
+      if(!proj||!proj.id){ btn.disabled=false; btn.textContent='Créer le coffre →'; showToast((proj&&proj.error)||'Création échouée', 'error'); return; }
+      ov.remove(); showToast('💼 Coffre « '+nom+' » créé !', 'success'); loadProjects();
+    })
+    .catch(function(){ btn.disabled=false; btn.textContent='Créer le coffre →'; showToast('Erreur réseau', 'error'); });
+  };
+}
+
+function coffreDeposit(id){
+  var p=(PROJETS||[]).find(function(x){return x.id===id;}); if(!p) return;
+  var cur=_coffreCur();
+  var raw=window.prompt('Montant à déposer dans « '+String(p.nom).replace(/^💼\s*/,'')+' » ('+cur+') :');
+  if(raw===null) return;
+  var amount=parseInt(String(raw).replace(/\D/g,''),10)||0;
+  if(amount<1){ showToast('Montant invalide.', 'error'); return; }
+  fetch('/api/transactions/deposit',{ method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+_authToken},
+    body: JSON.stringify({ amount:amount, operator:'Mobile Money', projectId:id }) })
+  .then(function(r){return r.json();})
+  .then(function(d){
+    if(d && !d.error){ showToast('💰 Dépôt enregistré — validation admin sous 24 h.', 'success'); loadProjects(); }
+    else { showToast((d&&d.error)||'Dépôt refusé.', 'error'); }
+  })
+  .catch(function(){ showToast('Erreur réseau', 'error'); });
+}
+
+function coffreWithdraw(id, locked){
+  var p=(PROJETS||[]).find(function(x){return x.id===id;}); if(!p) return;
+  var actuel=Number(p.actuel)||0, cur=_coffreCur();
+  if(actuel<1){ showToast('Coffre vide.', 'info'); return; }
+  if(locked){
+    if(!confirm('⚠️ Retrait d\'URGENCE avant la clôture.\n\nUne pénalité de 3 % sera prélevée et la demande doit être validée par l\'admin.\n\nContinuer ?')) return;
+  } else {
+    if(!confirm('Retirer '+_coffreFmt(actuel)+' '+cur+' du coffre ? (frais 1 % standard, validation admin)')) return;
+  }
+  var pin=window.prompt('Saisissez votre code PIN pour valider le retrait :');
+  if(!pin){ showToast('Retrait annulé — PIN requis.', 'info'); return; }
+  fetch('/api/user/me?resource=transactions',{ method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+_authToken},
+    body: JSON.stringify({ type:'withdrawal', amount:actuel, projectId:id, operator:'Mobile Money', pin:pin, emergency: !!locked, isCredit:false }) })
+  .then(function(r){return r.json();})
+  .then(function(d){
+    if(d && d.ok){ showToast('✅ Retrait demandé ('+_coffreFmt(d.payout||0)+' '+cur+') — validation admin.', 'success'); loadProjects(); if(typeof loadTransactions==='function') loadTransactions(); }
+    else { showToast((d&&d.error)||'Retrait refusé.', 'error'); }
+  })
+  .catch(function(){ showToast('Erreur réseau', 'error'); });
+}
+
 /* ── PROJECTS PAGE ── */
 function renderProjectCards() {
+  try { renderCoffres(); } catch(e) {}   /* Coffres Recettes 💼 rendus séparément */
   const grid = document.getElementById('projectCardsGrid');
   if (!grid) return;
   const cur = (_currentUser && COUNTRY_LABELS[_currentUser.country]) ? COUNTRY_LABELS[_currentUser.country].currency : 'GNF';
 
+  /* Les coffres recettes (💼) ont leur propre section — hors grille projets. */
+  const PROJETS_N = (PROJETS || []).filter(function(p){ return !p.isCoffre; });
+
   /* Mettre à jour le label du bouton principal */
   var npMainLbl = document.getElementById('newProjectMainBtnLabel');
-  if (npMainLbl) npMainLbl.textContent = (!PROJETS || PROJETS.length === 0) ? '🎯 Créer un nouveau projet' : '✨ Nouveau projet';
+  if (npMainLbl) npMainLbl.textContent = (!PROJETS_N || PROJETS_N.length === 0) ? '🎯 Créer un nouveau projet' : '✨ Nouveau projet';
 
-  if (!PROJETS || PROJETS.length === 0) {
+  if (!PROJETS_N || PROJETS_N.length === 0) {
     grid.innerHTML = `<div style="text-align:center;padding:44px 24px;background:var(--bg-light);border-radius:var(--radius-lg);border:2px dashed var(--divider);">
       <div style="font-size:52px;margin-bottom:12px;">🎯</div>
       <div style="font-size:17px;font-weight:800;color:var(--primary);margin-bottom:6px;">Aucun projet en cours</div>
@@ -4925,7 +5066,7 @@ function renderProjectCards() {
   /* Jauge SVG r=38 → circ ≈ 238.8 */
   const R = 38, CIRC = +(2 * Math.PI * R).toFixed(1);
 
-  grid.innerHTML = PROJETS.map((p, idx) => {
+  grid.innerHTML = PROJETS_N.map((p, idx) => {
    try {
     const nom      = String(p.nom || p.name || 'Projet');
     const pct      = projPct(p.actuel, p.cible);

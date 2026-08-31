@@ -68,6 +68,9 @@ module.exports = async (req, res) => {
         if (proj.status !== 'active') {
           return res.status(400).json({ error: 'Ce projet n\'est plus actif.' });
         }
+        /* Coffre Recettes (💼) : l'objectif mensuel est une CIBLE, pas un plafond —
+           l'entrepreneur peut déposer au-delà. On ne bloque donc jamais le dépôt. */
+        const isCoffre = String(proj.name || '').startsWith('💼');
         /* Plafond = objectif EXACT (plus de ×1,01). Le frais Epargn+ = 1% prélevé
            au RETRAIT, pas via un objectif gonflé. */
         const effectiveTarget = Math.round(proj.goal || 0);
@@ -88,7 +91,7 @@ module.exports = async (req, res) => {
         }
 
         const remaining = Math.max(0, effectiveTarget - (proj.actuel || 0) - pendingSum);
-        if (remaining === 0) {
+        if (!isCoffre && remaining === 0) {
           return res.status(400).json({
             error: pendingSum > 0
               ? 'Cet objectif est déjà entièrement couvert par vos dépôts en attente de validation.'
@@ -100,7 +103,7 @@ module.exports = async (req, res) => {
             pending: pendingSum,
           });
         }
-        if (amount > remaining) {
+        if (!isCoffre && amount > remaining) {
           return res.status(400).json({
             error: 'Le montant dépasse le montant restant autorisé pour cet objectif' +
               (pendingSum > 0 ? ' (vos demandes en attente sont déjà comptées)' : '') +
