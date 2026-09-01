@@ -137,29 +137,34 @@ module.exports = async (req, res) => {
   const token       = `${ts}.${signOTP(otp, phone, ts)}`;
   const hasResend   = !!process.env.RESEND_API_KEY;
   const targetEmail = email || body._emailFromDb || null;
-  const demo        = !hasResend;
+  const canEmail    = !!(targetEmail && hasResend);
+  const canSms      = smsConfigured() && /^\+?224/.test(phone);
+  /* Démo seulement si AUCUN canal réel (ni email Resend, ni SMS configuré). */
+  const demo        = !canEmail && !canSms;
 
-  if (!targetEmail) {
+  /* Il faut au moins un canal de livraison : email OU SMS (+224). Un OTP par
+     SMS (retrait, connexion) n'exige donc PAS d'email. */
+  if (!targetEmail && !canSms) {
     return res.status(400).json({ error: 'Entrez votre adresse email pour recevoir le code.' });
   }
 
-  if (!demo) {
+  if (canEmail) {
     const emailResult = await sendEmail({
       to:      targetEmail,
       subject: `${otp} — Votre code Epargn+`,
       html:    otpEmailHtml(otp, prenom),
     });
-    if (!emailResult.ok) {
+    /* Échec email : on ne bloque QUE s'il n'y a pas de repli SMS. */
+    if (!emailResult.ok && !canSms) {
       return res.status(502).json({ error: emailResult.error || "Envoi email échoué. Vérifiez l'adresse." });
     }
-  } else {
+  } else if (demo) {
     console.log(`[DEMO OTP] phone=${phone} email=${targetEmail} code=${otp} purpose=${purpose}`);
   }
 
-  /* ── Canal SMS (Orange) en complément, pour les numéros guinéens (+224) ──
-     Best-effort : un échec SMS ne bloque jamais (l'email reste le canal sûr). */
+  /* ── Canal SMS (+224) : envoi réel du code (retrait, connexion, ou complément email). ── */
   let smsSent = false;
-  if (smsConfigured() && /^\+224/.test(phone)) {
+  if (canSms) {
     const r = await sendSms(phone, 'Epargn+ : votre code de verification est ' + otp + '. Valable 10 min. Ne le communiquez a personne.');
     smsSent = r.ok;
     if (!r.ok) console.warn('[otp] SMS non envoye:', r.error);

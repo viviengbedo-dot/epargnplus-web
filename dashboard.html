@@ -8612,7 +8612,13 @@ async function sendOTPviaSMS(phone) {
     const resp = await fetch(AT_SMS.sendEndpoint, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ phone }),
+      /* purpose ≠ register/reset → pas de contrôle d'existence ;
+         email en canal de secours si le SMS échoue. */
+      body:    JSON.stringify({
+        phone,
+        purpose: 'verify',
+        email: (typeof _currentUser !== 'undefined' && _currentUser && _currentUser.email) ? _currentUser.email : undefined,
+      }),
     });
 
     if (!resp.ok) throw new Error('send_failed_' + resp.status);
