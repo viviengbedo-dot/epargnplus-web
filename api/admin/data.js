@@ -80,7 +80,7 @@ module.exports = async (req, res) => {
     try {
       pendingTransactions = await supabaseRequest('GET',
         '/transactions?statut=eq.pending&type=not.eq.retrait_projet_collectif' +
-        '&type=not.eq.depot_alipay&type=not.eq.withdrawal' +
+        '&type=not.eq.depot_alipay&type=not.eq.withdrawal&type=not.eq.retrait' +
         '&select=id,user_id,amount,operator,project_id,statut,status,label,type,currency,created_at' +
         '&order=created_at.desc&limit=200');
       if (!Array.isArray(pendingTransactions)) pendingTransactions = [];
@@ -93,7 +93,8 @@ module.exports = async (req, res) => {
         if (!Array.isArray(pendingTransactions)) pendingTransactions = [];
         /* Filtrer côté JS */
         pendingTransactions = pendingTransactions.filter(t =>
-          t.type !== 'retrait_projet_collectif' && t.type !== 'depot_alipay' && t.type !== 'withdrawal');
+          t.type !== 'retrait_projet_collectif' && t.type !== 'depot_alipay' &&
+          t.type !== 'withdrawal' && t.type !== 'retrait');
       } catch (e2) {
         console.warn('[admin/data] pendingTransactions:', e2.message);
       }
@@ -103,7 +104,7 @@ module.exports = async (req, res) => {
     let pendingWithdrawals = [];
     try {
       pendingWithdrawals = await supabaseRequest('GET',
-        '/transactions?statut=eq.pending&type=in.(retrait_projet_collectif,withdrawal)' +
+        '/transactions?statut=eq.pending&type=in.(retrait_projet_collectif,withdrawal,retrait)' +
         /* PAS de colonne `note` : absente en prod → cassait toute la requête
            (0 retrait affiché alors qu'ils existent). L'info est dans `label`. */
         '&select=id,user_id,amount,project_id,statut,type,label,operator,created_at' +
@@ -113,7 +114,7 @@ module.exports = async (req, res) => {
       /* Fallback ultime : select minimal (aucune colonne optionnelle). */
       try {
         pendingWithdrawals = await supabaseRequest('GET',
-          '/transactions?statut=eq.pending&type=in.(retrait_projet_collectif,withdrawal)' +
+          '/transactions?statut=eq.pending&type=in.(retrait_projet_collectif,withdrawal,retrait)' +
           '&select=id,user_id,amount,project_id,statut,type,label,operator,created_at&order=created_at.desc&limit=200');
         if (!Array.isArray(pendingWithdrawals)) pendingWithdrawals = [];
       } catch (e2) {
