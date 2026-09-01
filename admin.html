@@ -949,8 +949,8 @@
       <section id="sec-withdrawals" style="display:none;">
         <div class="flex-between mb-6">
           <div>
-            <h2 style="font-size:22px;font-weight:800;color:var(--primary);">Retraits en attente</h2>
-            <p class="text-muted">Validez ou rejetez les retraits individuels et les remboursements collectifs après envoi Mobile Money</p>
+            <h2 style="font-size:22px;font-weight:800;color:var(--primary);">Retraits</h2>
+            <p class="text-muted">Historique complet des retraits. Les demandes en attente sont en haut : validez ou rejetez après envoi Mobile Money.</p>
           </div>
           <button class="btn btn-outline btn-sm" onclick="reloadAdminData()">🔄 Actualiser</button>
         </div>
@@ -4148,12 +4148,20 @@ function renderProjetsAdmin() {
     tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--text-muted);">Aucun projet créé par les utilisateurs</td></tr>';
     return;
   }
-  tbody.innerHTML = PROJETS_TOP.map(function(p) {
+  /* Projets clôturés/retirés → relégués en bas (archivés). */
+  var _projSorted = PROJETS_TOP.slice().sort(function(a, b) {
+    var ca = (a.status === 'closed' || a.status === 'withdrawn') ? 1 : 0;
+    var cb = (b.status === 'closed' || b.status === 'withdrawn') ? 1 : 0;
+    return ca - cb;
+  });
+  tbody.innerHTML = _projSorted.map(function(p) {
+    var _closed = (p.status === 'closed' || p.status === 'withdrawn');
     var pct = p.cible > 0 ? Math.min(100, Math.round((p.actuel / p.cible) * 100)) : 0;
-    var statusBadge = p.status === 'completed' ? '<span class="badge badge-success">✅ Complété</span>' :
-                     p.status === 'paused'     ? '<span class="badge badge-neutral">⏸ Pause</span>' :
-                                                 '<span class="badge badge-success">Actif</span>';
-    return '<tr>' +
+    var statusBadge = _closed                 ? '<span class="badge badge-neutral">🔒 Clôturé</span>' :
+                     p.status === 'completed' ? '<span class="badge badge-success">✅ Complété</span>' :
+                     p.status === 'paused'    ? '<span class="badge badge-neutral">⏸ Pause</span>' :
+                                                '<span class="badge badge-success">Actif</span>';
+    return '<tr' + (_closed ? ' style="opacity:.55;"' : '') + '>' +
       '<td style="font-weight:600;"><div style="display:flex;align-items:center;gap:8px;"><div style="width:10px;height:10px;border-radius:50%;background:' + (p.color || '#0B1566') + ';flex-shrink:0;"></div>' + p.nom + '</div></td>' +
       '<td class="text-muted">' + p.user + '</td>' +
       '<td>' + fmt(p.cible) + ' GNF</td>' +
@@ -4510,11 +4518,18 @@ function renderWithdrawals() {
   var sdF = document.getElementById('wdStatFailed');  if (sdF) sdF.textContent = failed;
 
   if (!_pendingWithdrawals.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:#9CA3AF;">✅ Aucun retrait en attente</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:#9CA3AF;">Aucun retrait pour le moment</td></tr>';
     return;
   }
 
-  tbody.innerHTML = _pendingWithdrawals.map(function(t) {
+  /* En attente en haut (actionnable), puis l'historique du plus récent au plus ancien. */
+  var _wSorted = _pendingWithdrawals.slice().sort(function(a, b) {
+    var pa = ((a.statut || a.status) === 'pending') ? 0 : 1;
+    var pb = ((b.statut || b.status) === 'pending') ? 0 : 1;
+    if (pa !== pb) return pa - pb;
+    return String(b.created_at || '').localeCompare(String(a.created_at || ''));
+  });
+  tbody.innerHTML = _wSorted.map(function(t) {
     var user = ALL_USERS.find(function(u){ return u.id === t.user_id; }) || {};
     var name = ((user.prenom||'') + ' ' + (user.nom||'')).trim() || t.user_id.slice(0,8);
     var isCollectif = t.type === 'retrait_projet_collectif';

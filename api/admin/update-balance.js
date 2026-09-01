@@ -646,6 +646,20 @@ module.exports = async (req, res) => {
         '/transactions?id=eq.' + encodeURIComponent(txnId),
         { statut: 'completed', status: 'success', validated_by: 'admin', validated_at: now });
 
+      /* ── Retrait individuel confirmé → CLÔTURE du projet ──
+         Le capital est parti (actuel déjà remis à 0 à la demande). On archive le
+         projet (status='closed') pour qu'il quitte la liste des projets actifs et
+         rejoigne l'historique. Non bloquant : un échec ici n'annule pas le retrait. */
+      if (txn.type === 'withdrawal' && txn.project_id) {
+        try {
+          await supabaseRequest('PATCH',
+            '/projects?id=eq.' + encodeURIComponent(txn.project_id),
+            { status: 'closed', actuel: 0, updated_at: now });
+        } catch (e) {
+          console.warn('[confirm-withdrawal] clôture projet:', e.message);
+        }
+      }
+
       /* Notification — libellé adapté au type */
       const notifTitle = txn.type === 'withdrawal' ? '✅ Retrait confirmé' : '✅ Remboursement confirmé';
       const notifBody  = txn.type === 'withdrawal'

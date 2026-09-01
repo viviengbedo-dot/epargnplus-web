@@ -100,28 +100,25 @@ module.exports = async (req, res) => {
       }
     }
 
-    /* ── 2b. Retraits collectifs en attente (Module 1) ── */
+    /* ── 2b. Retraits — HISTORIQUE COMPLET (en attente + confirmés + rejetés).
+       L'onglet Retrait est le « fief » de l'historique des retraits : on renvoie
+       TOUS les retraits récents (pas seulement pending). Le front sépare
+       « à traiter » (pending) et l'historique, et ne compte comme en attente
+       que statut/status = pending. ── */
     let pendingWithdrawals = [];
     try {
       pendingWithdrawals = await supabaseRequest('GET',
         '/transactions?type=in.(retrait_projet_collectif,withdrawal,retrait)' +
-        /* statut (FR) OU status (EN) = pending : les lignes créées par l'app
-           peuvent ne renseigner que l'une des deux colonnes → sinon invisibles. */
-        '&or=(statut.eq.pending,status.eq.pending)' +
-        /* PAS de colonne `note` : absente en prod → cassait toute la requête
-           (0 retrait affiché alors qu'ils existent). L'info est dans `label`. */
-        '&select=id,user_id,amount,project_id,statut,status,type,label,operator,created_at' +
-        '&order=created_at.desc&limit=200');
+        /* PAS de colonne `note` (absente en prod). L'info est dans `label`. */
+        '&select=id,user_id,amount,project_id,statut,status,type,label,operator,created_at,validated_at' +
+        '&order=created_at.desc&limit=300');
       if (!Array.isArray(pendingWithdrawals)) pendingWithdrawals = [];
     } catch (e) {
       /* Fallback ultime : select minimal (aucune colonne optionnelle). */
       try {
         pendingWithdrawals = await supabaseRequest('GET',
           '/transactions?type=in.(retrait_projet_collectif,withdrawal,retrait)' +
-        /* statut (FR) OU status (EN) = pending : les lignes créées par l'app
-           peuvent ne renseigner que l'une des deux colonnes → sinon invisibles. */
-        '&or=(statut.eq.pending,status.eq.pending)' +
-          '&select=id,user_id,amount,project_id,statut,type,label,operator,created_at&order=created_at.desc&limit=200');
+          '&select=id,user_id,amount,project_id,statut,status,type,label,operator,created_at&order=created_at.desc&limit=300');
         if (!Array.isArray(pendingWithdrawals)) pendingWithdrawals = [];
       } catch (e2) {
         console.warn('[admin/data] pendingWithdrawals:', e2.message);
@@ -389,7 +386,8 @@ module.exports = async (req, res) => {
     const collectifProjects = allProjects.filter(p => isProjectCollective(p));
     const collectifActive   = collectifProjects.filter(p => p.status === 'active').length;
     const collectifClosed   = collectifProjects.filter(p => p.status === 'closed').length;
-    const withdrawalsPending = pendingWithdrawals.length;
+    /* pendingWithdrawals = historique complet → ne compter que les vrais en attente. */
+    const withdrawalsPending = pendingWithdrawals.filter(t => (t.statut || t.status) === 'pending').length;
 
     /* Invitations stats */
     const inviteAccepted = allInvitations.filter(i => i.status === 'accepted').length;
