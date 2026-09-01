@@ -774,7 +774,7 @@
             <h2 style="font-size:22px;font-weight:800;color:var(--primary);">👑 Programme Ambassadeur</h2>
             <p class="text-muted">Gérez les candidatures et les ambassadeurs actifs</p>
           </div>
-          <button class="btn btn-outline btn-sm" onclick="loadData()">🔄 Actualiser</button>
+          <button class="btn btn-outline btn-sm" onclick="reloadAdminData()">🔄 Actualiser</button>
         </div>
 
         <!-- Stats -->
@@ -827,7 +827,7 @@
             <h2 style="font-size:22px;font-weight:800;color:var(--primary);">✏️ Modifications d'objectif</h2>
             <p class="text-muted">Demandes de hausse d'objectif soumises par les clients</p>
           </div>
-          <button class="btn btn-outline btn-sm" onclick="loadData()">🔄 Actualiser</button>
+          <button class="btn btn-outline btn-sm" onclick="reloadAdminData()">🔄 Actualiser</button>
         </div>
         <!-- Filtre statut -->
         <div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;">
@@ -4001,7 +4001,7 @@ function adminApproveAmbassador(ambassadorId) {
     body: JSON.stringify({ action: 'approve-ambassador', ambassadorId, tier, admin_note: note })
   })
   .then(function(r){ return r.json(); })
-  .then(function(d){ if(d.ok){ showAdminToast('✅ Ambassadeur approuvé — palier ' + tier, 'success'); loadData(); } else showAdminToast('❌ ' + (d.error||'Erreur'), 'error'); })
+  .then(function(d){ if(d.ok){ showAdminToast('✅ Ambassadeur approuvé — palier ' + tier, 'success'); reloadAdminData(); } else showAdminToast('❌ ' + (d.error||'Erreur'), 'error'); })
   .catch(function(){ showAdminToast('❌ Erreur réseau', 'error'); });
 }
 
@@ -4016,7 +4016,7 @@ function adminRejectAmbassador(ambassadorId) {
     body: JSON.stringify({ action: 'reject-ambassador', ambassadorId, admin_note: note })
   })
   .then(function(r){ return r.json(); })
-  .then(function(d){ if(d.ok){ showAdminToast('Candidature refusée', 'info'); loadData(); } else showAdminToast('❌ ' + (d.error||'Erreur'), 'error'); })
+  .then(function(d){ if(d.ok){ showAdminToast('Candidature refusée', 'info'); reloadAdminData(); } else showAdminToast('❌ ' + (d.error||'Erreur'), 'error'); })
   .catch(function(){ showAdminToast('❌ Erreur réseau', 'error'); });
 }
 
@@ -4030,7 +4030,7 @@ function adminSetAmbTier(ambassadorId, tier) {
     body: JSON.stringify({ action: 'update-ambassador-tier', ambassadorId, tier })
   })
   .then(function(r){ return r.json(); })
-  .then(function(d){ if(d.ok){ showAdminToast('✅ Palier mis à jour : ' + tier, 'success'); loadData(); } else showAdminToast('❌ ' + (d.error||'Erreur'), 'error'); })
+  .then(function(d){ if(d.ok){ showAdminToast('✅ Palier mis à jour : ' + tier, 'success'); reloadAdminData(); } else showAdminToast('❌ ' + (d.error||'Erreur'), 'error'); })
   .catch(function(){ showAdminToast('❌ Erreur réseau', 'error'); });
 }
 
@@ -4117,7 +4117,7 @@ function adminApproveGoalReq(requestId) {
   .then(function(data) {
     if (!data.ok) { showAdminToast('❌ ' + (data.error || 'Erreur'), 'error'); return; }
     showAdminToast('✅ Objectif mis à jour sur le projet', 'success');
-    loadData();
+    reloadAdminData();
   })
   .catch(function() { showAdminToast('❌ Erreur réseau', 'error'); });
 }
@@ -4136,7 +4136,7 @@ function adminRejectGoalReq(requestId) {
   .then(function(data) {
     if (!data.ok) { showAdminToast('❌ ' + (data.error || 'Erreur'), 'error'); return; }
     showAdminToast('Demande refusée — client notifié', 'info');
-    loadData();
+    reloadAdminData();
   })
   .catch(function() { showAdminToast('❌ Erreur réseau', 'error'); });
 }
