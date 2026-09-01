@@ -132,6 +132,16 @@ module.exports = async (req, res) => {
     }
   }
 
+  /* OTP téléphone (connexion, retrait…) sans email fourni : on récupère l'email
+     du compte pour livrer le code par email (canal email par défaut). */
+  if (!email && !body._emailFromDb && purpose !== 'register') {
+    try {
+      const rows = await supabaseRequest('GET',
+        '/users?phone=eq.' + encodeURIComponent(phone) + '&select=email&limit=1');
+      if (Array.isArray(rows) && rows[0] && rows[0].email) body._emailFromDb = rows[0].email;
+    } catch (e) { /* non bloquant */ }
+  }
+
   const otp         = generateOTP();
   const ts          = Date.now();
   const token       = `${ts}.${signOTP(otp, phone, ts)}`;

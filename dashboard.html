@@ -8220,7 +8220,7 @@ function showOTPModal(amount) {
   // Utiliser le vrai numéro de l'utilisateur
   const phone = (_currentUser && _currentUser.phone) ? _currentUser.phone : TRANSFER_NUMBER;
   const subEl = document.getElementById('otpSubtitle');
-  if (subEl) subEl.innerHTML = `Un code OTP a été envoyé au<br><strong>${phone}</strong>`;
+  if (subEl) subEl.innerHTML = `Un code de confirmation a été envoyé à<br><strong>votre adresse email</strong>`;
   openModal('otp');
   startOTPTimer();
   sendOTPviaSMS(phone);
@@ -8631,7 +8631,8 @@ async function sendOTPviaSMS(phone) {
       // Mode démo : AT non configuré — OTP visible dans les logs Vercel
       setTimeout(() => showToast('📱 Mode démo — consultez les logs Vercel pour le code', 'info'), 400);
     } else {
-      setTimeout(() => showToast('✅ Code OTP envoyé par SMS à ' + phone, 'success'), 400);
+      const chan = data.smsSent ? ('SMS au ' + phone) : (data.emailSent ? 'email' : 'email/SMS');
+      setTimeout(() => showToast('✅ Code OTP envoyé par ' + chan, 'success'), 400);
     }
   } catch (err) {
     console.error('sendOTPviaSMS:', err);
