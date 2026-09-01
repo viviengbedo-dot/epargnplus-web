@@ -4452,7 +4452,10 @@ var _alipayDeposits     = [];
   if (origLoad) {
     window.loadAdminDashboard = function(data) {
       origLoad.call(this, data);
-      _pendingWithdrawals = data.pendingWithdrawals || [];
+      /* Normalise statut : certaines lignes (app) ne remplissent que `status`
+         (EN) et pas `statut` (FR) → sans ça le retrait reste invisible. */
+      _pendingWithdrawals = (data.pendingWithdrawals || []).map(function(t){
+        if (!t.statut && t.status) t.statut = t.status; return t; });
       _alipayDeposits     = data.alipayDeposits     || [];
       renderWithdrawals();
       renderAlipayDeposits();

@@ -104,17 +104,23 @@ module.exports = async (req, res) => {
     let pendingWithdrawals = [];
     try {
       pendingWithdrawals = await supabaseRequest('GET',
-        '/transactions?statut=eq.pending&type=in.(retrait_projet_collectif,withdrawal,retrait)' +
+        '/transactions?type=in.(retrait_projet_collectif,withdrawal,retrait)' +
+        /* statut (FR) OU status (EN) = pending : les lignes créées par l'app
+           peuvent ne renseigner que l'une des deux colonnes → sinon invisibles. */
+        '&or=(statut.eq.pending,status.eq.pending)' +
         /* PAS de colonne `note` : absente en prod → cassait toute la requête
            (0 retrait affiché alors qu'ils existent). L'info est dans `label`. */
-        '&select=id,user_id,amount,project_id,statut,type,label,operator,created_at' +
+        '&select=id,user_id,amount,project_id,statut,status,type,label,operator,created_at' +
         '&order=created_at.desc&limit=200');
       if (!Array.isArray(pendingWithdrawals)) pendingWithdrawals = [];
     } catch (e) {
       /* Fallback ultime : select minimal (aucune colonne optionnelle). */
       try {
         pendingWithdrawals = await supabaseRequest('GET',
-          '/transactions?statut=eq.pending&type=in.(retrait_projet_collectif,withdrawal,retrait)' +
+          '/transactions?type=in.(retrait_projet_collectif,withdrawal,retrait)' +
+        /* statut (FR) OU status (EN) = pending : les lignes créées par l'app
+           peuvent ne renseigner que l'une des deux colonnes → sinon invisibles. */
+        '&or=(statut.eq.pending,status.eq.pending)' +
           '&select=id,user_id,amount,project_id,statut,type,label,operator,created_at&order=created_at.desc&limit=200');
         if (!Array.isArray(pendingWithdrawals)) pendingWithdrawals = [];
       } catch (e2) {
