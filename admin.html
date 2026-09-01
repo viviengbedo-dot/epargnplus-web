@@ -369,6 +369,9 @@
       <!-- ════════ OVERVIEW ════════ -->
       <section id="sec-overview">
 
+        <!-- ══ Actions requises (retraits / dépôts en attente) — visible d'emblée ══ -->
+        <div id="adminActionAlert" style="margin-bottom:20px;"></div>
+
         <!-- KPI Cards -->
         <div class="stat-cards" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px;">
           <div class="stat-card">
@@ -4470,6 +4473,25 @@ function updateNewBadges(stats) {
     var acnt = (stats.alipay && stats.alipay.pending) || _alipayDeposits.filter(function(t){ return t.statut === 'pending'; }).length;
     aBadge.textContent = acnt; aBadge.style.display = acnt > 0 ? '' : 'none';
   }
+  try { renderAdminActionAlert(); } catch (e) {}
+}
+
+/* Bandeau « Actions requises » en tête de l'aperçu — retraits + dépôts à traiter,
+   visibles d'emblée sans fouiller la nav. */
+function renderAdminActionAlert() {
+  var el = document.getElementById('adminActionAlert'); if (!el) return;
+  var wCnt = (_pendingWithdrawals || []).filter(function(t){ return t.statut === 'pending'; }).length;
+  var dCnt = (typeof PENDING_TXNS !== 'undefined' && PENDING_TXNS) ? PENDING_TXNS.length : 0;
+  var items = [];
+  if (wCnt > 0) items.push({ icon:'💸', label: wCnt + ' retrait' + (wCnt>1?'s':'') + ' à valider', color:'#DC2626', bg:'#FEF2F2', bd:'#FCA5A5', sec:'withdrawals' });
+  if (dCnt > 0) items.push({ icon:'💰', label: dCnt + ' dépôt' + (dCnt>1?'s':'') + ' à confirmer', color:'#B45309', bg:'#FFFBEB', bd:'#FDE68A', sec:'transactions' });
+  if (!items.length) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div style="display:flex;flex-direction:column;gap:10px;">' + items.map(function(it){
+    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:' + it.bg + ';border:1.5px solid ' + it.bd + ';border-radius:14px;padding:14px 18px;">' +
+      '<div style="display:flex;align-items:center;gap:12px;"><span style="font-size:24px;">' + it.icon + '</span><span style="font-weight:800;color:' + it.color + ';font-size:15px;">' + it.label + '</span></div>' +
+      '<button class="btn btn-sm" style="background:' + it.color + ';color:#fff;border:none;padding:9px 18px;border-radius:10px;font-weight:800;cursor:pointer;white-space:nowrap;" onclick="showAdminSection(\'' + it.sec + '\',null)">Traiter →</button>' +
+    '</div>';
+  }).join('') + '</div>';
 }
 
 function renderWithdrawals() {
