@@ -104,11 +104,21 @@ module.exports = async (req, res) => {
     try {
       pendingWithdrawals = await supabaseRequest('GET',
         '/transactions?statut=eq.pending&type=in.(retrait_projet_collectif,withdrawal)' +
-        '&select=id,user_id,amount,project_id,statut,type,label,operator,note,created_at' +
+        /* PAS de colonne `note` : absente en prod → cassait toute la requête
+           (0 retrait affiché alors qu'ils existent). L'info est dans `label`. */
+        '&select=id,user_id,amount,project_id,statut,type,label,operator,created_at' +
         '&order=created_at.desc&limit=200');
       if (!Array.isArray(pendingWithdrawals)) pendingWithdrawals = [];
     } catch (e) {
-      console.warn('[admin/data] pendingWithdrawals:', e.message);
+      /* Fallback ultime : select minimal (aucune colonne optionnelle). */
+      try {
+        pendingWithdrawals = await supabaseRequest('GET',
+          '/transactions?statut=eq.pending&type=in.(retrait_projet_collectif,withdrawal)' +
+          '&select=id,user_id,amount,project_id,statut,type,label,operator,created_at&order=created_at.desc&limit=200');
+        if (!Array.isArray(pendingWithdrawals)) pendingWithdrawals = [];
+      } catch (e2) {
+        console.warn('[admin/data] pendingWithdrawals:', e2.message);
+      }
     }
 
     /* ── 2c. Dépôts Alipay en attente (Module 4) ── */
