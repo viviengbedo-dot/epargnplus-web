@@ -184,6 +184,9 @@
           </button>
         </div>
 
+        <!-- ── Coffre Recettes — hero (atout phare, frappe de l'œil) ── -->
+        <div id="homeCoffreHero"></div>
+
         <!-- ── Progression Totale (jauge globale) ── -->
         <div class="card mb-6" style="padding:24px;" id="progressionCard">
           <div style="font-size:15px;font-weight:800;color:var(--primary);margin-bottom:18px;">Progression Totale</div>
@@ -4919,12 +4922,45 @@ function projectInsight(pct, actuel) {
 function _coffreFmt(n){ return (Number(n)||0).toLocaleString('fr-FR'); }
 function _coffreCur(){ return (_currentUser && COUNTRY_LABELS[_currentUser.country]) ? COUNTRY_LABELS[_currentUser.country].currency : 'GNF'; }
 
+/* Hero Accueil — fait du Coffre Recettes un atout phare dès l'entrée dans l'app. */
+function renderCoffreHero(){
+  var el = document.getElementById('homeCoffreHero'); if(!el) return;
+  var cur = _coffreCur();
+  var coffres = (PROJETS||[]).filter(function(p){ return p.isCoffre; });
+  var total = coffres.reduce(function(s,p){ return s + (Number(p.actuel)||0); }, 0);
+  var has = coffres.length > 0;
+  el.innerHTML =
+    '<div class="mb-6" style="position:relative;overflow:hidden;border-radius:22px;padding:24px 22px 22px;background:linear-gradient(135deg,#B45309 0%,#7C2D12 45%,#0B1566 130%);color:#fff;box-shadow:0 14px 34px rgba(124,45,18,.34);">'
+      + '<div style="position:absolute;top:-34px;right:-18px;font-size:150px;opacity:.13;transform:rotate(-12deg);line-height:1;">💼</div>'
+      + '<div style="position:relative;">'
+        + '<div style="display:inline-block;background:#BEF264;color:#3F2D00;font-size:10.5px;font-weight:900;letter-spacing:.09em;padding:4px 11px;border-radius:20px;margin-bottom:12px;">💼 NOUVEAU · ÉPARGNE PRO</div>'
+        + (has
+          ? '<div style="font-size:13.5px;font-weight:700;opacity:.9;">Vos recettes mises de côté ce cycle</div>'
+            + '<div style="font-size:32px;font-weight:900;margin:2px 0 4px;line-height:1.05;">'+_coffreFmt(total)+' <span style="font-size:15px;font-weight:700;opacity:.85;">'+cur+'</span></div>'
+            + '<div style="font-size:12.5px;opacity:.88;margin-bottom:16px;">'+coffres.length+' coffre'+(coffres.length>1?'s':'')+' actif'+(coffres.length>1?'s':'')+' · bloqué jusqu\'à la clôture, puis tout est à vous.</div>'
+            + '<div style="display:flex;gap:8px;flex-wrap:wrap;">'
+              + '<button class="btn" style="background:#fff;color:#B45309;font-weight:800;padding:11px 20px;border-radius:12px;border:none;cursor:pointer;font-size:14px;" onclick="showSection(\'projets\',null);setTimeout(function(){var e=document.getElementById(\'coffresBlock\');if(e)e.scrollIntoView({behavior:\'smooth\',block:\'center\'});},260);">Voir mes coffres →</button>'
+              + '<button class="btn" style="background:rgba(255,255,255,.2);color:#fff;font-weight:800;padding:11px 18px;border-radius:12px;border:none;cursor:pointer;font-size:14px;" onclick="openCoffreModal()">+ Nouveau</button>'
+            + '</div>'
+          : '<div style="font-size:21px;font-weight:900;margin-bottom:6px;line-height:1.18;">Épargnez vos revenus,<br>mois après mois 💼</div>'
+            + '<div style="font-size:13px;opacity:.92;line-height:1.55;margin-bottom:18px;max-width:360px;">Le <b>Coffre Recettes</b> met votre argent à l\'abri de vous-même : vous déposez au fil du mois, c\'est <b>bloqué</b> jusqu\'à la clôture, puis <b>tout est à vous</b>. La discipline qui fait grandir un business.</div>'
+            + '<button class="btn" style="background:#fff;color:#B45309;font-weight:800;padding:13px 24px;border-radius:13px;border:none;cursor:pointer;font-size:15px;box-shadow:0 4px 14px rgba(0,0,0,.15);" onclick="openCoffreModal()">💼 Créer mon coffre</button>')
+      + '</div>'
+    + '</div>';
+}
+
 function renderCoffres(){
+  try { renderCoffreHero(); } catch(e) {}
   var el = document.getElementById('coffresContainer'); if(!el) return;
   var cur = _coffreCur();
   var coffres = (PROJETS||[]).filter(function(p){ return p.isCoffre; });
   if(!coffres.length){
-    el.innerHTML = '<div style="text-align:center;padding:18px;background:var(--bg-light);border-radius:14px;border:1px dashed var(--divider);font-size:13px;color:var(--text-secondary);">Aucun coffre. Créez-en un pour mettre vos recettes de côté 💼</div>';
+    el.innerHTML = '<div style="position:relative;overflow:hidden;text-align:center;padding:26px 20px;border-radius:16px;background:linear-gradient(135deg,#FFF7ED,#FEF3C7);border:1.5px solid #FDE68A;">'
+      + '<div style="font-size:40px;margin-bottom:8px;">💼</div>'
+      + '<div style="font-size:15px;font-weight:800;color:#92400E;margin-bottom:4px;">Ouvrez votre 1er Coffre Recettes</div>'
+      + '<div style="font-size:12.5px;color:#B45309;line-height:1.5;margin-bottom:14px;max-width:300px;margin-left:auto;margin-right:auto;">Mettez vos recettes de côté au fil du mois — bloqué jusqu\'à la clôture, puis tout est à vous.</div>'
+      + '<button class="btn btn-accent btn-sm" onclick="openCoffreModal()">💼 Créer mon coffre</button>'
+    + '</div>';
     return;
   }
   el.innerHTML = coffres.map(function(p){
