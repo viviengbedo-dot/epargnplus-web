@@ -786,12 +786,27 @@ async function handleTransactions(req, res, payload) {
       const txLabel = isCoffreWithdrawal
         ? label + (coffreEmergency ? ' · Coffre Recettes (URGENCE 3 %)' : ' · Coffre Recettes')
         : label;
-      await supabaseRequest('POST', '/transactions', {
-        user_id: payload.userId, type, amount: payout, operator, is_credit: isCredit,
-        label: txLabel, project_id: projectId,
-        statut: isWithdrawal ? 'pending' : 'completed',
-        status: isWithdrawal ? 'pending' : 'success',
-      });
+      const _txStatut = isWithdrawal ? 'pending' : 'completed';
+      const _txStatus = isWithdrawal ? 'pending' : 'success';
+      try {
+        await supabaseRequest('POST', '/transactions', {
+          user_id: payload.userId, type, amount: payout, operator, is_credit: isCredit,
+          label: txLabel, project_id: projectId, statut: _txStatut, status: _txStatus,
+        });
+      } catch (insErr) {
+        /* CRITIQUE : le solde est DÉJÀ débité (lignes 755/776). Un retrait ne doit
+           JAMAIS être perdu faute d'insertion. On journalise l'erreur réelle puis
+           on réessaie sans les colonnes optionnelles (cf. repli deposit.js). */
+        try {
+          await logAudit(payload.userId, 'withdrawal_insert_fail',
+            { error: String((insErr && insErr.message) || insErr), amount: payout,
+              project_id: projectId, operator }, req);
+        } catch (_) {}
+        await supabaseRequest('POST', '/transactions', {
+          user_id: payload.userId, type, amount: payout, is_credit: isCredit,
+          label: txLabel, project_id: projectId, statut: _txStatut, status: _txStatus,
+        });
+      }
 
       if (isWithdrawal) {
         await logAudit(payload.userId, 'withdrawal_request',
