@@ -1253,7 +1253,7 @@
       📞 Notre équipe vous contactera au <strong>+224 623 76 96 34</strong> pour confirmer.<br>
       Rien n'est engagé sans votre accord — <a href="/cgu" target="_blank" rel="noopener" style="color:var(--primary);">conditions de l'accompagnement</a>.
     </div>
-    <button onclick="closeModal('koutoukiOffer')" style="width:100%;margin-top:8px;background:none;border:none;color:var(--text-secondary);font-size:13px;cursor:pointer;padding:8px;">
+    <button onclick="closeModal('modal-koutoukiOffer')" style="width:100%;margin-top:8px;background:none;border:none;color:var(--text-secondary);font-size:13px;cursor:pointer;padding:8px;">
       Plus tard, je continue d'épargner normalement
     </button>
   </div>
@@ -1831,7 +1831,7 @@
 <!-- ══ Modal Inviter un Membre ══ -->
 <div class="modal-overlay" id="modal-inviteNewMember" onclick="handleOverlayClick(event,'inviteNewMember')">
   <div class="modal">
-    <button class="modal-close" onclick="closeModal('inviteNewMember')">✕</button>
+    <button class="modal-close" onclick="closeModal('modal-inviteNewMember')">✕</button>
     <div style="font-size:36px;margin-bottom:8px;">🤝</div>
     <div class="modal-title">Inviter un membre</div>
     <div class="modal-sub">Ajouter une personne à votre épargne collective</div>
@@ -1853,7 +1853,7 @@
         <input class="form-input" id="inviteUrlDisplay" readonly style="font-size:12px;margin-bottom:8px;" />
         <button class="btn btn-sm" style="width:100%;background:#3B82F6;color:#fff;" onclick="copyToClipboard('inviteUrlDisplay')">📋 Copier le lien</button>
       </div>
-      <button class="btn btn-outline" style="width:100%;padding:12px;" onclick="closeModal('inviteNewMember');resetInviteForm()">Fermer</button>
+      <button class="btn btn-outline" style="width:100%;padding:12px;" onclick="closeModal('modal-inviteNewMember');resetInviteForm()">Fermer</button>
     </div>
   </div>
 </div>
@@ -3645,7 +3645,7 @@ function submitAmbassadorApplication() {
       if (err) { err.textContent = res.data.error || 'Erreur lors de l\'envoi.'; err.style.display = ''; }
       return;
     }
-    closeModal('ambassadeur');
+    closeModal('modal-ambassadeur');
     showToast('✅ Candidature envoyée ! Réponse sous 48h.', 'success');
     _ambassadorData = null;
     loadAmbassadorSection();
@@ -6046,7 +6046,7 @@ function submitGoalRequest() {
       err.style.display = '';
       return;
     }
-    closeModal('goalRequest');
+    closeModal('modal-goalRequest');
     showToast('✅ Demande envoyée — l\'admin validera sous 24h', 'success');
     /* Recharger les demandes + re-rendre les cartes */
     loadGoalRequests(function() { renderProjectCards(); });
@@ -7232,7 +7232,9 @@ function openModal(id) {
   }
 }
 function closeModal(id) {
-  document.getElementById(id).classList.remove('open');
+  var _m = document.getElementById(id);
+  if (!_m) { console.warn('[closeModal] introuvable: ' + id); return; }
+  _m.classList.remove('open');
   document.body.style.overflow = '';
 }
 function handleOverlayClick(e, id) {
@@ -10157,7 +10159,7 @@ function openTontineInviteLink(projectId, projectName, inviteCode) {
   document.getElementById('invLinkFacebook').href  = 'https://www.facebook.com/sharer/sharer.php?u=' + fbUrl;
 
   document.getElementById('invLinkEmailForm').style.display = 'none';
-  openModal('modal-tontineInviteLink');
+  openModal('tontineInviteLink');
 }
 
 function copyInviteLink() {
@@ -10310,7 +10312,7 @@ function openAlipayDepositModal() {
   document.getElementById('alipayStep2').style.display = 'none';
   var errEl = document.getElementById('alipayErr');
   if (errEl) errEl.style.display = 'none';
-  openModal('modal-alipay');
+  openModal('alipay');
 }
 
 function submitAlipayDeposit() {
@@ -10708,7 +10710,7 @@ function openTicketDetail(ticketId) {
   var replyForm = document.getElementById('ticketDetailReplyForm');
   if (replyForm) replyForm.style.display = ticket.status === 'closed' ? 'none' : '';
 
-  openModal('modal-ticketDetail');
+  openModal('ticketDetail');
 }
 
 function submitTicketDetailReply() {
@@ -11318,7 +11320,7 @@ function submitDateRequest() {
   .then(function(res) {
     if (btn) { btn.disabled = false; btn.textContent = 'Envoyer la demande →'; }
     if (!res.ok) { if (err) { err.textContent = res.data.error || 'Erreur.'; err.style.display = ''; } return; }
-    closeModal('dateRequest');
+    closeModal('modal-dateRequest');
     showToast('📅 Demande de modification de date envoyée — réponse sous 24h.', 'success');
     loadDateRequests();
   }).catch(function(){
@@ -11540,7 +11542,7 @@ function submitKoutoukiOffer() {
       if (err) { err.textContent = res.data.error || 'Erreur.'; err.style.display = ''; }
       return;
     }
-    closeModal('koutoukiOffer');
+    closeModal('modal-koutoukiOffer');
     showToast('🎉 Demande Koutouki envoyée ! Notre équipe vous contacte sous 24h.', 'success');
     refreshDashboardData();
   }).catch(function(){
