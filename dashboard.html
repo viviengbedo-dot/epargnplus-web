@@ -5838,6 +5838,65 @@ let _retraitOp         = 'Orange Money';
 
 /* Point d'entrée « Retrait » (icône carte du solde) — le retrait n'est possible
    que depuis un projet atteint à 100 % ET arrivé à sa date de fin. */
+/* Écran « Retirer mes fonds » — TOUJOURS explicite : liste chaque projet
+   individuel avec son statut (prêt / échéance dans Xj / en cours) au lieu d'un
+   simple toast fugace qui donnait l'impression que le bouton ne faisait rien. */
+function openRetraitHub() {
+  var list = (typeof PROJETS !== 'undefined' && Array.isArray(PROJETS)) ? PROJETS : [];
+  var isColl = function(p) {
+    return (typeof isProjectCollective === 'function') ? isProjectCollective(p) : (Number(p && p.members_count) > 1);
+  };
+  var indiv = list.filter(function(p) { return p && !p.is_tontine && !isColl(p); });
+  var elig   = indiv.filter(function(p) { return projWithdrawable(p); });
+  var locked = indiv.filter(function(p) { return projReached(p.actuel, p.cible) && !projDeadlineReached(p); });
+  var prog   = indiv.filter(function(p) { return !projReached(p.actuel, p.cible); });
+  var cur = (COUNTRY_LABELS[_userCountry] || COUNTRY_LABELS.gn).currency;
+  var esc = function(s) { return String(s || '').replace(/</g, '&lt;'); };
+  var escJs = function(s) { return String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"); };
+  var rows = '';
+  if (elig.length) {
+    rows += '<div style="font-size:12px;font-weight:800;color:#065F46;margin:6px 0 8px;">✅ Prêt à retirer</div>';
+    elig.forEach(function(p) {
+      var montant = (p.cible > 0) ? p.cible : p.actuel;
+      rows += '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:#ECFDF5;border:1px solid #A7F3D0;border-radius:12px;padding:12px 14px;margin-bottom:8px;">'
+        + '<div><div style="font-weight:800;color:#065F46;">' + esc(p.nom || p.name) + '</div><div style="font-size:12px;color:#059669;">' + fmt(montant) + ' ' + cur + '</div></div>'
+        + '<button class="btn btn-sm" style="background:#059669;color:#fff;border:none;padding:9px 16px;border-radius:10px;font-weight:800;" onclick="if(window._retHub)_retHub.remove();openRetraitForProject(\'' + escJs(p.id) + '\',\'' + escJs(p.nom || p.name) + '\',' + (Number(p.actuel) || 0) + ')">Retirer</button>'
+        + '</div>';
+    });
+  }
+  if (locked.length) {
+    rows += '<div style="font-size:12px;font-weight:800;color:#92400E;margin:14px 0 8px;">⏳ Bientôt disponible (à l\'échéance)</div>';
+    locked.forEach(function(p) {
+      rows += '<div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:12px;padding:12px 14px;margin-bottom:8px;">'
+        + '<div style="font-weight:800;color:#92400E;">' + esc(p.nom || p.name) + '</div>'
+        + '<div style="font-size:12px;color:#B45309;">✅ 100 % atteint · ' + projCountdownText(p) + '</div>'
+        + '</div>';
+    });
+  }
+  if (prog.length) {
+    rows += '<div style="font-size:12px;font-weight:800;color:#475569;margin:14px 0 8px;">🎯 En cours</div>';
+    prog.forEach(function(p) {
+      var t = (typeof projTarget === 'function') ? projTarget(p.cible) : (Number(p.cible) || 0);
+      var pct = t > 0 ? Math.min(100, Math.round((Number(p.actuel) || 0) / t * 100)) : 0;
+      rows += '<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;padding:12px 14px;margin-bottom:8px;">'
+        + '<div style="font-weight:700;color:var(--primary);">' + esc(p.nom || p.name) + '</div>'
+        + '<div style="font-size:12px;color:var(--text-secondary);">' + pct + ' % · ' + fmt(p.actuel) + ' / ' + fmt(p.cible) + ' ' + cur + '</div>'
+        + '</div>';
+    });
+  }
+  if (!rows) rows = '<div style="text-align:center;color:var(--text-secondary);padding:20px;font-size:14px;">Vous n\'avez pas encore de projet individuel. Créez-en un pour épargner puis retirer à l\'échéance.</div>';
+  var ov = document.createElement('div');
+  window._retHub = ov;
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:100000;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow:auto;';
+  ov.innerHTML = '<div style="background:#fff;border-radius:18px;padding:22px;max-width:440px;width:100%;margin:auto;">'
+    + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;"><div style="font-weight:900;color:var(--primary);font-size:18px;">💸 Retirer mes fonds</div><button onclick="if(window._retHub)_retHub.remove()" style="background:none;border:none;font-size:24px;color:#94A3B8;cursor:pointer;line-height:1;">×</button></div>'
+    + '<div style="font-size:12.5px;color:var(--text-secondary);margin-bottom:16px;line-height:1.5;">Le retrait s\'ouvre quand un projet atteint <b>100 %</b> ET sa <b>date de fin</b>. Les épargnes collectives se retirent via le groupe.</div>'
+    + rows
+    + '</div>';
+  ov.addEventListener('mousedown', function(e) { if (e.target === ov) ov.remove(); });
+  document.body.appendChild(ov);
+}
+
 function goRetrait() {
   var list = (typeof PROJETS !== 'undefined' && Array.isArray(PROJETS)) ? PROJETS : [];
   var isColl = function(p) {
@@ -5848,21 +5907,14 @@ function goRetrait() {
       (typeof projWithdrawable === 'function' ? projWithdrawable(p) : projReached(p.actuel, p.cible));
   });
 
+  /* Un seul projet prêt → on ouvre directement le formulaire de retrait.
+     Sinon (0 ou plusieurs) → écran explicite listant tous les statuts. */
   if (eligible.length === 1) {
     var p = eligible[0];
     openRetraitForProject(p.id, p.nom || p.name || 'Projet', p.actuel);
     return;
   }
-  if (eligible.length > 1) {
-    showToast('Choisissez le projet à retirer.', 'info');
-    showSection('projets', null);
-    if (typeof setBottomNav === 'function') setBottomNav('projets');
-    return;
-  }
-  /* Aucun projet éligible */
-  showToast('🔒 Retrait disponible uniquement pour un projet atteint à 100 % à sa date de fin.', 'info');
-  showSection('projets', null);
-  if (typeof setBottomNav === 'function') setBottomNav('projets');
+  openRetraitHub();
 }
 
 function openRetraitForProject(projectId, nom, montant) {
@@ -7146,7 +7198,9 @@ function openDepositForProject(projectId, projectNom) {
 
 /* ── MODALS ── */
 function openModal(id) {
-  document.getElementById('modal-' + id).classList.add('open');
+  var _m = document.getElementById('modal-' + id);
+  if (!_m) { console.warn('[openModal] introuvable: modal-' + id); return; }
+  _m.classList.add('open');
   document.body.style.overflow = 'hidden';
   if (id === 'newProject') {
     npGoStep(1);
@@ -8667,7 +8721,7 @@ let _onbStep = 0;
 
 function initOnboarding() {
   if (localStorage.getItem(ONB_KEY)) return;
-  setTimeout(() => openModal('modal-onboarding'), 800);
+  setTimeout(() => openModal('onboarding'), 800);
 }
 
 function onbGoTo(step) {
