@@ -25,6 +25,7 @@
 const { supabaseRequest }    = require('../_lib/supabase');
 const { trigger: emailTrig } = require('../_lib/email');
 const { logAudit }           = require('../_lib/security');
+const { isProjectCollective } = require('../_lib/project');
 const ADMIN_SECRET = process.env.ADMIN_SECRET || 'epargn-admin-dev-2026';
 if (!process.env.ADMIN_SECRET) {
   console.warn('[SECURITY] ADMIN_SECRET non défini — secret par défaut actif, DANGER en production !');
@@ -1569,12 +1570,14 @@ module.exports = async (req, res) => {
       if (projectId) {
         try {
           const projRows = await supabaseRequest('GET',
-            '/projects?id=eq.' + encodeURIComponent(projectId) + '&select=id,actuel,goal,status');
+            '/projects?id=eq.' + encodeURIComponent(projectId) +
+            '&select=id,actuel,goal,status,name,invite_code,invite_token,members_count');
           if (Array.isArray(projRows) && projRows[0]) {
             const proj = projRows[0];
             /* Plafond = objectif EXACT (plus de ×1,01 ; frais 1% au retrait) − déjà déposé */
             const effTarget  = Math.round(Number(proj.goal) || 0);
             const maxAllowed = Math.max(0, effTarget - (Number(proj.actuel) || 0));
+            let creditedAmount = 0;   /* montant réellement ajouté à actuel */
 
             /* Vérification admin : bloquer si dépasse le plafond */
             if (netForServer > maxAllowed && maxAllowed >= 0) {
@@ -1584,6 +1587,7 @@ module.exports = async (req, res) => {
               const cappedNet = maxAllowed;
               if (cappedNet > 0) {
                 const newActuel = (Number(proj.actuel) || 0) + cappedNet;
+                creditedAmount = cappedNet;
                 await supabaseRequest('PATCH',
                   '/projects?id=eq.' + encodeURIComponent(projectId),
                   { actuel: newActuel, has_funds: true, updated_at: now,
@@ -1594,10 +1598,34 @@ module.exports = async (req, res) => {
                 (Number(proj.actuel) || 0) + netForServer,
                 effTarget || Infinity
               );
+              creditedAmount = newActuel - (Number(proj.actuel) || 0);
               await supabaseRequest('PATCH',
                 '/projects?id=eq.' + encodeURIComponent(projectId),
                 { actuel: newActuel, has_funds: true, updated_at: now,
                   ...(newActuel >= (effTarget || Infinity) ? { status: 'completed' } : {}) });
+            }
+
+            /* ── Tontine : tracer la contribution du membre pour un remboursement
+               AU PRORATA à la clôture (close-collective lit project_members.contribution).
+               Sans ça, la répartition retombait à parts égales. ── */
+            if (creditedAmount > 0 && isProjectCollective(proj)) {
+              try {
+                const pmRows = await supabaseRequest('GET',
+                  '/project_members?project_id=eq.' + encodeURIComponent(projectId) +
+                  '&user_id=eq.' + encodeURIComponent(userId) + '&select=id,contribution&limit=1');
+                if (Array.isArray(pmRows) && pmRows[0]) {
+                  await supabaseRequest('PATCH',
+                    '/project_members?id=eq.' + encodeURIComponent(pmRows[0].id),
+                    { contribution: (Number(pmRows[0].contribution) || 0) + creditedAmount });
+                } else {
+                  await supabaseRequest('POST', '/project_members', {
+                    project_id: projectId, user_id: userId, role: 'member',
+                    contribution: creditedAmount, status: 'active',
+                  });
+                }
+              } catch (pmErr) {
+                console.warn('[approve] maj contribution membre:', pmErr.message);
+              }
             }
           }
         } catch (projErr) {
