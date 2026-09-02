@@ -862,10 +862,11 @@ async function handleNotifications(req, res, payload, resourceId) {
 async function handleInvitations(req, res, payload, resourceId) {
   if (req.method === 'GET') {
     try {
-      /* Invitations où je suis le destinataire (par user_id ou par email) */
+      /* Invitations où je suis le destinataire (par user_id, email OU téléphone) */
       const userRows = await supabaseRequest('GET',
-        '/users?id=eq.' + encodeURIComponent(payload.userId) + '&select=email');
+        '/users?id=eq.' + encodeURIComponent(payload.userId) + '&select=email,phone');
       const email = (Array.isArray(userRows) && userRows[0]) ? userRows[0].email : null;
+      const phone = (Array.isArray(userRows) && userRows[0]) ? userRows[0].phone : null;
 
       let invitations = [];
       try {
@@ -891,6 +892,26 @@ async function handleInvitations(req, res, payload, resourceId) {
           }
         } catch (e) {}
       }
+
+      /* Invitations adressées à mon TÉLÉPHONE (invité pas encore inscrit au
+         moment de l'envoi → invitee_user_id null). Sans ça elles restaient
+         invisibles après inscription. */
+      if (phone) {
+        try {
+          const byPhone = await supabaseRequest('GET',
+            '/project_invitations?invitee_phone=eq.' + encodeURIComponent(phone) +
+            '&invitee_user_id=is.null' +
+            '&select=id,project_id,inviter_id,invitee_email,status,expires_at,created_at' +
+            '&order=created_at.desc&limit=50');
+          if (Array.isArray(byPhone)) invitations = invitations.concat(byPhone);
+        } catch (e) {}
+      }
+
+      /* Dédupliquer par id (une invitation peut matcher email ET téléphone). */
+      var _seenInv = {};
+      invitations = invitations.filter(function(i) {
+        if (!i || _seenInv[i.id]) return false; _seenInv[i.id] = 1; return true;
+      });
 
       /* Enrichir avec les données du projet */
       const projectIds = [...new Set(invitations.map(i => i.project_id).filter(Boolean))];

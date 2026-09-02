@@ -2243,6 +2243,10 @@ function populateAdminData(data) {
       })(),
     };
   });
+  /* Nécessaire pour résoudre nom/téléphone du client dans les onglets Retraits
+     et Alipay (renderWithdrawals / renderAlipayDeposits lisent window.ALL_USERS).
+     Sans ça, les lignes affichaient l'ID tronqué au lieu du nom. */
+  window.ALL_USERS = USERS;
 
   /* Données pour la section Messages WhatsApp */
   window._WA_PROJECTS = data.allProjects || [];
