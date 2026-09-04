@@ -75,22 +75,32 @@ module.exports = async (req, res) => {
            au RETRAIT, pas via un objectif gonflé. */
         const effectiveTarget = Math.round(proj.goal || 0);
 
-        /* Somme des dépôts DÉJÀ en attente de validation sur ce projet.
-           On la soustrait du restant : plusieurs demandes peuvent coexister,
-           mais leur cumul ne doit pas dépasser l'objectif. */
-        let pendingSum = 0;
+        /* Courant RÉEL du projet dérivé du grand livre (Σ dépôts validés −
+           retraits) + somme des dépôts en attente. On NE se fie PAS à
+           proj.actuel (colonne stockée, plafonnée/dérivée) → c'est ce qui
+           laissait passer les dépassements (ex. 26M dans un objectif de 8M). */
+        let derivedCurrent = 0, pendingSum = 0;
         try {
-          const pendRows = await supabaseRequest('GET',
+          const led = await supabaseRequest('GET',
             '/transactions?project_id=eq.' + encodeURIComponent(projectId) +
-            '&type=eq.deposit&statut=eq.pending&select=amount');
-          if (Array.isArray(pendRows)) {
-            pendingSum = pendRows.reduce(function (s, r) { return s + (Number(r.amount) || 0); }, 0);
+            '&type=in.(deposit,depot,withdrawal,retrait,retrait_projet_collectif)' +
+            '&select=type,amount,statut,status&limit=3000');
+          if (Array.isArray(led)) {
+            for (const t of led) {
+              const st = (t.statut || t.status || '');
+              const amt = Number(t.amount) || 0;
+              const isDep = (t.type === 'deposit' || t.type === 'depot');
+              if (isDep && (st === 'completed' || st === 'success')) derivedCurrent += amt;
+              else if (isDep && st === 'pending') pendingSum += amt;
+              else if (!isDep && st !== 'failed' && st !== 'cancelled') derivedCurrent -= amt;
+            }
+            derivedCurrent = Math.max(0, derivedCurrent);
           }
         } catch (e) {
-          console.warn('[deposit] pending sum:', e.message); /* non bloquant */
+          console.warn('[deposit] plafond grand livre:', e.message); /* non bloquant */
         }
 
-        const remaining = Math.max(0, effectiveTarget - (proj.actuel || 0) - pendingSum);
+        const remaining = Math.max(0, effectiveTarget - derivedCurrent - pendingSum);
         if (!isCoffre && remaining === 0) {
           return res.status(400).json({
             error: pendingSum > 0
@@ -99,7 +109,7 @@ module.exports = async (req, res) => {
             code: 'PROJECT_COMPLETED',
             remaining: 0,
             goal: proj.goal,
-            actuel: proj.actuel,
+            actuel: derivedCurrent,
             pending: pendingSum,
           });
         }
@@ -111,7 +121,7 @@ module.exports = async (req, res) => {
             code: 'DEPOSIT_EXCEEDS_REMAINING',
             remaining,
             goal: proj.goal,
-            actuel: proj.actuel,
+            actuel: derivedCurrent,
             pending: pendingSum,
             requested: amount,
           });
