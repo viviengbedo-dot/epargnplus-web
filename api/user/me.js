@@ -125,6 +125,25 @@ module.exports = async (req, res) => {
           safe.code_parrain = code;
         } catch (e) {}
       }
+      /* ── SOURCE UNIQUE : solde DÉRIVÉ du grand livre (Σ dépôts validés perso −
+         Σ retraits complétés). Ne dérive jamais → plus besoin de « cohérence soldes ».
+         Inclut la part perso des projets collectifs (les dépôts de CE user). ── */
+      try {
+        const led = await supabaseRequest('GET',
+          '/transactions?user_id=eq.' + encodeURIComponent(payload.userId) +
+          '&type=in.(deposit,depot,withdrawal,retrait,retrait_projet_collectif)' +
+          '&select=type,amount,statut,status&limit=3000');
+        if (Array.isArray(led)) {
+          let bal = 0;
+          for (const t of led) {
+            const st = (t.statut || t.status || '');
+            if (st !== 'completed' && st !== 'success') continue;
+            const amt = Number(t.amount) || 0;
+            if (t.type === 'deposit' || t.type === 'depot') bal += amt; else bal -= amt;
+          }
+          safe.epargne = Math.max(0, bal);
+        }
+      } catch (e) { /* fallback : garder la valeur stockée */ }
       return res.status(200).json(safe);
     }
 

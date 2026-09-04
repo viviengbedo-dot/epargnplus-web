@@ -3021,12 +3021,10 @@ function _injectUserData(u) {
   var country  = u.country || 'gn';
   var cLabel   = COUNTRY_LABELS[country] || COUNTRY_LABELS.gn;
   var phone    = u.phone || '';  // déjà au format international en DB
-  /* Le solde global ne peut JAMAIS être inférieur à ce qui est placé dans les
-     projets (sinon affichage qui oscille entre solde serveur et Σ projets).
-     On prend donc max(epargne serveur, Σ actuel) comme source unique. */
-  var _sumActuel = (typeof PROJETS !== 'undefined' && PROJETS)
-    ? PROJETS.reduce(function(s, p) { return s + (p.actuel || 0); }, 0) : 0;
-  var epargne  = Math.max(Number(u.epargne) || 0, _sumActuel);
+  /* SOURCE UNIQUE : le solde global = epargne DÉRIVÉE du serveur (Σ dépôts perso
+     − retraits). On n'additionne PLUS Σ(projects.actuel) : pour un collectif,
+     actuel = total du groupe, ce qui gonflerait le solde perso de l'utilisateur. */
+  var epargne = Number(u.epargne) || 0;
   u.epargne = epargne;
 
   /* Mettre à jour le pays courant (pour opérateurs dépôt/retrait) */
@@ -3395,12 +3393,10 @@ function toggleBalanceVisibility() {
  */
 /* Solde global = Σ(projects.actuel), avec fallback sur users.epargne (DB) si projets vides */
 function syncBalanceFromProjects() {
-  var totalActuel = (PROJETS || []).reduce(function(s, p) { return s + (p.actuel || 0); }, 0);
-  /* Solde = max(Σ projets, solde DB) : ne descend jamais sous ce qui est placé
-     dans les projets, et conserve l'argent libre (dépôts sans projet associé). */
-  var dbEpargne = (_currentUser && Number(_currentUser.epargne)) || 0;
-  var balance = Math.max(totalActuel, dbEpargne);
-  if (_currentUser) _currentUser.epargne = balance;
+  /* SOURCE UNIQUE : solde global = epargne dérivée du serveur (Σ dépôts perso −
+     retraits). On n'additionne PLUS Σ(projects.actuel) — un collectif afficherait
+     le total du groupe et gonflerait le solde perso. */
+  var balance = (_currentUser && Number(_currentUser.epargne)) || 0;
   var cur = (_currentUser && (COUNTRY_LABELS[_currentUser.country] || COUNTRY_LABELS.gn).currency) || 'GNF';
   setDisplayedBalance(balance, cur);
 }
