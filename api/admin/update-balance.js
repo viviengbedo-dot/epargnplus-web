@@ -1663,19 +1663,38 @@ module.exports = async (req, res) => {
         }
       } catch (e) { console.warn('[gamification]', e.message); }
 
-      /* ── Progression des défis actifs auxquels le membre participe ── */
+      /* ── Progression des défis actifs + RÉCOMPENSE au franchissement de l'objectif ── */
       try {
         const myParts = await supabaseRequest('GET',
           '/challenge_participants?user_id=eq.' + encodeURIComponent(userId) + '&select=id,challenge_id,progress');
         for (const p of (Array.isArray(myParts) ? myParts : [])) {
           try {
             const ch = await supabaseRequest('GET',
-              '/challenges?id=eq.' + encodeURIComponent(p.challenge_id) + '&select=ends_at&limit=1');
-            const ends = (Array.isArray(ch) && ch[0]) ? new Date(ch[0].ends_at) : null;
+              '/challenges?id=eq.' + encodeURIComponent(p.challenge_id) + '&select=ends_at,goal,reward_points,name&limit=1');
+            const chal = (Array.isArray(ch) && ch[0]) ? ch[0] : null;
+            const ends = chal ? new Date(chal.ends_at) : null;
             if (!ends || ends < new Date()) continue;  // défi terminé
+            const oldP = Number(p.progress) || 0;
+            const newP = oldP + depositAmount;
             await supabaseRequest('PATCH',
               '/challenge_participants?id=eq.' + encodeURIComponent(p.id),
-              { progress: (Number(p.progress) || 0) + depositAmount });
+              { progress: newP });
+            /* Franchissement de l'objectif → créditer reward_points UNE fois
+               (la condition oldP<goal && newP>=goal n'est vraie qu'au passage). */
+            const goalC = Number(chal.goal) || 0;
+            const rp    = Number(chal.reward_points) || 0;
+            if (goalC > 0 && rp > 0 && oldP < goalC && newP >= goalC) {
+              try {
+                const uu = await supabaseRequest('GET',
+                  '/users?id=eq.' + encodeURIComponent(userId) + '&select=points&limit=1');
+                const curPts = (Array.isArray(uu) && uu[0]) ? (Number(uu[0].points) || 0) : 0;
+                await supabaseRequest('PATCH', '/users?id=eq.' + encodeURIComponent(userId),
+                  { points: curPts + rp });
+                await createNotification(userId, 'challenge', '🏆 Défi réussi !',
+                  'Bravo ! Vous avez atteint l\'objectif du défi « ' + (chal.name || 'Défi') +
+                  ' » et gagné ' + rp + ' points.', { challenge_id: p.challenge_id, reward: rp });
+              } catch (e) { console.warn('[challenge reward]', e.message); }
+            }
           } catch (e) {}
         }
       } catch (e) {}
