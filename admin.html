@@ -284,7 +284,9 @@
       <button class="nav-item" onclick="showAdminSection('chine', this)">
         <span class="nav-icon">🇨🇳</span> Chine
       </button>
-      <button class="nav-item" onclick="showAdminSection('coherence', this)">
+      <!-- Cohérence soldes RETIRÉE : soldes dérivés du grand livre (source unique),
+           aucune dérive possible. Onglet masqué. -->
+      <button class="nav-item" onclick="showAdminSection('coherence', this)" style="display:none;">
         <span class="nav-icon">⚖️</span> Cohérence soldes
         <span class="nav-badge" id="navCoherenceBadge" style="display:none;background:#DC2626;">0</span>
       </button>

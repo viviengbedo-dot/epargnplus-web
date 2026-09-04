@@ -299,8 +299,12 @@ module.exports = async (req, res) => {
            où objectif effectif = goal × 1,01 (marge Epargn+ intégrée)
          excédent = solde − Σ min(actuel, objectif effectif)
                   = argent au-delà des objectifs des projets, à réattribuer. */
+    /* ⛔ COHÉRENCE SOLDES RETIRÉE — structurellement impossible à rendre juste :
+       elle comparait l'epargne PERSO au TOTAL des projets (collectifs inclus).
+       Les soldes sont désormais dérivés du grand livre (une seule source) →
+       aucune dérive possible, donc rien à détecter. Bloc gardé désactivé. */
     let surplusUsers = [];
-    try {
+    if (false) try {
       const FEE = 1.0;   /* objectif = goal exact (frais 1% déplacés au retrait) */
       const projByUser = {};
       (allProjects || []).forEach((p) => {
