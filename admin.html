@@ -4390,28 +4390,9 @@ function runAMLCheck(userId, firstName, lastName) {
     showAdminToast('Prénom et nom requis pour la vérification AML', 'error');
     return;
   }
-  showAdminToast('🛡 Vérification AML en cours pour ' + firstName + ' ' + lastName + '…', 'info');
-  fetch('/api/kyc/verify', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
-    body: JSON.stringify({ action: 'aml', userId: userId, firstName: firstName, lastName: lastName })
-  })
-  .then(function(r) { return r.json(); })
-  .then(function(data) {
-    if (data.amlStatus === 'flagged') {
-      var matchSummary = data.matches && data.matches.length
-        ? '\n\nCorrespondances :\n' + data.matches.map(function(m){ return '• ' + m.name + ' (score ' + m.score + '%) — ' + m.datasets; }).join('\n')
-        : '';
-      alert('🚨 ALERTE AML\n\n' + data.fullName + ' est signalé dans les listes de sanctions.\nScore de risque : ' + data.riskScore + '/100\nSource : ' + data.source + matchSummary);
-      showAdminToast('🚨 ' + data.fullName + ' est signalé dans les listes de sanctions !', 'error');
-    } else if (data.amlStatus === 'clear') {
-      showAdminToast('✅ AML : ' + data.fullName + ' — Aucune correspondance (score ' + data.riskScore + '/100)', 'success');
-    } else {
-      showAdminToast('⚠ Vérification AML échouée : ' + (data.error || 'Erreur inconnue'), 'error');
-    }
-    reloadAdminData();
-  })
-  .catch(function() { showAdminToast('Erreur réseau AML.', 'error'); });
+  /* Endpoint /api/kyc/verify non implémenté (nécessite l'intégration OpenSanctions).
+     Message clair au lieu d'un 404. Validation KYC manuelle en attendant. */
+  alert('⚙️ Vérification AML automatique non configurée\n\nElle nécessite l\'intégration OpenSanctions (listes de sanctions).\nEn attendant, examinez la pièce et validez manuellement (✅ Approuver / ❌ Rejeter) sur la fiche KYC.');
 }
 
 /* ── Vérification ID via Smile Identity ── */
@@ -4422,35 +4403,10 @@ function runSmileVerify(userId, idNumber, idType, country, firstName, lastName) 
   }
   if (!confirm('Vérifier l\'identité via Smile Identity ?\n\nN° : ' + idNumber + '\nType : ' + (idType||'CNI') + '\nPays : ' + (country||'GN') + '\nNom : ' + firstName + ' ' + lastName)) return;
 
-  showAdminToast('🪪 Vérification Smile Identity en cours…', 'info');
-  fetch('/api/kyc/verify', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
-    body: JSON.stringify({
-      action:    'id',
-      userId:    userId,
-      country:   country || 'GN',
-      idType:    idType  || 'NATIONAL_ID',
-      idNumber:  idNumber,
-      firstName: firstName,
-      lastName:  lastName
-    })
-  })
-  .then(function(r) { return r.json(); })
-  .then(function(data) {
-    if (data.error && !data.ok) {
-      alert('⚙️ Configuration requise\n\n' + data.error + '\n\n' + (data.setup || ''));
-      return;
-    }
-    if (data.verificationResult && data.verificationResult.isVerified) {
-      showAdminToast('✅ Smile Identity : identité VÉRIFIÉE — ' + data.verificationResult.resultText, 'success');
-    } else {
-      showAdminToast('⚠ Smile Identity : ' + (data.verificationResult && data.verificationResult.resultText || data.error || 'Non trouvé'), 'error');
-    }
-    closeKYCReview();
-    reloadAdminData();
-  })
-  .catch(function() { showAdminToast('Erreur réseau Smile Identity.', 'error'); });
+  /* Endpoint /api/kyc/verify non implémenté (nécessite un compte + clé Smile
+     Identity). On n'appelle donc pas un 404 : message clair. Le KYC MANUEL
+     (Approuver / Rejeter la pièce) reste la voie active. */
+  alert('⚙️ Vérification ID automatique non configurée\n\nElle nécessite un compte Smile Identity + clé API.\nEn attendant, validez la pièce manuellement : bouton ✅ Approuver / ❌ Rejeter sur la fiche KYC.');
 }
 
 /* ════════════════════════════════════════════════════════════
