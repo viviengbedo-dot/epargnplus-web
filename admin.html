@@ -4390,9 +4390,31 @@ function runAMLCheck(userId, firstName, lastName) {
     showAdminToast('Prénom et nom requis pour la vérification AML', 'error');
     return;
   }
-  /* Endpoint /api/kyc/verify non implémenté (nécessite l'intégration OpenSanctions).
-     Message clair au lieu d'un 404. Validation KYC manuelle en attendant. */
-  alert('⚙️ Vérification AML automatique non configurée\n\nElle nécessite l\'intégration OpenSanctions (listes de sanctions).\nEn attendant, examinez la pièce et validez manuellement (✅ Approuver / ❌ Rejeter) sur la fiche KYC.');
+  showAdminToast('🛡 Vérification AML (OpenSanctions) pour ' + firstName + ' ' + lastName + '…', 'info');
+  fetch('/api/kyc/verify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
+    body: JSON.stringify({ action: 'aml', userId: userId, firstName: firstName, lastName: lastName })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.amlStatus === 'flagged') {
+      var matchSummary = data.matches && data.matches.length
+        ? '\n\nCorrespondances :\n' + data.matches.map(function(m){ return '• ' + m.name + ' (score ' + m.score + '%) — ' + m.datasets; }).join('\n')
+        : '';
+      alert('🚨 ALERTE AML\n\n' + data.fullName + ' est signalé dans les listes de sanctions/PEP.\nScore de risque : ' + data.riskScore + '/100\nSource : ' + data.source + matchSummary);
+      showAdminToast('🚨 ' + data.fullName + ' signalé (sanctions/PEP) !', 'error');
+    } else if (data.amlStatus === 'clear') {
+      showAdminToast('✅ AML : ' + data.fullName + ' — aucune correspondance', 'success');
+    } else if (data.setup) {
+      /* Non configuré (clé manquante/invalide) → guider l'admin. */
+      alert('⚙️ ' + (data.error || 'Vérification AML non configurée') + '\n\n' + data.setup);
+    } else {
+      showAdminToast('⚠ Vérification AML : ' + (data.error || 'Erreur inconnue'), 'error');
+    }
+    reloadAdminData();
+  })
+  .catch(function() { showAdminToast('Erreur réseau AML.', 'error'); });
 }
 
 /* ── Vérification ID via Smile Identity ── */
