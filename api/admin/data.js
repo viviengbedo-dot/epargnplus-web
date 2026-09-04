@@ -217,8 +217,8 @@ module.exports = async (req, res) => {
        client et supprime la dérive. ── */
     try {
       const depRows = await supabaseRequest('GET',
-        '/transactions?type=in.(deposit,depot)' +
-        '&select=project_id,type,amount,statut,status&limit=5000');
+        '/transactions?type=in.(deposit,depot,withdrawal,retrait,retrait_projet_collectif)' +
+        '&select=project_id,type,amount,statut,status&limit=8000');
       const deps = Array.isArray(depRows) ? depRows : [];
       allProjects.forEach(p => { p.actuel = computeProjectSaved(p, deps); });
     } catch (e) {

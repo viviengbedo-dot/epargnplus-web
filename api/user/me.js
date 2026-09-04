@@ -219,7 +219,7 @@ async function handleProjects(req, res, payload, resourceId) {
         try {
           txns = await supabaseRequest('GET',
             '/transactions?project_id=in.(' + pids.map(encodeURIComponent).join(',') + ')' +
-            '&type=in.(deposit,depot)' +
+            '&type=in.(deposit,depot,withdrawal,retrait,retrait_projet_collectif)' +
             '&select=project_id,type,amount,statut,status&limit=2000');
           if (!Array.isArray(txns)) txns = [];
         } catch (e) { txns = []; }

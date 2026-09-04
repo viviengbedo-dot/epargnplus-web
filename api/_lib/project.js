@@ -50,22 +50,35 @@ function _isDeposit(t) {
   const ty = t && t.type;
   return ty === 'deposit' || ty === 'depot';
 }
+function _isWithdrawal(t) {
+  const ty = t && t.type;
+  return ty === 'withdrawal' || ty === 'retrait' || ty === 'retrait_projet_collectif';
+}
 /**
- * Épargné réel d'UN projet, dérivé des transactions.
- * @param {object} project  ligne projet (id, status)
- * @param {Array}  txns     transactions (au moins {project_id,type,amount,statut,status})
+ * Épargné réel d'UN projet, dérivé du grand livre = Σ dépôts validés − retraits.
+ * On NE se base PAS sur project.status (peu fiable : un projet peut être 'closed'
+ * sans retrait — ex. clôture collective dont les refunds ont échoué). Un retrait
+ * COMPLÉTÉ vide le projet ; un retrait en attente diminue le solde disponible.
+ * @param {object} project  ligne projet (id)
+ * @param {Array}  txns     transactions {project_id,type,amount,statut,status}
  * @returns {number}
  */
 function computeProjectSaved(project, txns) {
   if (!project) return 0;
-  if (project.status === 'closed') return 0;   /* projet retiré → vidé */
   const pid = String(project.id);
-  let sum = 0;
+  let dep = 0, wdDone = 0, wdPending = 0;
   for (const t of (txns || [])) {
     if (String(t.project_id) !== pid) continue;
-    if (_isDeposit(t) && _txCompleted(t)) sum += Number(t.amount) || 0;
+    const amt = Number(t.amount) || 0;
+    if (_isDeposit(t) && _txCompleted(t)) { dep += amt; continue; }
+    if (_isWithdrawal(t)) {
+      const st = (t.statut || t.status || '');
+      if (st === 'failed' || st === 'cancelled') continue;
+      if (st === 'pending') wdPending += amt; else wdDone += amt;
+    }
   }
-  return sum;
+  if (wdDone > 0) return 0;                 /* projet encaissé → vidé */
+  return Math.max(0, dep - wdPending);
 }
 
 module.exports = { isProjectCollective, hasJoinedMembers, COLLECTIVE_PREFIX, computeProjectSaved };
