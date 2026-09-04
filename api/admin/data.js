@@ -218,9 +218,20 @@ module.exports = async (req, res) => {
     try {
       const depRows = await supabaseRequest('GET',
         '/transactions?type=in.(deposit,depot,withdrawal,retrait,retrait_projet_collectif)' +
-        '&select=project_id,type,amount,statut,status&limit=8000');
+        '&select=user_id,project_id,type,amount,statut,status&limit=8000');
       const deps = Array.isArray(depRows) ? depRows : [];
       allProjects.forEach(p => { p.actuel = computeProjectSaved(p, deps); });
+      /* Épargne de chaque user DÉRIVÉE aussi (Σ dépôts validés − retraits) →
+         « Épargne totale » et fiches users cohérentes, plus de dérive. */
+      const balByUser = {};
+      for (const t of deps) {
+        const st = (t.statut || t.status || '');
+        if (st !== 'completed' && st !== 'success') continue;
+        const amt = Number(t.amount) || 0;
+        const isDep = (t.type === 'deposit' || t.type === 'depot');
+        balByUser[t.user_id] = (balByUser[t.user_id] || 0) + (isDep ? amt : -amt);
+      }
+      users.forEach(u => { if (balByUser[u.id] !== undefined) u.epargne = Math.max(0, balByUser[u.id]); });
     } catch (e) {
       console.warn('[admin/data] recompute actuel:', e.message);
     }
