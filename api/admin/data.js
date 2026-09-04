@@ -10,7 +10,7 @@
 
 const { supabaseRequest }   = require('../_lib/supabase');
 const { runReminderCron }   = require('../_lib/email');
-const { isProjectCollective } = require('../_lib/project');
+const { isProjectCollective, computeProjectSaved } = require('../_lib/project');
 const { signedUrl, isStoragePath } = require('../_lib/storage');
 const ADMIN_SECRET  = process.env.ADMIN_SECRET  || 'epargn-admin-dev-2026';
 const CRON_SECRET   = process.env.CRON_SECRET   || '';
@@ -210,6 +210,19 @@ module.exports = async (req, res) => {
       } catch (e2) {
         console.warn('[admin/data] projects:', e2.message);
       }
+    }
+
+    /* ── 3b. SOURCE UNIQUE : recalcule projects.actuel depuis le grand livre des
+       dépôts (tous, pas seulement les 300 récents). Rend l'admin identique au
+       client et supprime la dérive. ── */
+    try {
+      const depRows = await supabaseRequest('GET',
+        '/transactions?type=in.(deposit,depot)' +
+        '&select=project_id,type,amount,statut,status&limit=5000');
+      const deps = Array.isArray(depRows) ? depRows : [];
+      allProjects.forEach(p => { p.actuel = computeProjectSaved(p, deps); });
+    } catch (e) {
+      console.warn('[admin/data] recompute actuel:', e.message);
     }
 
     /* ── 4. Membres des projets collectifs ── */

@@ -37,4 +37,35 @@ function hasJoinedMembers(p) {
   return Number(p && p.members_count) > 1;
 }
 
-module.exports = { isProjectCollective, hasJoinedMembers, COLLECTIVE_PREFIX };
+/* ── SOURCE DE VÉRITÉ UNIQUE DES SOLDES ──────────────────────────────────
+   L'épargné d'un projet = Σ des DÉPÔTS VALIDÉS de ce projet.
+   Un projet clôturé (retiré) = 0. Client ET admin calculent AINSI, à partir
+   du grand livre des transactions → plus de dérive, plus de « cohérence soldes ».
+   (Le retrait vide le projet puis le passe à status=closed.) */
+function _txCompleted(t) {
+  const a = t && (t.statut || t.status || '');
+  return a === 'completed' || a === 'success';
+}
+function _isDeposit(t) {
+  const ty = t && t.type;
+  return ty === 'deposit' || ty === 'depot';
+}
+/**
+ * Épargné réel d'UN projet, dérivé des transactions.
+ * @param {object} project  ligne projet (id, status)
+ * @param {Array}  txns     transactions (au moins {project_id,type,amount,statut,status})
+ * @returns {number}
+ */
+function computeProjectSaved(project, txns) {
+  if (!project) return 0;
+  if (project.status === 'closed') return 0;   /* projet retiré → vidé */
+  const pid = String(project.id);
+  let sum = 0;
+  for (const t of (txns || [])) {
+    if (String(t.project_id) !== pid) continue;
+    if (_isDeposit(t) && _txCompleted(t)) sum += Number(t.amount) || 0;
+  }
+  return sum;
+}
+
+module.exports = { isProjectCollective, hasJoinedMembers, COLLECTIVE_PREFIX, computeProjectSaved };

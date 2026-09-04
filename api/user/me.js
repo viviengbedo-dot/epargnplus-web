@@ -15,7 +15,7 @@
 
 const { supabaseRequest } = require('../_lib/supabase');
 const { verifyJWT, hashPin, verifyPin } = require('../_lib/auth');
-const { isProjectCollective, hasJoinedMembers } = require('../_lib/project');
+const { isProjectCollective, hasJoinedMembers, computeProjectSaved } = require('../_lib/project');
 const { trigger: emailTrigger } = require('../_lib/email');
 const { logAudit, checkThrottle, recordFail, resetThrottle } = require('../_lib/security');
 const { decodeDataUrl: storageDecode, uploadObject: storageUpload } = require('../_lib/storage');
@@ -210,7 +210,22 @@ async function handleProjects(req, res, payload, resourceId) {
     try {
       const rows = await supabaseRequest('GET',
         '/projects?user_id=eq.' + payload.userId + '&order=created_at.desc');
-      return res.status(200).json(Array.isArray(rows) ? rows : []);
+      const projects = Array.isArray(rows) ? rows : [];
+      /* ── SOURCE UNIQUE : épargné dérivé des dépôts validés (par project_id,
+         donc inclut les dépôts des AUTRES membres sur un projet collectif). ── */
+      const pids = projects.map(p => p.id).filter(Boolean);
+      let txns = [];
+      if (pids.length) {
+        try {
+          txns = await supabaseRequest('GET',
+            '/transactions?project_id=in.(' + pids.map(encodeURIComponent).join(',') + ')' +
+            '&type=in.(deposit,depot)' +
+            '&select=project_id,type,amount,statut,status&limit=2000');
+          if (!Array.isArray(txns)) txns = [];
+        } catch (e) { txns = []; }
+      }
+      projects.forEach(p => { p.actuel = computeProjectSaved(p, txns); });
+      return res.status(200).json(projects);
     } catch (e) {
       return res.status(200).json([]);
     }
