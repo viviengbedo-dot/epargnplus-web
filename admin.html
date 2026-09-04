@@ -4391,7 +4391,7 @@ function runAMLCheck(userId, firstName, lastName) {
     return;
   }
   showAdminToast('🛡 Vérification AML (OpenSanctions) pour ' + firstName + ' ' + lastName + '…', 'info');
-  fetch('/api/kyc/verify', {
+  fetch('/api/admin/update-balance', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
     body: JSON.stringify({ action: 'aml', userId: userId, firstName: firstName, lastName: lastName })
@@ -4425,7 +4425,7 @@ function runSmileVerify(userId, idNumber, idType, country, firstName, lastName) 
   }
   if (!confirm('Vérifier l\'identité via Smile Identity ?\n\nN° : ' + idNumber + '\nType : ' + (idType||'CNI') + '\nPays : ' + (country||'GN') + '\nNom : ' + firstName + ' ' + lastName)) return;
 
-  /* Endpoint /api/kyc/verify non implémenté (nécessite un compte + clé Smile
+  /* Endpoint /api/admin/update-balance non implémenté (nécessite un compte + clé Smile
      Identity). On n'appelle donc pas un 404 : message clair. Le KYC MANUEL
      (Approuver / Rejeter la pièce) reste la voie active. */
   alert('⚙️ Vérification ID automatique non configurée\n\nElle nécessite un compte Smile Identity + clé API.\nEn attendant, validez la pièce manuellement : bouton ✅ Approuver / ❌ Rejeter sur la fiche KYC.');
