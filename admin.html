@@ -4404,6 +4404,10 @@ function runAMLCheck(userId, firstName, lastName) {
         : '';
       alert('🚨 ALERTE AML\n\n' + data.fullName + ' est signalé dans les listes de sanctions/PEP.\nScore de risque : ' + data.riskScore + '/100\nSource : ' + data.source + matchSummary);
       showAdminToast('🚨 ' + data.fullName + ' signalé (sanctions/PEP) !', 'error');
+    } else if (data.amlStatus === 'review') {
+      var rv = (data.reviewMatches || []).map(function(m){ return '• ' + m.name + ' (' + m.score + '%) — ' + m.datasets; }).join('\n');
+      alert('🔎 À EXAMINER\n\n' + data.fullName + ' : correspondance(s) FAIBLE(S), sous le seuil d\'alerte.\nProbablement un homonyme — vérifiez manuellement :\n\n' + rv);
+      showAdminToast('🔎 ' + data.fullName + ' — correspondance faible à examiner', 'info');
     } else if (data.amlStatus === 'clear') {
       showAdminToast('✅ AML : ' + data.fullName + ' — aucune correspondance', 'success');
     } else if (data.setup) {

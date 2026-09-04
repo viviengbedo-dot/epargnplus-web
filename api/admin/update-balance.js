@@ -30,7 +30,12 @@ const https = require('https');
 
 /* ── AML : screening OpenSanctions (fusionné ici car limite 12 fonctions Hobby) ── */
 const OS_KEY = process.env.OPENSANCTIONS_API_KEY || '';
-const OS_MATCH_THRESHOLD = 0.70;
+/* Seuil élevé : une clientèle ouest-africaine a beaucoup de noms courants qui
+   matchent partiellement des PEP/officiels. 0.85 = correspondances FORTES
+   seulement (réduit les faux positifs). Les scores 0.70–0.85 sont renvoyés
+   comme « à examiner » sans déclencher l'alerte. */
+const OS_MATCH_THRESHOLD = 0.85;
+const OS_REVIEW_THRESHOLD = 0.70;
 function opensanctionsMatch(fullName) {
   return new Promise((resolve, reject) => {
     const payload = JSON.stringify({ queries: { q1: { schema: 'Person', properties: { name: [fullName] } } } });
@@ -109,19 +114,19 @@ module.exports = async (req, res) => {
     try {
       const data    = await opensanctionsMatch(fullName);
       const results = (data && data.responses && data.responses.q1 && data.responses.q1.results) || [];
-      const matches = results
-        .filter((r) => (r.score || 0) >= OS_MATCH_THRESHOLD)
-        .map((r) => ({ name: r.caption || '(inconnu)', score: Math.round((r.score || 0) * 100), datasets: (r.datasets || []).slice(0, 4).join(', '), schema: r.schema || '' }));
-      const flagged   = matches.length > 0;
-      const riskScore = flagged ? matches[0].score : (results.length ? Math.round((results[0].score || 0) * 100) : 0);
-      const amlStatus = flagged ? 'flagged' : 'clear';
+      const fmt = (r) => ({ name: r.caption || '(inconnu)', score: Math.round((r.score || 0) * 100), datasets: (r.datasets || []).slice(0, 4).join(', '), schema: r.schema || '' });
+      const strong = results.filter((r) => (r.score || 0) >= OS_MATCH_THRESHOLD).map(fmt);
+      const review = results.filter((r) => (r.score || 0) >= OS_REVIEW_THRESHOLD && (r.score || 0) < OS_MATCH_THRESHOLD).map(fmt);
+      const flagged   = strong.length > 0;
+      const amlStatus = flagged ? 'flagged' : (review.length > 0 ? 'review' : 'clear');
+      const riskScore = results.length ? Math.round((results[0].score || 0) * 100) : 0;
       if (body.userId) {
         try {
           await supabaseRequest('PATCH', '/users?id=eq.' + encodeURIComponent(body.userId),
             { aml_status: amlStatus, risk_score: riskScore, updated_at: new Date().toISOString() });
         } catch (e) { /* colonnes optionnelles */ }
       }
-      return res.status(200).json({ ok: true, amlStatus, fullName, riskScore, source: 'OpenSanctions', matches });
+      return res.status(200).json({ ok: true, amlStatus, fullName, riskScore, source: 'OpenSanctions', matches: strong, reviewMatches: review });
     } catch (e) {
       if (e.message === 'AUTH') {
         return res.status(200).json({ ok: false, error: 'Clé OpenSanctions invalide ou expirée.', setup: 'Vérifiez OPENSANCTIONS_API_KEY dans Vercel.' });
