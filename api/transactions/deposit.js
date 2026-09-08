@@ -45,7 +45,7 @@ module.exports = async (req, res) => {
   const depositType     = (body.type || 'deposit').trim();
   const isAlipay        = depositType === 'alipay';
   const operator        = (body.operator    || (isAlipay ? 'alipay' : 'Mobile Money')).trim();
-  const projectId       = body.projectId   || null;
+  let   projectId       = body.projectId   || null;
   const note            = body.note        || null;
   const senderPhone     = (body.senderPhone || '').trim() || null;
   const alipayReference = (body.alipay_reference || '').trim() || null;
@@ -55,6 +55,36 @@ module.exports = async (req, res) => {
   const minAmount = isAlipay ? 1 : 1000;
   if (!amount || amount < minAmount) {
     return res.status(400).json({ error: 'Montant minimum : ' + minAmount + (isAlipay ? ' CNY' : ' GNF') });
+  }
+
+  /* ── AUTO-RATTACHEMENT PROJET (serveur) ──────────────────────────────────
+     Certains clients (app Android) n'envoient pas projectId → dépôt non rattaché
+     → jauge à 0. Comme le web, si l'utilisateur n'a qu'UN SEUL projet individuel
+     actif, on y rattache le dépôt automatiquement. Plusieurs projets → laissé au
+     choix de l'admin à la validation. */
+  if (!projectId && !isAlipay) {
+    try {
+      const myProjs = await supabaseRequest('GET',
+        '/projects?user_id=eq.' + encodeURIComponent(jwtPayload.userId) +
+        '&status=eq.active&select=id,name,invite_code,invite_token,members_count');
+      const perso = (Array.isArray(myProjs) ? myProjs : []).filter(function (p) {
+        return !(p.invite_code || p.invite_token ||
+                 String(p.name || '').startsWith('🤝') || Number(p.members_count) > 1);
+      });
+      if (perso.length === 1) {
+        projectId = perso[0].id;
+        console.log('[deposit] auto-rattaché au projet unique ' + projectId + ' user=' + jwtPayload.userId);
+      }
+    } catch (e) { console.warn('[deposit] auto-bind projet:', e.message); }
+  }
+
+  /* ── RÈGLE MÉTIER : un dépôt d'épargne DOIT être rattaché à un projet. ──
+     Sans projet résolu (0 projet, ou plusieurs sans choix explicite) → refus. */
+  if (!projectId && !isAlipay) {
+    return res.status(400).json({
+      error: 'Un dépôt doit être rattaché à un projet. Ouvrez (ou créez) un projet, puis déposez depuis celui-ci.',
+      code: 'PROJECT_REQUIRED',
+    });
   }
 
   /* ── Vérification plafond projet + validation contribution type ── */
