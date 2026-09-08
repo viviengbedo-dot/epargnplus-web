@@ -1052,6 +1052,10 @@ module.exports = async (req, res) => {
      Réattribue manuellement le surplus d'un utilisateur vers un projet.
   */
   if (action === 'reattribute_surplus') {
+    /* DÉSACTIVÉ (modèle plafonné) : plus d'injection d'excédent dans un projet.
+       L'excédent reste dans l'épargne globale ; le client ouvre un nouveau projet. */
+    return res.status(400).json({ error: 'Réattribution d\'excédent désactivée : un projet ne dépasse plus son objectif. L\'excédent reste dans l\'épargne globale.' });
+    /* eslint-disable no-unreachable */
     const { targetUserId: surplusUserId, projectId: targetProjectId } = body;
     if (!surplusUserId || !targetProjectId) {
       return res.status(400).json({ error: 'targetUserId et projectId requis' });
@@ -1114,6 +1118,9 @@ module.exports = async (req, res) => {
      projets actifs encore incomplets, en comblant d'abord ceux les plus
      proches de leur objectif (× 1,01). N'utilise QUE l'argent hors projet. */
   if (action === 'reattribute_auto') {
+    /* DÉSACTIVÉ (modèle plafonné) : plus d'auto-remplissage d'excédent dans les projets. */
+    return res.status(400).json({ error: 'Auto-remplissage d\'excédent désactivé : un projet ne dépasse plus son objectif. L\'excédent reste dans l\'épargne globale.' });
+    /* eslint-disable no-unreachable */
     const surplusUserId = body.targetUserId;
     if (!surplusUserId) return res.status(400).json({ error: 'targetUserId requis' });
     try {
@@ -1551,6 +1558,42 @@ module.exports = async (req, res) => {
 
       if (!depositAmount || depositAmount < 1) {
         return res.status(400).json({ error: 'Montant invalide' });
+      }
+
+      /* ── PLAFOND OBJECTIF (modèle plafonné) : refuser une validation qui ferait
+         dépasser l'objectif du projet — garde-fou contre les erreurs de saisie
+         (ex. 25 000 000 sur un projet à 8 000 000). Projets individuels avec
+         objectif > 0 uniquement ; les projets collectifs ne sont pas plafonnés ici. */
+      if (projectId) {
+        try {
+          const prRows = await supabaseRequest('GET',
+            '/projects?id=eq.' + encodeURIComponent(projectId) +
+            '&select=goal,name,invite_code,invite_token,members_count&limit=1');
+          const pr = Array.isArray(prRows) && prRows[0];
+          const isColl = !!(pr && (pr.invite_code || pr.invite_token ||
+            String(pr.name || '').startsWith('🤝') || Number(pr.members_count) > 1));
+          const goal = pr ? (Number(pr.goal) || 0) : 0;
+          if (pr && goal > 0 && !isColl) {
+            const dRows = await supabaseRequest('GET',
+              '/transactions?project_id=eq.' + encodeURIComponent(projectId) +
+              '&type=in.(deposit,depot)&select=amount,statut,status&limit=3000');
+            let done = 0;
+            (Array.isArray(dRows) ? dRows : []).forEach((t) => {
+              const st = (t.statut || t.status || '');
+              if (st === 'completed' || st === 'success') done += Number(t.amount) || 0;
+            });
+            const remaining = Math.max(0, goal - done);
+            if (depositAmount > remaining) {
+              return res.status(400).json({
+                error: 'Validation refusée : ' + depositAmount.toLocaleString('fr-FR') +
+                  ' GNF dépasse l\'objectif du projet. Déjà épargné ' + done.toLocaleString('fr-FR') +
+                  ' / ' + goal.toLocaleString('fr-FR') + ' GNF — il reste ' +
+                  remaining.toLocaleString('fr-FR') + ' GNF pour atteindre l\'objectif. Corrigez le montant.',
+                remaining: remaining, done: done, goal: goal,
+              });
+            }
+          }
+        } catch (e) { console.warn('[approve] plafond objectif:', e.message); }
       }
 
       if (txnId) {

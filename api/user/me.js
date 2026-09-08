@@ -333,7 +333,7 @@ async function handleProjects(req, res, payload, resourceId) {
       /* ── Détection et injection automatique du surplus ── */
       let surplusInjected = 0;
       let surplusMessage  = null;
-      if (result && result.id && !isCollective) {
+      if (false && result && result.id && !isCollective) {  /* DÉSACTIVÉ (modèle plafonné) : plus d'injection auto d'excédent à la création */
         try {
           /* 1. Solde actuel */
           const uRows = await supabaseRequest('GET',
