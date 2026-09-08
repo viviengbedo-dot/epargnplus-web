@@ -229,7 +229,11 @@ async function handleProjects(req, res, payload, resourceId) {
     try {
       const rows = await supabaseRequest('GET',
         '/projects?user_id=eq.' + payload.userId + '&order=created_at.desc');
-      const projects = Array.isArray(rows) ? rows : [];
+      /* Masquer côté client les projets supprimés/clôturés par l'admin (status=closed…).
+         Le client ne voit que ses projets vivants ; les statuts terminaux disparaissent. */
+      const HIDDEN_PROJECT_STATUS = new Set(['closed','archived','deleted','cancelled','supprime','supprimé']);
+      const projects = (Array.isArray(rows) ? rows : [])
+        .filter(function (p) { return !HIDDEN_PROJECT_STATUS.has(String(p.status || '').toLowerCase()); });
       /* ── SOURCE UNIQUE : épargné dérivé des dépôts validés (par project_id,
          donc inclut les dépôts des AUTRES membres sur un projet collectif). ── */
       const pids = projects.map(p => p.id).filter(Boolean);
