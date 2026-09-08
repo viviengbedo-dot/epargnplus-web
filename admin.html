@@ -2728,6 +2728,14 @@ function renderKYCFromUsers(users) {
   }).join('');
 }
 
+/* ── Valider un dépôt en attente EN CHOISISSANT le projet à remplir ──
+   Lit le <select> de la carte ; projet vide = épargne générale (aucun rattachement). */
+function adminApproveDepositPick(userId, amount, txnId) {
+  var sel = document.getElementById('projsel_' + txnId);
+  var pid = (sel && sel.value) ? sel.value : null;
+  adminApproveDeposit(userId, amount, txnId, pid);
+}
+
 /* ── Valider un dépôt en attente ── */
 function adminApproveDeposit(userId, amount, txnId, projectId) {
   var u = USERS.find(function(x){ return x.id === userId; }) || {};
@@ -3234,16 +3242,33 @@ function renderRecentTxn() {
     var safeTxnId  = String(t.id).replace(/'/g, '');
     var safeUserId = String(t.userId).replace(/'/g, '');
     var safeProjId = t.projectId ? String(t.projectId).replace(/'/g, '') : '';
+    /* Projets ACTIFS non pleins du client → l'admin choisit lequel remplir (la jauge bouge). */
+    var uProjects = (window._WA_PROJECTS || []).filter(function(p){
+      return String(p.user_id) === String(t.userId) && (p.status || 'active') === 'active'
+        && (Number(p.goal) || 0) > (Number(p.actuel) || 0);
+    });
+    var projOpts = '<option value="">— Épargne générale (aucun projet) —</option>' +
+      uProjects.map(function(p){
+        var room = (Number(p.goal) || 0) - (Number(p.actuel) || 0);
+        var sel  = (safeProjId && String(p.id) === safeProjId) ? ' selected' : '';
+        var nm   = String(p.name || 'Projet').replace(/[<>"]/g, '');
+        return '<option value="' + String(p.id).replace(/"/g,'') + '"' + sel + '>' + nm +
+               ' (reste ' + room.toLocaleString('fr-FR') + ')</option>';
+      }).join('');
+    var projSelect = '<select id="projsel_' + safeTxnId + '" style="font-size:11px;padding:3px 6px;border:1px solid #ddd;border-radius:6px;max-width:230px;">' + projOpts + '</select>';
     return '<div class="txn-item" style="border-left:3px solid #F59E0B;padding-left:10px;">' +
       '<div class="txn-icon">⏳</div>' +
       '<div class="txn-info">' +
         '<div class="txn-label" style="font-weight:700;">' + t.userName + ' — Dépôt en attente</div>' +
-        '<div class="txn-date">' + t.userPhone + ' · ' + t.operator + ' · ' + t.date + (safeProjId ? ' · Projet lié' : '') + '</div>' +
+        '<div class="txn-date">' + t.userPhone + ' · ' + t.operator + ' · ' + t.date + '</div>' +
+        '<div style="margin-top:5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
+          '<span style="font-size:11px;color:#64748B;">Remplir :</span>' + projSelect +
+        '</div>' +
       '</div>' +
       '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">' +
         '<div class="txn-amount txn-credit" style="font-size:14px;">+' + fmtCurrency(t.montant, (USERS.find(function(x){return x.id===t.userId;})||{}).country) + '</div>' +
         '<div style="display:flex;gap:4px;">' +
-          '<button class="btn btn-success btn-sm" style="font-size:11px;padding:3px 8px;" onclick="adminApproveDeposit(\'' + safeUserId + '\',' + t.montant + ',\'' + safeTxnId + '\',\'' + safeProjId + '\')">✅ Valider</button>' +
+          '<button class="btn btn-success btn-sm" style="font-size:11px;padding:3px 8px;" onclick="adminApproveDepositPick(\'' + safeUserId + '\',' + t.montant + ',\'' + safeTxnId + '\')">✅ Valider</button>' +
           '<button class="btn btn-sm" style="font-size:11px;padding:3px 8px;background:#FEE2E2;color:#DC2626;" onclick="adminRejectDeposit(\'' + safeUserId + '\',\'' + safeTxnId + '\')">❌ Rejeter</button>' +
         '</div>' +
       '</div>' +
