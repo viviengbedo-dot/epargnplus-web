@@ -491,17 +491,30 @@ module.exports = async (req, res) => {
         members = [{ user_id: project.user_id, contribution: project.actuel || 0 }];
       }
 
-      const totalActuel = Number(project.actuel) || 0;
-      const nbMembers   = members.length || 1;
+      /* Net RÉEL par membre dérivé du grand livre (Σ dépôts validés − retraits
+         validés). project.actuel (colonne stockée) est périmé depuis le modèle
+         dérivé → on ne s'en sert plus pour calculer le remboursement. */
+      let ledger = [];
+      try {
+        ledger = await supabaseRequest('GET',
+          '/transactions?project_id=eq.' + encodeURIComponent(projectId) +
+          '&select=user_id,type,amount,statut,status&limit=2000');
+        if (!Array.isArray(ledger)) ledger = [];
+      } catch (e) {}
+      const netByUser = {};
+      ledger.forEach(t => {
+        const st  = (t.statut || t.status || '');
+        const amt = Number(t.amount) || 0;
+        const isDep = (t.type === 'deposit' || t.type === 'depot');
+        const isWd  = (t.type === 'withdrawal' || t.type === 'retrait' || t.type === 'retrait_projet_collectif');
+        if (isDep && (st === 'completed' || st === 'success')) netByUser[t.user_id] = (netByUser[t.user_id] || 0) + amt;
+        else if (isWd && st !== 'failed' && st !== 'cancelled')  netByUser[t.user_id] = (netByUser[t.user_id] || 0) - amt;
+      });
 
       /* 3. Pour chaque membre : diminuer epargne + créer transaction pending */
       const withdrawalIds = [];
       for (const member of members) {
-        /* Part proportionnelle : si contribution connue et > 0, l'utiliser */
-        const memberShare = (member.contribution > 0)
-          ? Number(member.contribution)
-          : Math.floor(totalActuel / nbMembers);
-
+        const memberShare = Math.max(0, Number(netByUser[member.user_id]) || 0);
         if (memberShare <= 0) continue;
 
         /* a) Diminuer epargne */
@@ -597,8 +610,6 @@ module.exports = async (req, res) => {
       const project = projRows[0];
       if (project.status === 'closed') return res.status(400).json({ error: 'Projet déjà clôturé' });
 
-      const totalActuel = Number(project.actuel) || 0;
-
       /* Membres (collectif) ou propriétaire (individuel) */
       let members = [];
       try {
@@ -609,25 +620,32 @@ module.exports = async (req, res) => {
       } catch (e) {}
       if (members.length === 0 && project.user_id) members = [{ user_id: project.user_id }];
 
-      /* Répartition réelle d'après les dépôts complétés de chaque membre */
-      let deposits = [];
+      /* Net RÉEL par membre dérivé du grand livre (Σ dépôts validés − retraits
+         validés). On NE se fie PAS à project.actuel (colonne stockée, périmée/0
+         depuis le passage au modèle dérivé) : c'est ce qui clampait le
+         remboursement à 0 → épargne inchangée. */
+      let ledger = [];
       try {
-        deposits = await supabaseRequest('GET',
+        ledger = await supabaseRequest('GET',
           '/transactions?project_id=eq.' + encodeURIComponent(projectId) +
-          '&is_credit=eq.true&statut=eq.completed&select=user_id,amount&limit=500');
-        if (!Array.isArray(deposits)) deposits = [];
+          '&select=user_id,type,amount,statut,status&limit=2000');
+        if (!Array.isArray(ledger)) ledger = [];
       } catch (e) {}
       const byUser = {};
-      deposits.forEach(t => { byUser[t.user_id] = (byUser[t.user_id] || 0) + (Number(t.amount) || 0); });
-      const sumDeposits = Object.values(byUser).reduce((s, v) => s + v, 0);
+      ledger.forEach(t => {
+        const st  = (t.statut || t.status || '');
+        const amt = Number(t.amount) || 0;
+        const isDep = (t.type === 'deposit' || t.type === 'depot');
+        const isWd  = (t.type === 'withdrawal' || t.type === 'retrait' || t.type === 'retrait_projet_collectif');
+        if (isDep && (st === 'completed' || st === 'success')) byUser[t.user_id] = (byUser[t.user_id] || 0) + amt;
+        else if (isWd && st !== 'failed' && st !== 'cancelled')  byUser[t.user_id] = (byUser[t.user_id] || 0) - amt;
+      });
 
       let refunded = 0;
       const refunds = [];
       for (const m of members) {
-        /* Part = dépôts réels du membre ; sinon répartition égale du collecté */
-        let share = byUser[m.user_id] != null ? byUser[m.user_id]
-          : (sumDeposits === 0 ? Math.floor(totalActuel / members.length) : 0);
-        share = Math.min(share, totalActuel); /* sécurité */
+        /* Part = net réel du membre sur ce projet (jamais borné par actuel périmé) */
+        let share = Math.max(0, Number(byUser[m.user_id]) || 0);
         if (share <= 0) continue;
 
         /* Réduire l'épargne du membre */
