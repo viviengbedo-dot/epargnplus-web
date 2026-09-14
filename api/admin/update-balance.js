@@ -533,13 +533,15 @@ module.exports = async (req, res) => {
           console.warn('[close-collective] epargne deduction user=' + member.user_id, e.message);
         }
 
-        /* b) Créer transaction retrait_projet_collectif (pending) */
+        /* b) Créer transaction retrait (pending) — type 'retrait' car la colonne
+           type = varchar(20) : 'retrait_projet_collectif' (24) était REJETÉ en
+           base → l'insert échouait en silence, aucun retrait enregistré. */
         const ref = 'RPC-' + now.slice(0,10).replace(/-/g,'') + '-' +
           Math.random().toString(36).substr(2,5).toUpperCase();
         try {
           const txRows = await supabaseRequest('POST', '/transactions', {
             user_id:    member.user_id,
-            type:       'retrait_projet_collectif',
+            type:       'retrait',
             amount:     memberShare,
             operator:   'Mobile Money',
             is_credit:  false,
@@ -664,7 +666,7 @@ module.exports = async (req, res) => {
         const ref = 'RB-' + now.slice(0, 10).replace(/-/g, '') + '-' + Math.random().toString(36).substr(2, 5).toUpperCase();
         try {
           await supabaseRequest('POST', '/transactions', {
-            user_id: m.user_id, type: 'retrait_projet_collectif', amount: share,
+            user_id: m.user_id, type: 'retrait', amount: share,
             operator: 'Mobile Money', is_credit: false,
             label: ref + ' · Remboursement — Clôture ' + (project.name || 'Projet') + ' (admin)',
             project_id: projectId, statut: 'completed', status: 'success',
