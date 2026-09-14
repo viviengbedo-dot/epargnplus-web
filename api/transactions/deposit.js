@@ -239,12 +239,13 @@ module.exports = async (req, res) => {
     /* Repli : insert minimal (au cas où une colonne optionnelle manque en prod) */
     try {
       const minimal = {
-        user_id:   jwtPayload.userId,
-        type:      txnType,
+        user_id:    jwtPayload.userId,
+        type:       txnType,
         amount,
-        is_credit: true,
-        statut:    'pending',
-        status:    'pending',
+        is_credit:  true,
+        project_id: projectId,   /* sinon dépôt orphelin → jauge figée */
+        statut:     'pending',
+        status:     'pending',
       };
       const r2 = await supabaseRequest('POST', '/transactions', minimal);
       const c2 = Array.isArray(r2) ? r2[0] : r2;

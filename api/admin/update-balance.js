@@ -25,7 +25,7 @@
 const { supabaseRequest }    = require('../_lib/supabase');
 const { trigger: emailTrig } = require('../_lib/email');
 const { logAudit }           = require('../_lib/security');
-const { isProjectCollective } = require('../_lib/project');
+const { isProjectCollective, computeProjectSaved } = require('../_lib/project');
 const https = require('https');
 
 /* ── AML : screening OpenSanctions (fusionné ici car limite 12 fonctions Hobby) ── */
@@ -1560,6 +1560,42 @@ module.exports = async (req, res) => {
         return res.status(400).json({ error: 'Montant invalide' });
       }
 
+      /* ── AUTO-RATTACHEMENT PROJET (validation admin) ──────────────────────
+         Si le dépôt n'est rattaché à AUCUN projet (txn.project_id null +
+         pending_deposit sans projectId + admin qui n'a pas choisi), le créditer
+         en épargne globale SANS projet fige la jauge (bug récurrent « le solde
+         monte, la jauge ne bouge pas »). On rattache donc automatiquement au
+         projet individuel actif du client qui a le PLUS de place restante
+         (modèle plafonné) → la jauge avance. Aucun projet avec place restante
+         → laissé en épargne globale (rien à remplir). */
+      if (!projectId) {
+        try {
+          const projs = await supabaseRequest('GET',
+            '/projects?user_id=eq.' + encodeURIComponent(userId) +
+            '&status=eq.active&select=id,name,goal,invite_code,invite_token,members_count');
+          const perso = (Array.isArray(projs) ? projs : []).filter((p) => !isProjectCollective(p));
+          if (perso.length) {
+            const ids = perso.map((p) => p.id);
+            const led = await supabaseRequest('GET',
+              '/transactions?project_id=in.(' + ids.map(encodeURIComponent).join(',') + ')' +
+              '&select=project_id,type,amount,statut,status&limit=5000');
+            const rooms = perso.map((p) => {
+              const goal = Number(p.goal) || 0;
+              const saved = computeProjectSaved(p, Array.isArray(led) ? led : []);
+              return { id: p.id, room: goal > 0 ? Math.max(0, goal - saved) : Infinity };
+            });
+            /* d'abord un projet capable de contenir tout le dépôt, sinon le plus vide */
+            let best = rooms.filter((r) => r.room >= depositAmount).sort((a, b) => b.room - a.room)[0];
+            if (!best) best = rooms.filter((r) => r.room > 0).sort((a, b) => b.room - a.room)[0];
+            if (best) {
+              projectId = best.id;
+              console.log('[approve] dépôt orphelin auto-rattaché au projet ' + projectId +
+                ' (place ' + best.room + ') user=' + userId);
+            }
+          }
+        } catch (e) { console.warn('[approve] auto-bind projet:', e.message); }
+      }
+
       /* ── PLAFOND OBJECTIF (modèle plafonné) : refuser une validation qui ferait
          dépasser l'objectif du projet — garde-fou contre les erreurs de saisie
          (ex. 25 000 000 sur un projet à 8 000 000). Projets individuels avec
@@ -1598,9 +1634,13 @@ module.exports = async (req, res) => {
 
       if (txnId) {
         try {
+          /* project_id ÉCRIT sur la transaction : sinon computeProjectSaved
+             l'ignore et la jauge reste figée même quand l'admin a choisi (ou
+             qu'on vient d'auto-rattacher) un projet. */
+          const patchTxn = { statut: 'completed', status: 'success', validated_by: 'admin', validated_at: now };
+          if (projectId) patchTxn.project_id = projectId;
           await supabaseRequest('PATCH',
-            '/transactions?id=eq.' + encodeURIComponent(txnId),
-            { statut: 'completed', status: 'success', validated_by: 'admin', validated_at: now });
+            '/transactions?id=eq.' + encodeURIComponent(txnId), patchTxn);
         } catch (e) {}
       } else {
         try {
