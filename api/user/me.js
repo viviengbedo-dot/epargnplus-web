@@ -15,7 +15,7 @@
 
 const { supabaseRequest } = require('../_lib/supabase');
 const { verifyJWT, hashPin, verifyPin } = require('../_lib/auth');
-const { isProjectCollective, hasJoinedMembers, computeProjectSaved } = require('../_lib/project');
+const { isProjectCollective, hasJoinedMembers, computeProjectSaved, computeUserBalance } = require('../_lib/project');
 const { trigger: emailTrigger } = require('../_lib/email');
 const { logAudit, checkThrottle, recordFail, resetThrottle } = require('../_lib/security');
 const { decodeDataUrl: storageDecode, uploadObject: storageUpload } = require('../_lib/storage');
@@ -131,19 +131,13 @@ module.exports = async (req, res) => {
       try {
         const led = await supabaseRequest('GET',
           '/transactions?user_id=eq.' + encodeURIComponent(payload.userId) +
-          '&type=in.(deposit,depot,withdrawal,retrait,retrait_projet_collectif)' +
-          '&select=type,amount,statut,status&limit=3000');
+          '&type=in.(deposit,depot,depot_alipay,bonus,withdrawal,retrait,retrait_projet_collectif,frais)' +
+          '&select=type,amount,statut,status&limit=5000');
         if (Array.isArray(led)) {
-          let bal = 0;
-          for (const t of led) {
-            const st = (t.statut || t.status || '');
-            if (st !== 'completed' && st !== 'success') continue;
-            const amt = Number(t.amount) || 0;
-            if (t.type === 'deposit' || t.type === 'depot') bal += amt; else bal -= amt;
-          }
-          safe.epargne = Math.max(0, bal);
+          /* Source unique = grand livre (même formule que le trigger DB). */
+          safe.epargne = computeUserBalance(led);
         }
-      } catch (e) { /* fallback : garder la valeur stockée */ }
+      } catch (e) { /* fallback : garder la valeur stockée (tenue par le trigger) */ }
       return res.status(200).json(safe);
     }
 
@@ -789,10 +783,10 @@ async function handleTransactions(req, res, payload) {
           return res.status(400).json({ error: 'Solde insuffisant. Votre épargne disponible est de ' + currentEpargne + '.' });
         }
         const _newSolde = currentEpargne - deduct;
-        /* Débit immédiat pour empêcher le double-retrait, confirmation admin ensuite */
-        await supabaseRequest('PATCH',
-          '/users?id=eq.' + encodeURIComponent(payload.userId),
-          { epargne: _newSolde, updated_at: now });
+        /* Le solde N'EST PLUS débité à la main : la transaction de retrait
+           (montant = deduct, insérée ci-dessous) déclenche le trigger DB qui
+           recalcule l'épargne. Le retrait 'pending' compte déjà comme engagé
+           (réserve les fonds) → pas de double-retrait possible. */
 
         /* ── Email automatique : retrait en cours de traitement ── */
         if (_u && _u.email) {
@@ -820,28 +814,34 @@ async function handleTransactions(req, res, payload) {
       }
 
       /* Transaction : retrait = pending (confirmation admin), sinon completed.
-         Montant enregistré = montant reçu par le client (payout). */
-      const txLabel = isCoffreWithdrawal
+         Montant enregistré = montant qui QUITTE le solde (deduct) → le trigger DB
+         débite exactement ce montant. La marge (deduct − payout) reste à la
+         plateforme ; le net reçu par le client est noté dans le libellé. */
+      const txAmount = isWithdrawal ? deduct : payout;
+      let txLabel = isCoffreWithdrawal
         ? label + (coffreEmergency ? ' · Coffre Recettes (URGENCE 3 %)' : ' · Coffre Recettes')
         : label;
+      if (isWithdrawal && margin > 0) {
+        txLabel += ' · reçu ' + payout.toLocaleString('fr-FR') + ' (frais ' + margin.toLocaleString('fr-FR') + ')';
+      }
       const _txStatut = isWithdrawal ? 'pending' : 'completed';
       const _txStatus = isWithdrawal ? 'pending' : 'success';
       try {
         await supabaseRequest('POST', '/transactions', {
-          user_id: payload.userId, type, amount: payout, operator, is_credit: isCredit,
+          user_id: payload.userId, type, amount: txAmount, operator, is_credit: isCredit,
           label: txLabel, project_id: projectId, statut: _txStatut, status: _txStatus,
         });
       } catch (insErr) {
-        /* CRITIQUE : le solde est DÉJÀ débité (lignes 755/776). Un retrait ne doit
-           JAMAIS être perdu faute d'insertion. On journalise l'erreur réelle puis
-           on réessaie sans les colonnes optionnelles (cf. repli deposit.js). */
+        /* CRITIQUE : un retrait ne doit JAMAIS être perdu faute d'insertion. On
+           journalise l'erreur réelle puis on réessaie sans les colonnes optionnelles
+           (cf. repli deposit.js). Le solde est tenu par le trigger sur la transaction. */
         try {
           await logAudit(payload.userId, 'withdrawal_insert_fail',
-            { error: String((insErr && insErr.message) || insErr), amount: payout,
+            { error: String((insErr && insErr.message) || insErr), amount: txAmount,
               project_id: projectId, operator }, req);
         } catch (_) {}
         await supabaseRequest('POST', '/transactions', {
-          user_id: payload.userId, type, amount: payout, is_credit: isCredit,
+          user_id: payload.userId, type, amount: txAmount, is_credit: isCredit,
           label: txLabel, project_id: projectId, statut: _txStatut, status: _txStatus,
         });
       }
@@ -1219,19 +1219,14 @@ async function handlePromos(req, res, payload) {
     if (promo.type === 'bonus_deposit') {
       bonusAmount = Number(promo.value) || 0;
       if (bonusAmount > 0) {
-        const uRows = await supabaseRequest('GET',
-          '/users?id=eq.' + encodeURIComponent(payload.userId) + '&select=id,epargne');
-        if (Array.isArray(uRows) && uRows[0]) {
-          const newEp = (Number(uRows[0].epargne) || 0) + bonusAmount;
-          await supabaseRequest('PATCH', '/users?id=eq.' + encodeURIComponent(payload.userId),
-            { epargne: newEp, updated_at: new Date().toISOString() });
-          await supabaseRequest('POST', '/transactions', {
-            user_id: payload.userId, type: 'bonus', amount: bonusAmount,
-            statut: 'completed', status: 'success', is_credit: true,
-            label: 'Bonus promo — ' + promo.code,
-            currency: promo.currency || 'GNF',
-          });
-        }
+        /* Le bonus est un CRÉDIT enregistré au grand livre → le trigger DB
+           l'ajoute au solde. Plus de PATCH epargne manuel. */
+        await supabaseRequest('POST', '/transactions', {
+          user_id: payload.userId, type: 'bonus', amount: bonusAmount,
+          statut: 'completed', status: 'success', is_credit: true,
+          label: 'Bonus promo — ' + promo.code,
+          currency: promo.currency || 'GNF',
+        });
       }
     }
 

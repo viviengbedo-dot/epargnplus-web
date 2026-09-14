@@ -25,7 +25,7 @@
 const { supabaseRequest }    = require('../_lib/supabase');
 const { trigger: emailTrig } = require('../_lib/email');
 const { logAudit }           = require('../_lib/security');
-const { isProjectCollective, computeProjectSaved } = require('../_lib/project');
+const { isProjectCollective, computeProjectSaved, computeUserBalance } = require('../_lib/project');
 const https = require('https');
 
 /* ── AML : screening OpenSanctions (fusionné ici car limite 12 fonctions Hobby) ── */
@@ -92,6 +92,59 @@ module.exports = async (req, res) => {
   const body   = await parseBody(req);
   const { action } = body;
   if (!action) return res.status(400).json({ error: 'action requise' });
+
+  /* ════════════ AUDIT COHÉRENCE ════════════
+     Contrôle que le solde stocké de chaque client = net du grand livre, et que
+     l'invariant solde ≥ Σ jauges des projets tient. Lecture seule → sert au
+     panneau « Cohérence » de l'admin et au cron de surveillance. */
+  if (action === 'audit_coherence') {
+    try {
+      const txns = await supabaseRequest('GET',
+        '/transactions?type=in.(deposit,depot,depot_alipay,bonus,withdrawal,retrait,retrait_projet_collectif,frais)' +
+        '&select=user_id,project_id,type,amount,statut,status&limit=20000');
+      const allTx = Array.isArray(txns) ? txns : [];
+      const usersRows = await supabaseRequest('GET', '/users?select=id,prenom,phone,epargne&limit=20000');
+      const allUsers = Array.isArray(usersRows) ? usersRows : [];
+      const projRows = await supabaseRequest('GET',
+        '/projects?status=eq.active&select=id,user_id,name,goal,invite_code,invite_token,members_count&limit=20000');
+      const activeProjects = Array.isArray(projRows) ? projRows : [];
+
+      const txByUser = {};
+      for (const t of allTx) {
+        (txByUser[t.user_id] = txByUser[t.user_id] || []).push(t);
+      }
+
+      const soldeEcarts = [];   /* stocké ≠ dérivé */
+      const invariantKO  = [];  /* solde < Σ jauges */
+      for (const u of allUsers) {
+        const utx = txByUser[u.id] || [];
+        const derive = computeUserBalance(utx);
+        const stocke = Number(u.epargne) || 0;
+        if (Math.abs(stocke - derive) > 0) {
+          soldeEcarts.push({ user_id: u.id, prenom: u.prenom, phone: u.phone, stocke, derive, ecart: stocke - derive });
+        }
+        const jauges = activeProjects
+          .filter(p => p.user_id === u.id)
+          .reduce((s, p) => s + computeProjectSaved(p, utx), 0);
+        if (jauges - derive > 1) {
+          invariantKO.push({ user_id: u.id, prenom: u.prenom, phone: u.phone, solde: derive, somme_jauges: jauges });
+        }
+      }
+      soldeEcarts.sort((a, b) => Math.abs(b.ecart) - Math.abs(a.ecart));
+
+      return res.status(200).json({
+        ok: true, action: 'audit_coherence',
+        users_total: allUsers.length,
+        solde_ecarts_count: soldeEcarts.length,
+        invariant_ko_count: invariantKO.length,
+        coherent: soldeEcarts.length === 0 && invariantKO.length === 0,
+        solde_ecarts: soldeEcarts.slice(0, 100),
+        invariant_ko: invariantKO.slice(0, 100),
+      });
+    } catch (err) {
+      return res.status(500).json({ error: 'Erreur audit : ' + err.message });
+    }
+  }
 
   /* ════════════ AML (OpenSanctions) / ID (Smile) ════════════ */
   if (action === 'id') {
@@ -517,25 +570,19 @@ module.exports = async (req, res) => {
         const memberShare = Math.max(0, Number(netByUser[member.user_id]) || 0);
         if (memberShare <= 0) continue;
 
-        /* a) Diminuer epargne */
+        /* a) Charger le membre (email/prénom pour la notif). L'épargne N'EST PLUS
+           modifiée à la main : le trigger DB la recalcule à partir du retrait
+           inséré ci-dessous (source unique = grand livre). */
         let memberRow = null;
         try {
           const uRows = await supabaseRequest('GET',
             '/users?id=eq.' + encodeURIComponent(member.user_id) + '&select=id,epargne,email,prenom,country');
-          if (Array.isArray(uRows) && uRows[0]) {
-            memberRow = uRows[0];
-            const newEp = Math.max(0, (Number(uRows[0].epargne) || 0) - memberShare);
-            await supabaseRequest('PATCH',
-              '/users?id=eq.' + encodeURIComponent(member.user_id),
-              { epargne: newEp, updated_at: now });
-          }
+          if (Array.isArray(uRows) && uRows[0]) memberRow = uRows[0];
         } catch (e) {
-          console.warn('[close-collective] epargne deduction user=' + member.user_id, e.message);
+          console.warn('[close-collective] load member user=' + member.user_id, e.message);
         }
 
-        /* b) Créer transaction retrait (pending) — type 'retrait' car la colonne
-           type = varchar(20) : 'retrait_projet_collectif' (24) était REJETÉ en
-           base → l'insert échouait en silence, aucun retrait enregistré. */
+        /* b) Créer transaction retrait (pending) → le trigger diminue l'épargne. */
         const ref = 'RPC-' + now.slice(0,10).replace(/-/g,'') + '-' +
           Math.random().toString(36).substr(2,5).toUpperCase();
         try {
@@ -650,16 +697,13 @@ module.exports = async (req, res) => {
         let share = Math.max(0, Number(byUser[m.user_id]) || 0);
         if (share <= 0) continue;
 
-        /* Réduire l'épargne du membre */
+        /* Charger le membre (email pour la notif). L'épargne est diminuée par le
+           trigger DB à partir du retrait inséré ci-dessous — plus de PATCH manuel. */
         let mRow = null;
         try {
           const uRows = await supabaseRequest('GET',
             '/users?id=eq.' + encodeURIComponent(m.user_id) + '&select=epargne,email,prenom,country');
           mRow = (Array.isArray(uRows) && uRows[0]) ? uRows[0] : null;
-          const ep = mRow ? (Number(mRow.epargne) || 0) : 0;
-          await supabaseRequest('PATCH',
-            '/users?id=eq.' + encodeURIComponent(m.user_id),
-            { epargne: Math.max(0, ep - share), updated_at: now });
         } catch (e) {}
 
         /* Transaction de remboursement COMPLÉTÉE (versement effectué) */
@@ -800,28 +844,14 @@ module.exports = async (req, res) => {
         return res.status(400).json({ error: 'Cette transaction n\'est plus en attente' });
       }
 
-      /* Marquer la transaction comme échouée */
+      /* Marquer la transaction comme échouée → le trigger DB recrédite le solde
+         automatiquement (le débit 'failed' n'est plus compté). */
       await supabaseRequest('PATCH',
         '/transactions?id=eq.' + encodeURIComponent(txnId),
         { statut: 'failed', status: 'failed', validated_by: 'admin', validated_at: now,
           rejection_reason: reason || 'Rejeté par l\'administrateur' });
 
-      /* Recréditer le solde */
       const amount = Number(txn.amount) || 0;
-      if (amount > 0) {
-        try {
-          const uRows = await supabaseRequest('GET',
-            '/users?id=eq.' + encodeURIComponent(txn.user_id) + '&select=id,epargne');
-          if (Array.isArray(uRows) && uRows[0]) {
-            const newEp = (Number(uRows[0].epargne) || 0) + amount;
-            await supabaseRequest('PATCH',
-              '/users?id=eq.' + encodeURIComponent(txn.user_id),
-              { epargne: newEp, updated_at: now });
-          }
-        } catch (e) {
-          console.warn('[reject-withdrawal] recrédit:', e.message);
-        }
-      }
 
       /* Restaurer projects.actuel si retrait individuel rejeté */
       if (txn.project_id && txn.type === 'withdrawal') {
@@ -875,20 +905,18 @@ module.exports = async (req, res) => {
 
       const amount = Number(txn.amount) || 0;
 
-      /* Marquer la transaction */
+      /* Marquer la transaction → le trigger DB crédite l'épargne (depot_alipay
+         est un type crédit). On ne fait plus de PATCH epargne manuel. */
       await supabaseRequest('PATCH',
         '/transactions?id=eq.' + encodeURIComponent(txnId),
         { statut: 'completed', status: 'success', validated_by: 'admin', validated_at: now });
 
-      /* Créditer l'épargne (montant converti par admin — on crédite la valeur brute) */
-      const uRows = await supabaseRequest('GET',
-        '/users?id=eq.' + encodeURIComponent(txn.user_id) + '&select=id,epargne');
-      if (Array.isArray(uRows) && uRows[0]) {
-        const newEp = (Number(uRows[0].epargne) || 0) + amount;
+      /* Nettoyer le pending_deposit (n'affecte pas le solde) */
+      try {
         await supabaseRequest('PATCH',
           '/users?id=eq.' + encodeURIComponent(txn.user_id),
-          { epargne: newEp, pending_deposit: null, updated_at: now });
-      }
+          { pending_deposit: null, updated_at: now });
+      } catch (e) {}
 
       /* Notification */
       await createNotification(
@@ -1029,20 +1057,11 @@ module.exports = async (req, res) => {
               capacite    += Math.max(target - actuel, 0);
               dansProjets += actuel;
             });
-            let solde = Number(u.epargne) || 0;
+            const solde = Number(u.epargne) || 0;
 
-            /* ── Réconciliation : le solde ne peut JAMAIS être inférieur à ce
-               qui est placé dans les projets. Sinon on le relève (corrige les
-               cas où un dépôt a crédité actuel mais pas epargne → solde affiché
-               qui oscille). On ne BAISSE jamais le solde (préserve l'argent libre). */
-            if (solde < dansProjets) {
-              try {
-                await supabaseRequest('PATCH',
-                  '/users?id=eq.' + encodeURIComponent(u.id),
-                  { epargne: dansProjets, updated_at: now });
-                solde = dansProjets;
-              } catch (e) {}
-            }
+            /* NOTE : plus aucun PATCH epargne ici. Le solde est maintenu par le
+               trigger DB (= net du grand livre). Cette action ne fait plus que
+               du REPORTING (lecture), jamais d'écriture du solde. */
 
             /* Excédent = argent hors projet (solde − Σ actuel) */
             const excedent = Math.max(0, solde - dansProjets);
@@ -1675,10 +1694,11 @@ module.exports = async (req, res) => {
         } catch (e) {}
       }
 
-      /* ── Frais d'ouverture de compte : 10 000 déduits UNE SEULE FOIS, au tout
-         premier dépôt validé du client. Le net (dépôt − 10 000) est épargné.
-         Détection : ce dépôt vient d'être marqué 'completed' → s'il est le seul
-         dépôt complété du client, c'est le premier. */
+      /* ── Frais d'ouverture 10 000, UNE SEULE FOIS au 1er dépôt validé.
+         Enregistré comme une VRAIE transaction 'frais' (débit) → le trigger DB
+         le déduit du solde. Le dépôt lui-même (crédité par le trigger via la
+         transaction passée en 'completed' ci-dessus) reste brut ; le net =
+         dépôt − frais est donc correct sans aucun PATCH epargne manuel. */
       let openingFee = 0;
       try {
         const depRows = await supabaseRequest('GET',
@@ -1688,13 +1708,33 @@ module.exports = async (req, res) => {
         if (nbCompleted <= 1) openingFee = Math.min(10000, depositAmount);   /* 1er dépôt */
       } catch (e) { console.warn('[approve] opening fee check:', e.message); }
 
-      /* Le dépôt est crédité NET des frais d'ouverture (1% éventuel = au retrait). */
-      const netForServer = Math.max(0, depositAmount - openingFee);
-      const newEpargne   = (Number(user.epargne) || 0) + netForServer;
-      await supabaseRequest('PATCH',
-        '/users?id=eq.' + encodeURIComponent(userId),
-        { epargne: newEpargne, pending_deposit: null });
-      if (openingFee > 0) console.log('[approve] frais ouverture ' + openingFee + ' déduits (1er dépôt) user=' + userId);
+      if (openingFee > 0) {
+        try {
+          const fref = 'FRAIS-' + now.slice(0,10).replace(/-/g,'') + '-' +
+            Math.random().toString(36).substr(2,5).toUpperCase();
+          await supabaseRequest('POST', '/transactions', {
+            user_id: userId, type: 'frais', amount: openingFee, is_credit: false,
+            statut: 'completed', status: 'success',
+            label: fref + ' · Frais d\'ouverture de compte',
+            project_id: projectId,   /* rattaché au projet → jauge et solde baissent ensemble */
+          });
+          console.log('[approve] frais ouverture ' + openingFee + ' (1er dépôt) user=' + userId);
+        } catch (e) { console.warn('[approve] frais insert:', e.message); }
+      }
+
+      /* Nettoyer pending_deposit (n'affecte pas le solde). */
+      try {
+        await supabaseRequest('PATCH',
+          '/users?id=eq.' + encodeURIComponent(userId), { pending_deposit: null });
+      } catch (e) {}
+
+      /* Relire le solde à jour (tenu par le trigger DB) pour la réponse admin. */
+      let newEpargne = 0;
+      try {
+        const uNow = await supabaseRequest('GET',
+          '/users?id=eq.' + encodeURIComponent(userId) + '&select=epargne&limit=1');
+        newEpargne = (Array.isArray(uNow) && uNow[0]) ? (Number(uNow[0].epargne) || 0) : 0;
+      } catch (e) {}
 
       /* ── Prime de parrainage en POINTS (réservée aux ambassadeurs actifs) ──
          Barème proportionnel au CUMUL des dépôts validés du filleul :
@@ -1737,7 +1777,14 @@ module.exports = async (req, res) => {
         console.warn('[referral] prime ignorée:', refErr.message);
       }
 
-      /* ── Mettre à jour projects.actuel (avec cap strict sur goal) ── */
+      /* Net crédité au projet = dépôt − frais d'ouverture (aligne actuel avec la
+         jauge dérivée, qui soustrait aussi les frais du projet). */
+      const netForServer = Math.max(0, depositAmount - openingFee);
+
+      /* ── Mettre à jour projects.actuel (avec cap strict sur goal) ──
+         NOTE : projects.actuel est désormais legacy (la jauge affichée dérive du
+         grand livre). On le maintient encore car la porte de retrait à 100 %
+         (me.js) et le statut 'completed' le lisent. */
       if (projectId) {
         try {
           const projRows = await supabaseRequest('GET',
@@ -1979,12 +2026,15 @@ module.exports = async (req, res) => {
         }
       }
 
-      /* 2. Débiter le solde (jamais en dessous de 0) */
-      const curEp      = Number(user.epargne) || 0;
-      const newEpargne = Math.max(0, curEp - amount);
-      await supabaseRequest('PATCH',
-        '/users?id=eq.' + encodeURIComponent(userId),
-        { epargne: newEpargne });
+      /* 2. Solde : le trigger DB l'a déjà recalculé quand la transaction est
+         passée en 'cancelled'/'failed' ci-dessus (le crédit annulé n'est plus
+         compté). Plus de PATCH epargne manuel. On relit pour la réponse. */
+      let newEpargne = Number(user.epargne) || 0;
+      try {
+        const uNow = await supabaseRequest('GET',
+          '/users?id=eq.' + encodeURIComponent(userId) + '&select=epargne&limit=1');
+        if (Array.isArray(uNow) && uNow[0]) newEpargne = Number(uNow[0].epargne) || 0;
+      } catch (e) {}
 
       /* 3. Décrémenter le projet (et le rouvrir s'il était complété) */
       if (projectId) {
@@ -2043,14 +2093,51 @@ module.exports = async (req, res) => {
 
       return res.status(200).json({ ok: true, action: 'rejected' });
 
-    /* ════════════ SET ════════════ */
+    /* ════════════ SET ════════════
+       On ne FORCE plus users.epargne (ce forçage était une source de dérive).
+       On enregistre une transaction d'AJUSTEMENT qui amène le solde à la cible ;
+       le trigger DB recalcule alors epargne = cible. Grand livre = vérité. */
     } else if (action === 'set') {
       const setAmount = parseInt(body.amount, 10);
       if (isNaN(setAmount) || setAmount < 0) return res.status(400).json({ error: 'Montant invalide' });
-      await supabaseRequest('PATCH',
-        '/users?id=eq.' + encodeURIComponent(userId),
-        { epargne: setAmount, pending_deposit: null });
-      return res.status(200).json({ ok: true, action: 'set', epargne: setAmount });
+
+      /* solde courant (tenu par le trigger) */
+      let current = Number(user.epargne) || 0;
+      try {
+        const uNow = await supabaseRequest('GET',
+          '/users?id=eq.' + encodeURIComponent(userId) + '&select=epargne&limit=1');
+        if (Array.isArray(uNow) && uNow[0]) current = Number(uNow[0].epargne) || 0;
+      } catch (e) {}
+
+      const diff = setAmount - current;
+      if (diff !== 0) {
+        const aref = 'ADJ-' + now.slice(0,10).replace(/-/g,'') + '-' +
+          Math.random().toString(36).substr(2,5).toUpperCase();
+        try {
+          await supabaseRequest('POST', '/transactions', {
+            user_id: userId,
+            type:    diff > 0 ? 'bonus' : 'retrait',
+            amount:  Math.abs(diff),
+            is_credit: diff > 0,
+            statut: 'completed', status: 'success',
+            label: aref + ' · Ajustement de solde (admin)' + (diff > 0 ? ' +' : ' −'),
+          });
+        } catch (e) {
+          return res.status(500).json({ error: 'Ajustement impossible : ' + e.message });
+        }
+      }
+      try {
+        await supabaseRequest('PATCH',
+          '/users?id=eq.' + encodeURIComponent(userId), { pending_deposit: null });
+      } catch (e) {}
+
+      let newEpargne = setAmount;
+      try {
+        const uNow2 = await supabaseRequest('GET',
+          '/users?id=eq.' + encodeURIComponent(userId) + '&select=epargne&limit=1');
+        if (Array.isArray(uNow2) && uNow2[0]) newEpargne = Number(uNow2[0].epargne) || 0;
+      } catch (e) {}
+      return res.status(200).json({ ok: true, action: 'set', epargne: newEpargne });
 
     } else {
       return res.status(400).json({ error: 'Action non reconnue : ' + action });

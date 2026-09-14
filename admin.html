@@ -350,6 +350,9 @@
         <button class="btn btn-outline btn-sm" id="refreshBtn" onclick="manualRefresh()" title="Recharger les données depuis Supabase" style="display:flex;align-items:center;gap:6px;font-weight:700;">
           🔄 <span id="refreshLabel">Actualiser</span>
         </button>
+        <button class="btn btn-outline btn-sm" id="coherenceBtn" onclick="adminAuditCoherence()" title="Vérifier la cohérence des soldes (grand livre)" style="display:flex;align-items:center;gap:6px;font-weight:700;">
+          🧮 <span id="coherenceLabel">Cohérence</span>
+        </button>
         <span id="lastUpdatedLabel" style="font-size:11px;color:var(--text-secondary);white-space:nowrap;display:none;"></span>
         <div style="position:relative;">
           <button class="icon-btn" id="adminBellBtn" onclick="toggleAdminNotifDropdown()" title="Notifications en attente">🔔
@@ -2737,6 +2740,47 @@ function adminApproveDepositPick(userId, amount, txnId) {
 }
 
 /* ── Valider un dépôt en attente ── */
+/* ── AUDIT COHÉRENCE : solde stocké vs grand livre + invariant solde ≥ Σ jauges ── */
+function adminAuditCoherence() {
+  var btn = document.getElementById('coherenceBtn');
+  var lbl = document.getElementById('coherenceLabel');
+  if (lbl) lbl.textContent = 'Vérif…';
+  if (btn) btn.disabled = true;
+  fetch('/api/admin/update-balance', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _adminToken },
+    body: JSON.stringify({ action: 'audit_coherence' })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    if (btn) btn.disabled = false;
+    if (lbl) lbl.textContent = 'Cohérence';
+    if (!d.ok) { showAdminToast('Erreur audit : ' + (d.error || 'inconnue'), 'error'); return; }
+    if (d.coherent) {
+      showAdminToast('✅ Cohérence OK — ' + d.users_total + ' clients, 0 écart, invariant respecté.', 'success');
+      return;
+    }
+    var lines = [];
+    lines.push('⚠️ INCOHÉRENCES DÉTECTÉES');
+    lines.push('Écarts solde/grand livre : ' + d.solde_ecarts_count);
+    lines.push('Invariant solde<jauges : ' + d.invariant_ko_count);
+    (d.solde_ecarts || []).slice(0, 15).forEach(function(e){
+      lines.push('• ' + (e.prenom || e.phone || e.user_id) + ' : stocké ' + fmt(e.stocke) + ' vs livre ' + fmt(e.derive) + ' (écart ' + fmt(e.ecart) + ')');
+    });
+    (d.invariant_ko || []).slice(0, 15).forEach(function(e){
+      lines.push('✗ ' + (e.prenom || e.phone || e.user_id) + ' : solde ' + fmt(e.solde) + ' < jauges ' + fmt(e.somme_jauges));
+    });
+    lines.push('');
+    lines.push('Note : les lectures dérivent du grand livre, donc l\'affichage client reste juste. Ces écarts = colonne users.epargne à resynchroniser (relancer la migration trigger, ou un dépôt/retrait recalcule l\'utilisateur).');
+    alert(lines.join('\n'));
+  })
+  .catch(function(){
+    if (btn) btn.disabled = false;
+    if (lbl) lbl.textContent = 'Cohérence';
+    showAdminToast('Erreur réseau (audit).', 'error');
+  });
+}
+
 function adminApproveDeposit(userId, amount, txnId, projectId) {
   var u = USERS.find(function(x){ return x.id === userId; }) || {};
   var cur = COUNTRY_CURRENCY[u.country] || 'GNF';

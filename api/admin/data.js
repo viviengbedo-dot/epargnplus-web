@@ -10,7 +10,7 @@
 
 const { supabaseRequest }   = require('../_lib/supabase');
 const { runReminderCron }   = require('../_lib/email');
-const { isProjectCollective, computeProjectSaved } = require('../_lib/project');
+const { isProjectCollective, computeProjectSaved, computeUserBalance } = require('../_lib/project');
 const { signedUrl, isStoragePath } = require('../_lib/storage');
 const ADMIN_SECRET  = process.env.ADMIN_SECRET  || 'epargn-admin-dev-2026';
 const CRON_SECRET   = process.env.CRON_SECRET   || '';
@@ -217,23 +217,20 @@ module.exports = async (req, res) => {
        client et supprime la dérive. ── */
     try {
       const depRows = await supabaseRequest('GET',
-        '/transactions?type=in.(deposit,depot,withdrawal,retrait,retrait_projet_collectif)' +
-        '&select=user_id,project_id,type,amount,statut,status&limit=8000');
+        '/transactions?type=in.(deposit,depot,depot_alipay,bonus,withdrawal,retrait,retrait_projet_collectif,frais)' +
+        '&select=user_id,project_id,type,amount,statut,status&limit=12000');
       const deps = Array.isArray(depRows) ? depRows : [];
       allProjects.forEach(p => { p.actuel = computeProjectSaved(p, deps); });
-      /* Épargne de chaque user DÉRIVÉE aussi (Σ dépôts validés − retraits) →
-         « Épargne totale » et fiches users cohérentes, plus de dérive. */
-      const balByUser = {};
+      /* Épargne de chaque user DÉRIVÉE du grand livre (même helper que le client
+         et le trigger DB) → « Épargne totale » et fiches cohérentes, zéro dérive. */
+      const byUser = {};
       for (const t of deps) {
-        const st = (t.statut || t.status || '');
-        if (st !== 'completed' && st !== 'success') continue;
-        const amt = Number(t.amount) || 0;
-        const isDep = (t.type === 'deposit' || t.type === 'depot');
-        balByUser[t.user_id] = (balByUser[t.user_id] || 0) + (isDep ? amt : -amt);
+        if (!byUser[t.user_id]) byUser[t.user_id] = [];
+        byUser[t.user_id].push(t);
       }
-      users.forEach(u => { if (balByUser[u.id] !== undefined) u.epargne = Math.max(0, balByUser[u.id]); });
+      users.forEach(u => { u.epargne = computeUserBalance(byUser[u.id] || []); });
     } catch (e) {
-      console.warn('[admin/data] recompute actuel:', e.message);
+      console.warn('[admin/data] recompute soldes:', e.message);
     }
 
     /* ── 4. Membres des projets collectifs ── */

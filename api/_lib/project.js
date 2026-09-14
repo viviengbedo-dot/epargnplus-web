@@ -66,11 +66,15 @@ function _isWithdrawal(t) {
 function computeProjectSaved(project, txns) {
   if (!project) return 0;
   const pid = String(project.id);
-  let dep = 0, wdDone = 0, wdPending = 0;
+  let dep = 0, wdDone = 0, wdPending = 0, frais = 0;
   for (const t of (txns || [])) {
     if (String(t.project_id) !== pid) continue;
     const amt = Number(t.amount) || 0;
     if (_isDeposit(t) && _txCompleted(t)) { dep += amt; continue; }
+    /* Frais (ex. ouverture de compte) rattachés au projet : réduisent l'épargné
+       du projet SANS le vider — pour que jauge et solde global restent alignés
+       (invariant solde ≥ Σ jauges). */
+    if (t.type === 'frais' && _txCompleted(t)) { frais += amt; continue; }
     if (_isWithdrawal(t)) {
       const st = (t.statut || t.status || '');
       if (st === 'failed' || st === 'cancelled') continue;
@@ -78,7 +82,46 @@ function computeProjectSaved(project, txns) {
     }
   }
   if (wdDone > 0) return 0;                 /* projet encaissé → vidé */
-  return Math.max(0, dep - wdPending);
+  return Math.max(0, dep - wdPending - frais);
 }
 
-module.exports = { isProjectCollective, hasJoinedMembers, COLLECTIVE_PREFIX, computeProjectSaved };
+/* ── SOLDE GLOBAL = SOURCE DE VÉRITÉ UNIQUE (grand livre) ──────────────────
+   Le solde global d'un client = Σ crédits validés − Σ débits engagés.
+   Types d'ARGENT uniquement (une liste explicite : on ne se fie pas à
+   is_credit seul, car des lignes internes comme 'reattribution' ont
+   is_credit=true sans être de l'argent entrant, et 'prime'/'parrainage' sont
+   des POINTS, pas des GNF). Le trigger SQL `recompute_user_epargne` utilise
+   EXACTEMENT ces mêmes listes → base et app toujours d'accord.
+     Crédits (argent qui entre)  : deposit, depot, depot_alipay, bonus
+     Débits  (argent qui sort)   : withdrawal, retrait, retrait_projet_collectif, frais
+   Un crédit compte une fois VALIDÉ (completed/success). Un débit compte dès
+   qu'il est ENGAGÉ (tout sauf failed/cancelled — le pending inclus, car le
+   retrait réserve les fonds immédiatement). */
+const BALANCE_CREDIT_TYPES = new Set(['deposit', 'depot', 'depot_alipay', 'bonus']);
+const BALANCE_DEBIT_TYPES  = new Set(['withdrawal', 'retrait', 'retrait_projet_collectif', 'frais']);
+
+/**
+ * Solde global réel d'un utilisateur, dérivé du grand livre.
+ * @param {Array} txns  transactions {type, amount, statut, status}
+ * @returns {number} solde (jamais négatif)
+ */
+function computeUserBalance(txns) {
+  let bal = 0;
+  for (const t of (txns || [])) {
+    if (!t) continue;
+    const st = (t.statut || t.status || '');
+    const amt = Number(t.amount) || 0;
+    if (BALANCE_CREDIT_TYPES.has(t.type)) {
+      if (st === 'completed' || st === 'success') bal += amt;
+    } else if (BALANCE_DEBIT_TYPES.has(t.type)) {
+      if (st !== 'failed' && st !== 'cancelled') bal -= amt;
+    }
+  }
+  return Math.max(0, bal);
+}
+
+module.exports = {
+  isProjectCollective, hasJoinedMembers, COLLECTIVE_PREFIX,
+  computeProjectSaved, computeUserBalance,
+  BALANCE_CREDIT_TYPES, BALANCE_DEBIT_TYPES,
+};
